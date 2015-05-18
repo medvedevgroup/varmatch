@@ -11,9 +11,10 @@ python ./vcfcompare.py [-h] -r REFERENCE -q QUERY -g GENOME [-p FALSE_POSITIVE] 
 		-q/--query: query VCF file path
 		-g/--genome: genome sequence file, based on which reference and query VCF are called
 ```
-**Quick usage**
+**Quick usage:**
+```
 python ./vcfcompare.py -r one.vcf -q another.vcf -g chr1.fa
-
+```
 use -h/--help for detailed help message.
 
 # Output
