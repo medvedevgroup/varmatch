@@ -31,17 +31,17 @@ import os
 import copy
 from lib.red_black_tree import RedBlackTreeMap
 
-citation = "Please cite our paper."
+citation = 'About algorithm used in VCF-Compare, please refer to "Method for Cross-Validating Variant Call Set" Section in our paper.'+'\n Please cite our paper.'
 
 parser = argparse.ArgumentParser(epilog = citation)
 parser.add_argument('-r', '--reference', required=True, help = 'reference vcf file path, usually larger than query vcf file')
 parser.add_argument('-q', '--query', required=True, help = 'query vcf file path')
 parser.add_argument('-g', '--genome', required=True, help= 'reference genome file path, fasta file format')
-parser.add_argument('-p', '--false_positive', help='false positive bed file position', default='false_positive.vcf')
-parser.add_argument('-n', '--false_negative', help='false negative bed file position', default='false_negative.vcf')
+parser.add_argument('-p', '--false_positive', help='false positive, i.e. mismatch vcf entries in query vcf file, default=false_positive.vcf', default='false_positive.vcf')
+parser.add_argument('-n', '--false_negative', help='false negative, i.e. mismatch vcf entries in reference vcf file, default=false_negative.vcf', default='false_negative.vcf')
 #parser.add_argument('-t', '--true_positive', help='true positive bed file position', default='true_positive.bed')
-parser.add_argument('-o', '--output', help='output report', default='multi_match.txt')
-parser.add_argument('-d', '--direct_search', help='if activate, only compare position and events directly, default=not activate', action = 'store_true')
+parser.add_argument('-o', '--output', help='output matched variants in stage 2 and 3, default=multi_match.out', default='multi_match.out')
+parser.add_argument('-d', '--direct_search', help='if activate, only perform stage 1, default=not activate', action = 'store_true')
 parser.add_argument('-c', '--chr', help='chromosome name or id, used for parallel multi genome analysis', default='.')
 parser.add_argument('-s', '--stat', help='append statistics result into a file, useful for parallel multi genome analysis', default='stat.txt')
 args = parser.parse_args()
