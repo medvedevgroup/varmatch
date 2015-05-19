@@ -15,8 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from linked_binary_tree import LinkedBinaryTree
-from map_base import MapBase
+from lib.linked_binary_tree import LinkedBinaryTree
+from lib.map_base import MapBase
 import copy
 
 class TreeMap(LinkedBinaryTree, MapBase):

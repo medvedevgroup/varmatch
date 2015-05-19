@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from binary_search_tree import TreeMap
+from lib.binary_search_tree import TreeMap
 
 """
 usage:

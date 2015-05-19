@@ -14,17 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-    input:
-    1. ref vcf file
-    2. query vcf file
-    ref file may contains all kinds of snp info, including multi-event in single position
-    query file must contains precise snp info
-
-    output:
-    1. how many items in query are in ref
-    2. query's precision and recall, which means also how many items in query are not in ref
-    3. match report
-
     Author: Chen Sun(chensun@cse.psu.edu)
 """
 
@@ -40,8 +29,7 @@ import subprocess
 import argparse
 import os
 import copy
-from red_black_tree import RedBlackTreeMap
-#from sets import Set
+from lib.red_black_tree import RedBlackTreeMap
 
 citation = "Please cite our paper."
 
@@ -51,17 +39,17 @@ parser.add_argument('-q', '--query', required=True, help = 'query vcf file path'
 parser.add_argument('-g', '--genome', required=True, help= 'reference genome file path, fasta file format')
 parser.add_argument('-p', '--false_positive', help='false positive bed file position', default='false_positive.vcf')
 parser.add_argument('-n', '--false_negative', help='false negative bed file position', default='false_negative.vcf')
-parser.add_argument('-t', '--true_positive', help='true positive bed file position', default='true_positive.bed')
-parser.add_argument('-o', '--output', help='output report', default='match_report.txt')
+#parser.add_argument('-t', '--true_positive', help='true positive bed file position', default='true_positive.bed')
+parser.add_argument('-o', '--output', help='output report', default='multi_match.txt')
 parser.add_argument('-d', '--direct_search', help='if activate, only compare position and events directly, default=not activate', action = 'store_true')
-parser.add_argument('-c', '--chr', help='chromosome name', default='chr17')
-parser.add_argument('-s', '--stat', help='stat result output for whole genome analysis', default='stat.txt')
+parser.add_argument('-c', '--chr', help='chromosome name or id, used for parallel multi genome analysis', default='.')
+parser.add_argument('-s', '--stat', help='append statistics result into a file, useful for parallel multi genome analysis', default='stat.txt')
 args = parser.parse_args()
 
-match_set = []
+#match_set = []
 
-matched_quality_set = []
-refPos_quality = {}
+#matched_quality_set = []
+#refPos_quality = {}
 ######################### for debug ###########################
 refPos_vcfEntry = {}
 quePos_vcfEntry = {}
@@ -77,7 +65,7 @@ def direct_search(refPos_snp, quePos_snp):
         if key in refPos_snp:
             if refPos_snp[key] == quePos_snp[key]:
                 delList.append(key)
-                match_set.append(key)
+                #match_set.append(key)
                 num += 1
                 #ref_match_total.add(key)
                 #que_match_total.add(key)
@@ -85,16 +73,16 @@ def direct_search(refPos_snp, quePos_snp):
     for key in delList:
         match_string = str(key) + ',' + str(refPos_snp[key]) + '\t' + str(key) + ',' + str(quePos_snp[key]) + '\n'
         match_file.write(match_string)
-        matched_quality_set.append(refPos_quality[key])
+        #matched_quality_set.append(refPos_quality[key])
         refPos_snp.pop(key, None) # delete value with key
         quePos_snp.pop(key, None)
     match_file.close()
 
-    with open('matched_quality.txt', 'w') as quality:
-        for q in matched_quality_set:
-            quality.write(str(q)+'\n')
+    #with open('matched_quality.txt', 'w') as quality:
+    #    for q in matched_quality_set:
+    #        quality.write(str(q)+'\n')
 
-    print ("direct search found:", num)
+    #print ("direct search found:", num)
             
             
 def modify_sequence(sequence, pos, snpSet):
@@ -330,7 +318,7 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
             start_position = candidateRefNode[0]
     output.close() 
     for pos in queRemoveList:
-        match_set.append(pos)
+        #match_set.append(pos)
         #que_match_total.add(pos)
         quePos_snp.pop(pos, None)
 
@@ -392,6 +380,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
         min_que_pos = candidateQuePos[0]
         max_que_pos = candidateQuePos[-1] + len(temp_quePos_snp[candidateQuePos[-1]][1]) - 1
         
+        """
         ref_before = refPos_snp.before(candidateRefNode[0])
         que_before = quePos_snp.before(candidateQueNode[0])
         while (ref_before is not None and ref_before.key() + len(ref_before.value()[0]) - 1 >= min_que_pos) or (que_before is not None and que_before.key() + len(que_before.value()[0])-1 > min_ref_pos):
@@ -428,7 +417,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
                 temp_quePos_snp[que_after.key()] = que_after.value()
                 que_after = quePos_snp.after(candidateQueNode[-1])
         
-         
+        """
         lowBound = candidateRefPos[0]
         upperBound = candidateRefPos[-1]
 
@@ -470,7 +459,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
                 #que_match_total.add(pos)
                 quePos_snp.pop(pos)
                 #quePosList.remove(pos)
-                match_set.append(pos)
+                #match_set.append(pos)
                 multi_match_que += 1
                 #quePosDelSet.add(pos)
             que_pos = candidateQuePos[-1]
@@ -478,7 +467,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             #que_match_total.add(que_pos)
             quePos_snp.pop(que_pos)
             #quePosList.remove(que_pos)
-            match_set.append(que_pos)
+            #match_set.append(que_pos)
             multi_match_que += 1
             #quePosDelSet.add(que_pos)
 
@@ -496,7 +485,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             que_start_position = candidateQueNode[0]
 
     output.close()
-    print (multi_match, multi_match_ref, multi_match_que, one2multi, multi2multi)
+    #print (multi_match, multi_match_ref, multi_match_que, one2multi, multi2multi)
     
 
 def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
@@ -506,7 +495,7 @@ def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     #query_mismatch_file = open(args.false_positive, 'w')
     #ref_mismatch_file = open(args.false_negative, 'w')
 
-    true_pos_file = open(args.true_positive, 'w')
+    #true_pos_file = open(args.true_positive, 'w')
 
     refList = list(refPos_snp.keys())
     refList.sort()
@@ -524,13 +513,14 @@ def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
         positiveFile.write(s)
     positiveFile.close()
 
-    match_set.sort()
-    for pos in match_set:
-        s = args.chr + '\t' + str(pos) + '\t' + str(pos+1) + '\n'
-        true_pos_file.write(s)
-    true_pos_file.close()
+    #match_set.sort()
+    #for pos in match_set:
+    #    s = args.chr + '\t' + str(pos) + '\t' + str(pos+1) + '\n'
+    #    true_pos_file.write(s)
+    #true_pos_file.close()
     
-    print ('ref variant number: {}\nalt variant number: {}\n matches: {},{}\nref mismatch number: {}\nalt mismatch number: {}\n'.format(refOriginalNum, queOriginalNum,refOriginalNum-len(refPos_snp), queOriginalNum-len(quePos_snp) , len(refPos_snp), len(quePos_snp)))
+    print ('\n######### Matching Result ################\n')
+    print (' ref total: {}\n que total: {}\n ref matches: {}\n que matches: {}\n ref mismatch: {}\n alt mismatch: {}\n'.format(refOriginalNum, queOriginalNum,refOriginalNum-len(refPos_snp), queOriginalNum-len(quePos_snp) , len(refPos_snp), len(quePos_snp)))
     
     stat_file = open(args.stat, 'a+')
     stat_file.write('{}\t{}\t{}\t{}\t{}\n'.format(args.chr, refOriginalNum, queOriginalNum, refOriginalNum-len(refPos_snp), queOriginalNum-len(quePos_snp)))
@@ -574,6 +564,7 @@ def main():
 
     sequence = ""
     
+    print ('read genome file...')
     seqFile = open(args.genome)
     for line in seqFile.readlines():
         if line.startswith(">"):
@@ -609,7 +600,7 @@ def main():
         #print pos, snpType, ref, alt    
         hash_refPos_snp[pos] = [snpType, ref, alt]
         refPos_vcfEntry[pos] = line
-        refPos_quality[pos] = quality
+        #refPos_quality[pos] = quality
     refFile.close()
     
     ref_mismatch_file.close()
@@ -645,10 +636,11 @@ def main():
     refOriginalNum = len(hash_refPos_snp)
     queOriginalNum = len(hash_quePos_snp)
     
+    print ('first stage start...')
     if refOriginalNum > 0 and queOriginalNum > 0:
         direct_search(hash_refPos_snp, hash_quePos_snp)
     
-    print ("after direct search: ", len(hash_refPos_snp), len(hash_quePos_snp))
+    #print ("after direct search: ", len(hash_refPos_snp), len(hash_quePos_snp))
     
     if args.direct_search:
         report(hash_refPos_snp, hash_quePos_snp, refOriginalNum, queOriginalNum)
@@ -663,19 +655,21 @@ def main():
     for k in hash_quePos_snp:
         quePos_snp[k] = hash_quePos_snp[k]
 
-    print ('starting complex search and multi search...')
+    print ('second stage start...')
     
     if len(refPos_snp) > 0 and len(quePos_snp) > 0:
         complex_search(refPos_snp, quePos_snp, sequence, False)
     
     if len(refPos_snp) > 0 and len(quePos_snp) > 0:
         complex_search(quePos_snp, refPos_snp, sequence, True)
-    print ("after complex search:", len(refPos_snp), len(quePos_snp))
+    #print ("after complex search:", len(refPos_snp), len(quePos_snp))
     
+    print ('third stage start...')
     for block_size in [2, 4, 5,10,20,50,100,200]:
+        print ('try window size ' + str(block_size*2) + '...')
         if len(refPos_snp) > 0 and len(quePos_snp) > 0:
             multi_search(refPos_snp, quePos_snp, sequence, block_size)    
-        print ('after multi search in ' + str(block_size) + ' bp range:', len(refPos_snp), len(quePos_snp))
+        #print ('after multi search in ' + str(block_size) + ' bp range:', len(refPos_snp), len(quePos_snp))
 
     report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
 

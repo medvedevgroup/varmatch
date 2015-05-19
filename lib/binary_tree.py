@@ -19,9 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from tree import Tree
+from lib.tree import Tree
 
-#ch8
 class BinaryTree(Tree):
   """Abstract base class representing a binary tree structure."""
 
