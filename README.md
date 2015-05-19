@@ -7,7 +7,7 @@ Directly download the directory
 # Usage
 **Quick Usage:**
 ```
-python ./vcfcompare.py -r one.vcf -q another.vcf -g chr1.fa
+python3 ./vcfcompare.py -r one.vcf -q another.vcf -g chr1.fa
 ```
 use -h/--help for detailed help message.
 Note VCF file need to be normalized first to get accurate match.
