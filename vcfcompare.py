@@ -18,8 +18,8 @@
 """
 
 import sys
-versionError = "You are using an old version of python, please upgrade to python 3.0+\n"
-if sys.hexversion < 0x03000000:
+versionError = "You are using an old version of python, please upgrade to python 2.7+\n"
+if sys.hexversion < 0x02070000:
     print (versionError)
     exit()
 #elif sys.hexversion > 0x03000000:
@@ -83,8 +83,8 @@ def direct_search(refPos_snp, quePos_snp):
     #        quality.write(str(q)+'\n')
 
     #print ("direct search found:", num)
-            
-            
+
+
 def modify_sequence(sequence, pos, snpSet):
     if len(snpSet) != 3:
         print ("Error: snp set size not right.")
@@ -99,7 +99,7 @@ def near_search(refPos_snp, quePos_snp, genome, blockSize):
 
     queRemoveList = [] # record quePos that should be deleted
     genomeLen = len(genome) # record genome length
-    output = open(args.output, 'a') #open output file for 
+    output = open(args.output, 'a') #open output file for
     if refPos_snp is None:
         print ("Error: refPos_snp is None")
     if quePos_snp is None:
@@ -108,9 +108,9 @@ def near_search(refPos_snp, quePos_snp, genome, blockSize):
     num = 0
     for key in quePos_snp:
         num += 1
-        ref_element = refPos_snp.find_nearest(key) # return a position    
+        ref_element = refPos_snp.find_nearest(key) # return a position
         ref_snp = ref_element.value()
-        que_snp = quePos_snp[key]     
+        que_snp = quePos_snp[key]
         refPos = ref_element.key()
         quePos = key
 
@@ -118,7 +118,7 @@ def near_search(refPos_snp, quePos_snp, genome, blockSize):
             continue
         if ref_snp[0] != que_snp[0]:
             continue
-        
+
         #get the substring
         seqStart = min(key, refPos)-100
         if seqStart < 0:
@@ -129,7 +129,7 @@ def near_search(refPos_snp, quePos_snp, genome, blockSize):
         subSequence = genome[seqStart:seqEnd+1]
         refIndex = refPos-seqStart
         queIndex = quePos-seqStart
-        
+
         #modify string and then compare
         refSequence = modify_sequence(subSequence, refIndex, ref_snp)
         queSequence = modify_sequence(subSequence, queIndex, que_snp)
@@ -142,8 +142,8 @@ def near_search(refPos_snp, quePos_snp, genome, blockSize):
             output.write(match_string)
             refPos_snp.pop(refPos, None)
             break
-               
-    output.close() 
+
+    output.close()
     for pos in queRemoveList:
         match_set.append(pos)
         quePos_snp.pop(pos, None)
@@ -152,7 +152,7 @@ def powerful_near_search(refPos_snp, quePos_snp, genome, blockSize):
 
     queRemoveList = [] # record quePos that should be deleted
     genomeLen = len(genome) # record genome length
-    output = open(args.output, 'a') #open output file for 
+    output = open(args.output, 'a') #open output file for
     if refPos_snp is None:
         print ("Error: refPos_snp is None")
     if quePos_snp is None:
@@ -168,10 +168,10 @@ def powerful_near_search(refPos_snp, quePos_snp, genome, blockSize):
         for (k,v) in refPos_snp.find_range(minPos, maxPos):
 
             ref_snp = v
-            refPos = k            
+            refPos = k
             if ref_snp[0] != que_snp[0]:
                 continue
-            
+
             #get the substring
             seqStart = min(key, refPos)-100
             if seqStart < 0:
@@ -182,7 +182,7 @@ def powerful_near_search(refPos_snp, quePos_snp, genome, blockSize):
             subSequence = genome[seqStart:seqEnd+1]
             refIndex = refPos-seqStart
             queIndex = quePos-seqStart
-            
+
             #modify string and then compare
             refSequence = modify_sequence(subSequence, refIndex, ref_snp)
             queSequence = modify_sequence(subSequence, queIndex, que_snp)
@@ -195,12 +195,12 @@ def powerful_near_search(refPos_snp, quePos_snp, genome, blockSize):
                 output.write(match_string)
                 refPos_snp.pop(refPos, None)
                 break
-               
-    output.close() 
+
+    output.close()
     for pos in queRemoveList:
         match_set.append(pos)
         quePos_snp.pop(pos, None)
-        
+
 def modify_by_list(pos_snp, posList, sequence, bound):
     modList = copy.deepcopy(posList)
     modList.sort(reverse=True)
@@ -215,19 +215,19 @@ def modify_by_list(pos_snp, posList, sequence, bound):
             pass
         sequence = sequence[:index] + alt + sequence[index+len(ref):]
     return sequence
-        
+
 def complex_search(refPos_snp, quePos_snp, genome, rev):
     #global ref_match_total
     #global que_match_total
     queRemoveList = [] # record quePos that should be deleted
     genomeLen = len(genome) # record genome length
-    output = open(args.output, 'a+') #open output file for 
+    output = open(args.output, 'a+') #open output file for
     if refPos_snp is None:
         print ("Error: refPos_snp is None")
     if quePos_snp is None:
         print ("Error: quePos_snp is None")
     num = 0
-    
+
     start_position = None
     for (key, value) in quePos_snp.find_range(None, None):
         num += 1
@@ -253,7 +253,7 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
         #get the substring
         if len(candidateRefPos) == 0:
             continue
-        
+
         before = refPos_snp.before(candidateRefNode[0])
         while before is not None and before.key() + len(before.value()[1]) - 1 >= minPos:
             #print ('find before boundary in stage 2')
@@ -262,7 +262,7 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
             candidateRefPos.append(before.key())
             temp_refPos_snp[before.key()] = before.value()
             before = refPos_snp.before(candidateRefNode[0])
-        
+
         candidateRefPos.sort()
         seqStart = min(key, min_refPos)-100
         if seqStart < 0:
@@ -272,7 +272,7 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
             seqEnd = genomeLen-1
         subSequence = genome[seqStart:seqEnd+1]
         queIndex = quePos-seqStart
-        
+
         #modify string and then compare
         refSequence = modify_by_list(temp_refPos_snp, candidateRefPos, subSequence, seqStart)
         queSequence = modify_sequence(subSequence, queIndex, que_snp)
@@ -292,11 +292,11 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
                     refPos_snp.pop(pos)
                 ref_pos = candidateRefPos[-1]
                 ref_variants += '{},{},{}'.format(ref_pos, temp_refPos_snp[ref_pos][1], temp_refPos_snp[ref_pos][2])
-                
+
                 #ref_match_total.add(ref_pos)
                 # be sure to recover
                 refPos_snp.pop(ref_pos)
-                
+
                 #multi_match_ref += 1
                 query_variants = '{},{},{}'.format(quePos, que_snp[1], que_snp[2])
             else:
@@ -316,7 +316,7 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
             output.write(match_string)
         else:
             start_position = candidateRefNode[0]
-    output.close() 
+    output.close()
     for pos in queRemoveList:
         #match_set.append(pos)
         #que_match_total.add(pos)
@@ -332,11 +332,11 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
     multi2multi = 0
 
     genomeLen = len(genome)
-    output = open(args.output, 'a+') #open output file for 
+    output = open(args.output, 'a+') #open output file for
     refPosDelSet = set()
     quePosDelSet = set()
-    
-    
+
+
     #debug = False
     ref_start_position = None
     que_start_position = None
@@ -359,7 +359,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             candidateRefNode.append(p)
             candidateRefPos.append(k)
             temp_refPos_snp[k] = v
-        
+
         temp_quePos_snp = {}
         for p in quePos_snp.linear_range_search(que_start_position, minPos, maxPos):
             k = p.key()
@@ -367,19 +367,19 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             candidateQueNode.append(p)
             candidateQuePos.append(k)
             temp_quePos_snp[k] = v
-        
+
         if len(candidateQuePos) == 0:
             print ("Error: query empty")
             continue
-        
+
         if len(candidateRefPos) == 0:
             continue
         min_ref_pos = candidateRefPos[0]
         max_ref_pos = candidateRefPos[-1] + len(temp_refPos_snp[candidateRefPos[-1]][1]) - 1
-        
+
         min_que_pos = candidateQuePos[0]
         max_que_pos = candidateQuePos[-1] + len(temp_quePos_snp[candidateQuePos[-1]][1]) - 1
-        
+
         """
         ref_before = refPos_snp.before(candidateRefNode[0])
         que_before = quePos_snp.before(candidateQueNode[0])
@@ -391,14 +391,14 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
                 candidateRefPos.insert(0, ref_before.key())
                 temp_refPos_snp[ref_before.key()] = ref_before.value()
                 ref_before = refPos_snp.before(candidateRefNode[0])
-                
+
             if que_before is not None and que_before.key() + len(que_before.value()[0]) - 1 >= min_ref_pos :
                 candidateQueNode.insert(0, que_before)
                 min_que_pos = que_before.key()
                 candidateQuePos.insert(0, que_before.key())
                 temp_quePos_snp[que_before.key()] = que_before.value()
                 que_before = quePos_snp.before(candidateQueNode[0])
-                
+
         ref_after = refPos_snp.after(candidateRefNode[-1])
         que_after = quePos_snp.after(candidateQueNode[-1])
         while (ref_after is not None and ref_after.key() <= max_que_pos) or (que_after is not None and que_after.key() <= max_ref_pos):
@@ -409,14 +409,14 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
                 candidateRefPos.append(ref_after.key())
                 temp_refPos_snp[ref_after.key()] = ref_after.value()
                 ref_after = refPos_snp.after(candidateRefNode[-1])
-                
+
             if que_after is not None and que_after.key() <= max_ref_pos :
                 candidateQueNode.append(que_after)
                 max_que_pos = que_after.key() + len(que_after.value()[1]) - 1
                 candidateQuePos.append(que_after.key())
                 temp_quePos_snp[que_after.key()] = que_after.value()
                 que_after = quePos_snp.after(candidateQueNode[-1])
-        
+
         """
         lowBound = candidateRefPos[0]
         upperBound = candidateRefPos[-1]
@@ -426,7 +426,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             lowBound = candidateQuePos[0]
         if upperBound < candidateQuePos[-1]:
             upperBound = candidateQuePos[-1]
-            
+
         lowBound = max(0, lowBound-100)
         upperBound = min(upperBound+100, genomeLen-1)
 
@@ -475,7 +475,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             match_string = '.\t{}\t{}\t{}\n'.format(ref_variants, query_variants, output_info)
             output.write(match_string)
             multi_match += 1
-            
+
             if len(candidateRefPos) == 1 or len(candidateQuePos) == 1:
                 one2multi += 1
             else:
@@ -486,12 +486,12 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
 
     output.close()
     #print (multi_match, multi_match_ref, multi_match_que, one2multi, multi2multi)
-    
+
 
 def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     positiveFile = open(args.false_positive, "a+")
     negativeFile = open(args.false_negative, "a+")
-    
+
     #query_mismatch_file = open(args.false_positive, 'w')
     #ref_mismatch_file = open(args.false_negative, 'w')
 
@@ -518,22 +518,22 @@ def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     #    s = args.chr + '\t' + str(pos) + '\t' + str(pos+1) + '\n'
     #    true_pos_file.write(s)
     #true_pos_file.close()
-    
+
     print ('\n######### Matching Result ################\n')
     print (' ref total: {}\n que total: {}\n ref matches: {}\n que matches: {}\n ref mismatch: {}\n alt mismatch: {}\n'.format(refOriginalNum, queOriginalNum,refOriginalNum-len(refPos_snp), queOriginalNum-len(quePos_snp) , len(refPos_snp), len(quePos_snp)))
-    
+
     stat_file = open(args.stat, 'a+')
     stat_file.write('{}\t{}\t{}\t{}\t{}\n'.format(args.chr, refOriginalNum, queOriginalNum, refOriginalNum-len(refPos_snp), queOriginalNum-len(quePos_snp)))
     stat_file.close()
     #print (len(ref_match_total), len(que_match_total))
     #print multi_match, multi_match_ref, multi_match_que
-    
+
 
 def main():
     if len(sys.argv) == 1:
         parser.print_help()
-        sys.exit() 
-    
+        sys.exit()
+
 ##################################################################################
     if not os.path.isfile(args.reference):
         print ("Error: reference file not found")
@@ -547,7 +547,7 @@ def main():
         print("Error: genome file not found.")
         parser.print_help()
         sys.exit()
-    
+
     report_head = '##genome=' + args.genome + '\n'
     report_head += '##ref=' + args.reference + '\n'
     report_head += '##query=' + args.query + '\n'
@@ -558,12 +558,12 @@ def main():
     report_head += '##each variant is a tuple<POS,REF,ALT> separated by ",", POS is 0-based position, REF is sequence in reference genome, ALT is corresponding allele in donor genome\n'
     report_head += '##info=matching information, if directly matched, there will be "."; if >1 variants in ref_variants or query_variants, info will be subsequence from genome, and the modified subsequence by ref_variants and query_variants\n'
     report_head += '#chr_name\tref_variants\tquery_variants\tinfo\n'
-    
+
     with open(args.output, 'w') as output:
         output.write(report_head)
 
     sequence = ""
-    
+
     print ('read genome file...')
     seqFile = open(args.genome)
     for line in seqFile.readlines():
@@ -572,14 +572,14 @@ def main():
         line = line.strip()
         sequence += line
     seqFile.close()
-   
+
 
     ref_mismatch_file = open(args.false_negative, 'w')
 
     print ('read reference vcf file...')
     hash_refPos_snp = {}
     #refPos_snp = RedBlackTreeMap()
-    refFile = open(args.reference)    
+    refFile = open(args.reference)
     for line in refFile.readlines():
         if line.startswith("#"):
             ref_mismatch_file.write(line)
@@ -597,20 +597,20 @@ def main():
             snpType = 'D'
         elif len(ref) < len(alt):
             snpType = 'I'
-        #print pos, snpType, ref, alt    
+        #print pos, snpType, ref, alt
         hash_refPos_snp[pos] = [snpType, ref, alt]
         refPos_vcfEntry[pos] = line
         #refPos_quality[pos] = quality
     refFile.close()
-    
+
     ref_mismatch_file.close()
 
     que_mismatch_file = open(args.false_positive, 'w')
-    
+
     print ('read query vcf file...')
     hash_quePos_snp = {}
     #quePos_snp = RedBlackTreeMap()
-    queFile = open(args.query)    
+    queFile = open(args.query)
     for line in queFile.readlines():
         if line.startswith("#"):
             que_mismatch_file.write(line)
@@ -626,22 +626,22 @@ def main():
         if len(ref) > len(alt):
             snpType = 'D'
         elif len(ref) < len(alt):
-            snpType = 'I'    
+            snpType = 'I'
         hash_quePos_snp[pos] = [snpType, ref, alt]
         quePos_vcfEntry[pos] = line
     queFile.close()
 
     que_mismatch_file.close()
-    
+
     refOriginalNum = len(hash_refPos_snp)
     queOriginalNum = len(hash_quePos_snp)
-    
+
     print ('first stage start...')
     if refOriginalNum > 0 and queOriginalNum > 0:
         direct_search(hash_refPos_snp, hash_quePos_snp)
-    
+
     #print ("after direct search: ", len(hash_refPos_snp), len(hash_quePos_snp))
-    
+
     if args.direct_search:
         report(hash_refPos_snp, hash_quePos_snp, refOriginalNum, queOriginalNum)
         return
@@ -656,19 +656,19 @@ def main():
         quePos_snp[k] = hash_quePos_snp[k]
 
     print ('second stage start...')
-    
+
     if len(refPos_snp) > 0 and len(quePos_snp) > 0:
         complex_search(refPos_snp, quePos_snp, sequence, False)
-    
+
     if len(refPos_snp) > 0 and len(quePos_snp) > 0:
         complex_search(quePos_snp, refPos_snp, sequence, True)
     #print ("after complex search:", len(refPos_snp), len(quePos_snp))
-    
+
     print ('third stage start...')
     for block_size in [2, 4, 5,10,20,50,100,200]:
         print ('try window size ' + str(block_size*2) + '...')
         if len(refPos_snp) > 0 and len(quePos_snp) > 0:
-            multi_search(refPos_snp, quePos_snp, sequence, block_size)    
+            multi_search(refPos_snp, quePos_snp, sequence, block_size)
         #print ('after multi search in ' + str(block_size) + ' bp range:', len(refPos_snp), len(quePos_snp))
 
     report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)

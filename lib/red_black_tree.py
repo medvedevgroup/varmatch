@@ -29,7 +29,7 @@ class RedBlackTreeMap(TreeMap):
     __slots__ = '_red'     # add additional data member to the Node class
 
     def __init__(self, element, parent=None, left=None, right=None):
-      super().__init__(element, parent, left, right)
+      TreeMap._Node.__init__(self, element, parent, left, right)
       self._red = True     # new node red by default
 
   #------------------------- positional-based utility methods -------------------------
@@ -46,7 +46,7 @@ class RedBlackTreeMap(TreeMap):
       if self._is_red(child):
         return child
     return None
-  
+
   #------------------------- support for insertions -------------------------
   def _rebalance_insert(self, p):
     self._resolve_red(p)                         # new node is always red
@@ -64,15 +64,15 @@ class RedBlackTreeMap(TreeMap):
           self._set_red(self.left(middle))
           self._set_red(self.right(middle))
         else:                                    # Case 2: overfull 5-node
-          grand = self.parent(parent)            
+          grand = self.parent(parent)
           self._set_red(grand)                   # grandparent becomes red
           self._set_black(self.left(grand))      # its children become black
           self._set_black(self.right(grand))
           self._resolve_red(grand)               # recur at red grandparent
-      
+
   #------------------------- support for deletions -------------------------
   def _rebalance_delete(self, p):
-    if len(self) == 1:                                     
+    if len(self) == 1:
       self._set_black(self.root())  # special case: ensure that root is black
     elif p is not None:
       n = self.num_children(p)
