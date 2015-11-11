@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright 2015, Chen Sun
 #
 # This program is free software: you can redistribute it and/or modify
@@ -32,10 +30,6 @@ import argparse
 import os
 import copy
 from lib.red_black_tree import RedBlackTreeMap
-
-import numpy
-import scipy.cluster.hierarchy as hcluster
-import itertools
 
 citation = 'About algorithm used in VCF-Compare, please refer to "Method for Cross-Validating Variant Call Set" Section in our paper.'+'\n Please cite our paper.'
 
@@ -493,93 +487,6 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
     output.close()
     #print (multi_match, multi_match_ref, multi_match_que, one2multi, multi2multi)
 
-def match_by_tuple(ref_choice, que_choice, temp_refPos_snp, temp_quePos_snp, sequence):
-    ref_choice_list = list(ref_choice)
-    que_choice_list = list(que_choice)
-    ref_choice_list.sort()
-    que_choice_list.sort()
-
-    min_pos = min(ref_choice_list[0], que_choice_list[0])
-    max_pos = max(ref_choice_list[-1], que_choice_list[-1])
-
-    min_pos -= 100
-    max_pos += 100
-
-    min_pos = max(0, min_pos)
-    max_pos = min(len(sequence)-1, max_pos)
-
-    sub_sequence = sequence[min_pos: max_pos+1]
-    ref_sequence = modify_by_list(temp_refPos_snp, ref_choice_list, sub_sequence, min_pos)
-    que_sequence = modify_by_list(temp_quePos_snp, que_choice_list, sub_sequence, min_pos)
-
-    return ref_sequence.upper() == que_sequence.upper()
-
-def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_ref_que_dict, sequence):
-    # refPos_snp and quePos_snp are red_black_tree_map which operates like dictionary expect keys are sorted.
-
-    # all index less than data_list_index_threshold is in refPos_snp
-    # otherwise, it is in quePos_snp
-    print 'cluster search'
-
-    cluster_pos = {}
-    for index in range(len(cluster_list)):
-        cluster_id = cluster_list[index]
-        pos = data_list[index]
-        if cluster_id in cluster_pos:
-            cluster_pos[cluster_id].append(pos)
-        else:
-            cluster_pos[cluster_id] = [pos]
-
-    print 'iterate clusters'
-
-    for cluster_id in cluster_pos:
-        pos_list = cluster_pos[cluster_id]
-        if len(pos_list) <= 2:
-            continue
-        candidateRefPos = []
-        candidateQuePos = []
-        temp_refPos_snp = {}
-        temp_quePos_snp = {}
-        min_pos = len(sequence) - 1
-        max_pos = 0
-
-        for temp_pos in pos_list:
-            if data_list_ref_que_dict[temp_pos] > 0:
-                candidateRefPos.append(temp_pos)
-                temp_refPos_snp[temp_pos] = refPos_snp[temp_pos]
-            else:
-                candidateQuePos.append(temp_pos)
-                temp_quePos_snp[temp_pos] = quePos_snp[temp_pos]
-
-        if len(candidateRefPos) <= 1 or len(candidateQuePos) <= 1:
-            continue
-        # now we have the candidateRefPos and candidateQuePos
-        # next step is to permutate all combinations
-        # rule is that at least one should from each list
-        is_matched = False
-        for i in range(1, len(candidateRefPos), 1):
-            if is_matched:
-                break
-            ref_combination_list = list(itertools.combinations(candidateRefPos, i))
-            for j in range(1, len(candidateQuePos), 1):
-                if is_matched:
-                    break
-                que_combination_list = list(itertools.combinations(candidateQuePos, j))
-
-                #print ref_combination_list
-                #print que_combination_list
-
-                for ref_choice in ref_combination_list:
-                    if is_matched:
-                        break
-                    for que_choice in que_combination_list:
-                        is_matched = match_by_tuple(ref_choice, que_choice, temp_refPos_snp, temp_quePos_snp, sequence)
-                        if is_matched:
-                            for pos in ref_choice:
-                                refPos_snp.pop(pos)
-                            for pos in que_choice:
-                                quePos_snp.pop(pos)
-                            break
 
 def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     positiveFile = open(args.false_positive, "a+")
@@ -621,17 +528,6 @@ def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     #print (len(ref_match_total), len(que_match_total))
     #print multi_match, multi_match_ref, multi_match_que
 
-def clustering_snp(data_list, cluster_list, threshold):
-    if len(data_list) < 1:
-        return
-    cluster_index = 0
-    previous_data = data_list[1]
-    for i in range(len(data_list)):
-        if data_list[i] - previous_data > threshold:
-            cluster_index += 1
-
-        cluster_list.append(cluster_index)
-        previous_data = data_list[i]
 
 def main():
     if len(sys.argv) == 1:
@@ -767,62 +663,6 @@ def main():
     if len(refPos_snp) > 0 and len(quePos_snp) > 0:
         complex_search(quePos_snp, refPos_snp, sequence, True)
     #print ("after complex search:", len(refPos_snp), len(quePos_snp))
-
-    print ('start clustering...')
-    data_list = []
-    data_list_index_ref_que_dict = {}
-    #data_list_index_threshold = 0
-
-    for pos in refPos_snp:
-        data_list.append(pos)
-        data_list_index_ref_que_dict[pos] = 1
-        #data_list_index_threshold += 1
-
-    for pos in quePos_snp:
-        data_list.append(pos)
-        data_list_index_ref_que_dict[pos] = -1
-        #data_list_index += 1
-
-    data_list.sort()
-    cluster_list = []
-    #print data_list
-
-    #data = numpy.asarray(data_list)
-
-    thresh = 400
-
-    clustering_snp(data_list, cluster_list, thresh)
-
-    #print 'clustring...'
-    #clusters = hcluster.fclusterdata(data, thresh)
-
-    #print 'finish clustering'
-    #cluster_list = clusters.tolist()
-    #print 'finish to list'
-
-    # this is for verify the cluster results, make sure all pos in short distance is in a cluster.
-    """
-    previous_class = -1
-    previous_coordinate = -100000
-    min_distance = 100000
-    for k in range(len(cluster_list)):
-        if cluster_list[k] != previous_class:
-            current_distance = data_list[k][0] - previous_coordinate
-            if current_distance < min_distance:
-                min_distance = current_distance
-        previous_class = cluster_list[k]
-        previous_coordinate = data_list[k][0]
-
-    print ('end clustering...')
-    print ('min distance between clusters:', min_distance)
-    print ('number of clusters:', len(cluster_list))
-    """
-
-    cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_index_ref_que_dict, sequence)
-
-    report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
-
-    exit()
 
     print ('third stage start...')
     for block_size in [2, 4, 5,10,20,50,100,200]:

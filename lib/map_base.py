@@ -1,10 +1,4 @@
-# Copyright 2013, Michael H. Goldwasser
-#
-# Developed for use with the book:
-#
-#    Data Structures and Algorithms in Python
-#    Michael T. Goodrich, Roberto Tamassia, and Michael H. Goldwasser
-#    John Wiley & Sons, 2013
+# Copyright 2015, Chen Sun
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,11 +28,11 @@ class MapBase(MutableMapping):
       self._key = k
       self._value = v
 
-    def __eq__(self, other):               
+    def __eq__(self, other):
       return self._key == other._key   # compare items based on their keys
 
     def __ne__(self, other):
       return not (self == other)       # opposite of __eq__
 
-    def __lt__(self, other):               
+    def __lt__(self, other):
       return self._key < other._key    # compare items based on their keys

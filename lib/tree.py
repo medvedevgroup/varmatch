@@ -1,10 +1,4 @@
-# Copyright 2013, Michael H. Goldwasser
-#
-# Developed for use with the book:
-#
-#    Data Structures and Algorithms in Python
-#    Michael T. Goodrich, Roberto Tamassia, and Michael H. Goldwasser
-#    John Wiley & Sons, 2013
+# Copyright 2015, Chen Sun
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,14 +27,14 @@ class Tree:
     Note that two position instaces may represent the same inherent location in a tree.
     Therefore, users should always rely on syntax 'p == q' rather than 'p is q' when testing
     equivalence of positions.
-    
+
     we define a tree ADT using the concept of apositionas an abstraction for a node of a tree
     """
 
     def element(self):
       """Return the element stored at this Position."""
       raise NotImplementedError('must be implemented by subclass')
-      
+
     def __eq__(self, other):
       """Return True if other Position represents the same location."""
       raise NotImplementedError('must be implemented by subclass')

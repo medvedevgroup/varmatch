@@ -1,10 +1,4 @@
-# Copyright 2013, Michael H. Goldwasser
-#
-# Developed for use with the book:
-#
-#    Data Structures and Algorithms in Python
-#    Michael T. Goodrich, Roberto Tamassia, and Michael H. Goldwasser
-#    John Wiley & Sons, 2013
+# Copyright 2015, Chen Sun
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -78,7 +72,7 @@ class LinkedBinaryTree(BinaryTree):
   def __len__(self):
     """Return the total number of elements in the tree."""
     return self._size
-  
+
   def root(self):
     """Return the root Position of the tree (or None if tree is empty)."""
     return self._make_position(self._root)
@@ -176,7 +170,7 @@ class LinkedBinaryTree(BinaryTree):
     self._size -= 1
     node._parent = node              # convention for deprecated node
     return node._element
-  
+
   def _attach(self, p, t1, t2):
     """Attach trees t1 and t2, respectively, as the left and right subtrees of the external Position p.
 
