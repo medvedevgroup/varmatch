@@ -328,6 +328,41 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
         #que_match_total.add(pos)
         quePos_snp.pop(pos, None)
 
+def convert_substitution(pos_list, pos_snp, subsequence, low_bound):
+    indel_list = []
+    pos_list.sort()
+    for pos in pos_list:
+        variant = pos_snp[pos]
+        relative_pos = pos - low_bound
+        ref = variant[0]
+        alt = variant[1]
+
+        if len(ref) == len(alt):
+            assert len(ref) == 1, 'snp should be normalized and decomposed.'
+            temp_del = [relative_pos, -1, ref]
+            temp_ins = [relative_pos, 1, ref]
+            indel_list.append(temp_del)
+            indel_list.append(temp_ins)
+        else if len(ref) > len(alt): # deletion
+            del_position = relative_pos + len(ref) - 1
+            for i in range(len(ref)-1):
+                del_n = ref[i+1]
+                temp_del = [del_position, -1, del_n]
+                indel_list.insert(temp_del)
+        else if len(ref) < len(alt): # insertion
+            ins_position = relative_pos + 1
+            for i in range(len(alt)-1):
+                ins_n = alt[i+1]
+                temp_ins = [ins_position, 1, ins_n]
+                indel_list.insert(temp_ins)
+
+    for i in range(len(indel_list)-1):
+        for j in range(i+1, )
+
+
+def check_transition_theory(candidateRefPos, candidateQuePos, temp_refPos_snp, temp_quePos_snp, subSequence, lowBound):
+    convert_substitution(candidateRefPos, temp_refPos_snp, subSequence, lowBound)
+
 def multi_search(refPos_snp, quePos_snp, genome, blockSize):
     #global ref_match_total
     #global que_match_total
@@ -447,6 +482,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             que_start_position = quePos_snp.after(candidateQueNode[-1])
             ref_variants = ''
             query_variants = ''
+            check_transition_theory(candidateRefPos, candidateQuePos, temp_refPos_snp, temp_quePos_snp, subSequence, lowBound)
             for index in range(len(candidateRefPos)-1):
                 pos = candidateRefPos[index]
                 ref_variants += '{},{},{};'.format(pos, temp_refPos_snp[pos][1], temp_refPos_snp[pos][2])
@@ -514,7 +550,7 @@ def match_by_tuple(ref_choice, que_choice, temp_refPos_snp, temp_quePos_snp, seq
 
     return ref_sequence.upper() == que_sequence.upper()
 
-def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_ref_que_dict, sequence):
+def cluster_search_old(refPos_snp, quePos_snp, data_list, cluster_list, data_list_ref_que_dict, sequence):
     # refPos_snp and quePos_snp are red_black_tree_map which operates like dictionary expect keys are sorted.
 
     # all index less than data_list_index_threshold is in refPos_snp
@@ -580,6 +616,94 @@ def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_re
                             for pos in que_choice:
                                 quePos_snp.pop(pos)
                             break
+# ----------------------------end of cluster_search_old------------------------------------------------
+
+
+
+def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_ref_que_dict, sequence):
+    """
+    cluster_search use hash table to reduce running time from 2^(mn) to 2^m + 2^n
+    """
+    # refPos_snp and quePos_snp are red_black_tree_map which operates like dictionary expect keys are sorted.
+
+    # all index less than data_list_index_threshold is in refPos_snp
+    # otherwise, it is in quePos_snp
+    print 'cluster search'
+
+    cluster_pos = {}
+    for index in range(len(cluster_list)):
+        cluster_id = cluster_list[index]
+        pos = data_list[index]
+        if cluster_id in cluster_pos:
+            cluster_pos[cluster_id].append(pos)
+        else:
+            cluster_pos[cluster_id] = [pos]
+
+    print 'iterate clusters'
+
+    cluster_num = 0
+    for cluster_id in cluster_pos:
+        cluster_num += 1
+        print cluster_num
+        pos_list = cluster_pos[cluster_id]
+        if len(pos_list) <= 2:
+            continue
+        candidateRefPos = []
+        candidateQuePos = []
+        temp_refPos_snp = {}
+        temp_quePos_snp = {}
+        min_pos = pos_list[0]
+        max_pos = pos_list[-1]
+
+        min_pos -= 100
+        max_pos += 100
+
+        min_pos = max(0, min_pos)
+        max_pos = min(max_pos, len(sequence)-1)
+
+        sub_sequence = sequence[min_pos: max_pos+1]
+
+        for temp_pos in pos_list:
+            if data_list_ref_que_dict[temp_pos] > 0:
+                candidateRefPos.append(temp_pos)
+                temp_refPos_snp[temp_pos] = refPos_snp[temp_pos]
+            else:
+                candidateQuePos.append(temp_pos)
+                temp_quePos_snp[temp_pos] = quePos_snp[temp_pos]
+
+        if len(candidateRefPos) <= 1 or len(candidateQuePos) <= 1:
+            continue
+
+        candidateRefPos.sort()
+        candidateQuePos.sort()
+        # now we have the candidateRefPos and candidateQuePos
+        # next step is to permutate all combinations
+        # rule is that should pick at least one from each list
+        if cluster_num == 759:
+            print candidateRefPos
+            print candidateQuePos
+
+        ref_sequence_choice = {}
+        for i in range(2, len(candidateRefPos)+1, 1):
+            ref_combination_list = list(itertools.combinations(candidateRefPos, i))
+            for ref_combination in ref_combination_list:
+                ref_choice_list = list(ref_combination)
+                ref_sequence = modify_by_list(temp_refPos_snp, ref_choice_list, sub_sequence, min_pos)
+                ref_sequence_choice[ref_sequence] = ref_choice_list
+
+        for j in range(2, len(candidateQuePos)+1, 1):
+            que_combination_list = list(itertools.combinations(candidateQuePos, j))
+            for que_combination in que_combination_list:
+                que_choice_list = list(que_combination)
+                que_sequence = modify_by_list(temp_quePos_snp, que_choice_list, sub_sequence, min_pos)
+                if que_sequence in ref_sequence_choice:
+                    ref_choice_list = ref_sequence_choice[que_sequence]
+                    print 'matched', ref_choice_list, que_choice_list
+                    for pos in ref_choice_list:
+                        refPos_snp.pop(pos)
+                    for pos in que_choice_list:
+                        quePos_snp.pop(pos)
+
 
 def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     positiveFile = open(args.false_positive, "a+")
@@ -622,6 +746,10 @@ def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     #print multi_match, multi_match_ref, multi_match_que
 
 def clustering_snp(data_list, cluster_list, threshold):
+    # add lower bound to this clustering strategy, if distance larger than lower bound
+    # , check if the sequence between two variant is repeat region (or so called tandem repeat)
+    # using the program wrote for tandem repeat prediction.
+
     if len(data_list) < 1:
         return
     cluster_index = 0
@@ -791,7 +919,7 @@ def main():
 
     thresh = 400
 
-    clustering_snp(data_list, cluster_list, thresh)
+    #clustering_snp(data_list, cluster_list, thresh)
 
     #print 'clustring...'
     #clusters = hcluster.fclusterdata(data, thresh)
@@ -818,11 +946,11 @@ def main():
     print ('number of clusters:', len(cluster_list))
     """
 
-    cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_index_ref_que_dict, sequence)
+    #cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_index_ref_que_dict, sequence)
 
-    report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
+    #report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
 
-    exit()
+    #exit()
 
     print ('third stage start...')
     for block_size in [2, 4, 5,10,20,50,100,200]:
