@@ -329,6 +329,10 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
         quePos_snp.pop(pos, None)
 
 def convert_substitution(pos_list, pos_snp, subsequence, low_bound):
+    
+    print ('convert_substitution: unfinished function')
+    return
+    
     indel_list = []
     pos_list.sort()
     for pos in pos_list:
@@ -343,21 +347,18 @@ def convert_substitution(pos_list, pos_snp, subsequence, low_bound):
             temp_ins = [relative_pos, 1, ref]
             indel_list.append(temp_del)
             indel_list.append(temp_ins)
-        else if len(ref) > len(alt): # deletion
+        elif len(ref) > len(alt): # deletion
             del_position = relative_pos + len(ref) - 1
             for i in range(len(ref)-1):
                 del_n = ref[i+1]
                 temp_del = [del_position, -1, del_n]
                 indel_list.insert(temp_del)
-        else if len(ref) < len(alt): # insertion
+        elif len(ref) < len(alt): # insertion
             ins_position = relative_pos + 1
             for i in range(len(alt)-1):
                 ins_n = alt[i+1]
                 temp_ins = [ins_position, 1, ins_n]
                 indel_list.insert(temp_ins)
-
-    for i in range(len(indel_list)-1):
-        for j in range(i+1, )
 
 
 def check_transition_theory(candidateRefPos, candidateQuePos, temp_refPos_snp, temp_quePos_snp, subSequence, lowBound):
@@ -679,9 +680,6 @@ def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_re
         # now we have the candidateRefPos and candidateQuePos
         # next step is to permutate all combinations
         # rule is that should pick at least one from each list
-        if cluster_num == 759:
-            print candidateRefPos
-            print candidateQuePos
 
         ref_sequence_choice = {}
         for i in range(2, len(candidateRefPos)+1, 1):
@@ -737,27 +735,61 @@ def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     #true_pos_file.close()
 
     print ('\n######### Matching Result ################\n')
-    print (' ref total: {}\n que total: {}\n ref matches: {}\n que matches: {}\n ref mismatch: {}\n alt mismatch: {}\n'.format(refOriginalNum, queOriginalNum,refOriginalNum-len(refPos_snp), queOriginalNum-len(quePos_snp) , len(refPos_snp), len(quePos_snp)))
+    print (' ref total: {}\n que total: {}\n ref matches: {}\n que \
+           matches: {}\n ref mismatch: {}\n alt mismatch: {}\n'.format(\
+            refOriginalNum, queOriginalNum,refOriginalNum-len(refPos_snp),\
+            queOriginalNum-len(quePos_snp) , len(refPos_snp), len(quePos_snp)))
 
     stat_file = open(args.stat, 'a+')
-    stat_file.write('{}\t{}\t{}\t{}\t{}\n'.format(args.chr, refOriginalNum, queOriginalNum, refOriginalNum-len(refPos_snp), queOriginalNum-len(quePos_snp)))
+    stat_file.write('{}\t{}\t{}\t{}\t{}\n'.format(args.chr, refOriginalNum,\
+                    queOriginalNum, refOriginalNum-len(refPos_snp), \
+                    queOriginalNum-len(quePos_snp)))
     stat_file.close()
     #print (len(ref_match_total), len(que_match_total))
     #print multi_match, multi_match_ref, multi_match_que
 
-def clustering_snp(data_list, cluster_list, threshold):
-    # add lower bound to this clustering strategy, if distance larger than lower bound
-    # , check if the sequence between two variant is repeat region (or so called tandem repeat)
-    # using the program wrote for tandem repeat prediction.
+# check if sequence is exactly a tandem repeat
+def check_tandem_repeat(sequence):
+    sequence_length = len(sequence)
+    end_index = sequence_length / 2 + 1
+    final_checking = False
+    for repeat_length in range(1, end_index, 1):
+        if sequence_length % repeat_length != 0:
+            continue
+        is_tandem_repeat = True
+        repeat_region = sequence[:repeat_length]
+        start_position = repeat_length
+        while(start_position < sequence.length()):
+            matching_region = sequence[start_position: start_position + repeat_length]
+            if matching_region != repeat_length:
+                is_tandem_repeat = False
+                break
+        if is_tandem_repeat:
+            final_checking = True
+            
+    return final_checking
+
+
+# employ hierarchical clustering, since data is only one dimensional, just check distance.
+# add lower bound to this clustering strategy, if distance larger than lower bound
+# , check if the sequence between two variant is repeat region (or so called tandem repeat)
+# using the program wrote for tandem repeat prediction.
+def clustering_snp(data_list, cluster_list, threshold, reference, lower_bould):
 
     if len(data_list) < 1:
         return
     cluster_index = 0
     previous_data = data_list[1]
     for i in range(len(data_list)):
-        if data_list[i] - previous_data > threshold:
+        distance = data_list[i] - previous_data - 1
+        if distance > threshold:
             cluster_index += 1
-
+        else:
+            if distance > lower_bound:
+                subsequence = reference[previous_data+1: data_list[i]]
+                if not check_tandem_repeat(subsequence):
+                    cluster_index += 1
+                    
         cluster_list.append(cluster_index)
         previous_data = data_list[i]
 
@@ -766,7 +798,6 @@ def main():
         parser.print_help()
         sys.exit()
 
-##################################################################################
     if not os.path.isfile(args.reference):
         print ("Error: reference file not found")
         parser.print_help()
@@ -918,8 +949,8 @@ def main():
     #data = numpy.asarray(data_list)
 
     thresh = 400
-
-    #clustering_snp(data_list, cluster_list, thresh)
+    lower_bound = 10
+    clustering_snp(data_list, cluster_list, thresh, sequence, lower_bound)
 
     #print 'clustring...'
     #clusters = hcluster.fclusterdata(data, thresh)
@@ -961,5 +992,10 @@ def main():
 
     report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
 
+def test():
+    print check_tandem_repeat('ACGTACGTACGT')
+    print check_tandem_repeat('ATTATTATT')
+
+
 if __name__ == '__main__':
-    main()
+    test()
