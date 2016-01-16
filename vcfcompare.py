@@ -37,6 +37,9 @@ import numpy
 import scipy.cluster.hierarchy as hcluster
 import itertools
 
+# for profile memory usage
+#from memory_profiler import profile
+
 citation = 'About algorithm used in VCF-Compare, please refer to "Method for Cross-Validating Variant Call Set" Section in our paper.'+'\n Please cite our paper.'
 
 parser = argparse.ArgumentParser(epilog = citation)
@@ -198,7 +201,7 @@ def powerful_near_search(refPos_snp, quePos_snp, genome, blockSize):
                 query_variants = '{},{},{}'.format(quePos, que_snp[1], que_snp[2])
                 output_info = '{},{}'.format(subSequence, refSequence.upper())
                 match_string = '.\t{}\t{}\t.\n'.format(ref_variants, query_variants)
-                output.write(match_string)
+                #output.write(match_string)
                 refPos_snp.pop(refPos, None)
                 break
 
@@ -319,7 +322,7 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
                 ref_variants = '{},{},{}'.format(quePos, que_snp[1], que_snp[2])
             output_info = '{},{}'.format(subSequence, refSequence.upper())
             match_string = '.\t{}\t{}\t.\n'.format(ref_variants, query_variants)
-            output.write(match_string)
+            #output.write(match_string)
         else:
             start_position = candidateRefNode[0]
     output.close()
@@ -329,10 +332,10 @@ def complex_search(refPos_snp, quePos_snp, genome, rev):
         quePos_snp.pop(pos, None)
 
 def convert_substitution(pos_list, pos_snp, subsequence, low_bound):
-    
+
     print ('convert_substitution: unfinished function')
     return
-    
+
     indel_list = []
     pos_list.sort()
     for pos in pos_list:
@@ -483,7 +486,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
             que_start_position = quePos_snp.after(candidateQueNode[-1])
             ref_variants = ''
             query_variants = ''
-            check_transition_theory(candidateRefPos, candidateQuePos, temp_refPos_snp, temp_quePos_snp, subSequence, lowBound)
+            #check_transition_theory(candidateRefPos, candidateQuePos, temp_refPos_snp, temp_quePos_snp, subSequence, lowBound)
             for index in range(len(candidateRefPos)-1):
                 pos = candidateRefPos[index]
                 ref_variants += '{},{},{};'.format(pos, temp_refPos_snp[pos][1], temp_refPos_snp[pos][2])
@@ -516,7 +519,7 @@ def multi_search(refPos_snp, quePos_snp, genome, blockSize):
 
             output_info = '{},{},{},{},{}'.format(blockSize, lowBound, upperBound+1, subSequence, refSequence.upper())
             match_string = '.\t{}\t{}\t{}\n'.format(ref_variants, query_variants, output_info)
-            output.write(match_string)
+            #output.write(match_string)
             multi_match += 1
 
             if len(candidateRefPos) == 1 or len(candidateQuePos) == 1:
@@ -621,7 +624,7 @@ def cluster_search_old(refPos_snp, quePos_snp, data_list, cluster_list, data_lis
 
 
 
-def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_ref_que_dict, sequence):
+def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, sequence):
     """
     cluster_search use hash table to reduce running time from 2^(mn) to 2^m + 2^n
     """
@@ -631,30 +634,32 @@ def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_re
     # otherwise, it is in quePos_snp
     print 'cluster search'
 
-    cluster_pos = {}
+    output = open(args.output, 'a') #open output file for
+    cluster_data = {}
     for index in range(len(cluster_list)):
         cluster_id = cluster_list[index]
-        pos = data_list[index]
-        if cluster_id in cluster_pos:
-            cluster_pos[cluster_id].append(pos)
+        data = data_list[index]
+        #print data, cluster_id
+        if cluster_id in cluster_data:
+            cluster_data[cluster_id].append(data)
         else:
-            cluster_pos[cluster_id] = [pos]
+            cluster_data[cluster_id] = [data]
 
     print 'iterate clusters'
-
+    #print cluster_data[1222]
     cluster_num = 0
-    for cluster_id in cluster_pos:
+    for cluster_id in sorted(cluster_data):
         cluster_num += 1
-        print cluster_num
-        pos_list = cluster_pos[cluster_id]
-        if len(pos_list) <= 2:
+        #print cluster_id
+        data_list = cluster_data[cluster_id]
+        if len(data_list) <= 2:
             continue
         candidateRefPos = []
         candidateQuePos = []
         temp_refPos_snp = {}
         temp_quePos_snp = {}
-        min_pos = pos_list[0]
-        max_pos = pos_list[-1]
+        min_pos = data_list[0][0]
+        max_pos = data_list[-1][0]
 
         min_pos -= 100
         max_pos += 100
@@ -664,15 +669,16 @@ def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_re
 
         sub_sequence = sequence[min_pos: max_pos+1]
 
-        for temp_pos in pos_list:
-            if data_list_ref_que_dict[temp_pos] > 0:
+        for temp_data in data_list:
+            temp_pos = temp_data[0]
+            if temp_data[1] > 0:
                 candidateRefPos.append(temp_pos)
                 temp_refPos_snp[temp_pos] = refPos_snp[temp_pos]
             else:
                 candidateQuePos.append(temp_pos)
                 temp_quePos_snp[temp_pos] = quePos_snp[temp_pos]
 
-        if len(candidateRefPos) <= 1 or len(candidateQuePos) <= 1:
+        if len(candidateRefPos) <= 1 and len(candidateQuePos) <= 1:
             continue
 
         candidateRefPos.sort()
@@ -681,27 +687,71 @@ def cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_re
         # next step is to permutate all combinations
         # rule is that should pick at least one from each list
 
+        #if cluster_id == 1222:
+        #    print candidateRefPos, candidateQuePos
+
         ref_sequence_choice = {}
-        for i in range(2, len(candidateRefPos)+1, 1):
+        ref_pos_del_set = set()
+        que_pos_del_set = set()
+        for i in range(1, len(candidateRefPos)+1, 1):
             ref_combination_list = list(itertools.combinations(candidateRefPos, i))
             for ref_combination in ref_combination_list:
                 ref_choice_list = list(ref_combination)
                 ref_sequence = modify_by_list(temp_refPos_snp, ref_choice_list, sub_sequence, min_pos)
+                ref_sequence = ref_sequence.upper()
                 ref_sequence_choice[ref_sequence] = ref_choice_list
 
-        for j in range(2, len(candidateQuePos)+1, 1):
+        for j in range(1, len(candidateQuePos)+1, 1):
             que_combination_list = list(itertools.combinations(candidateQuePos, j))
             for que_combination in que_combination_list:
                 que_choice_list = list(que_combination)
                 que_sequence = modify_by_list(temp_quePos_snp, que_choice_list, sub_sequence, min_pos)
+                que_sequence = que_sequence.upper()
                 if que_sequence in ref_sequence_choice:
                     ref_choice_list = ref_sequence_choice[que_sequence]
-                    print 'matched', ref_choice_list, que_choice_list
+                    #print 'matched', ref_choice_list, que_choice_list
                     for pos in ref_choice_list:
-                        refPos_snp.pop(pos)
+                        ref_pos_del_set.add(pos)
                     for pos in que_choice_list:
-                        quePos_snp.pop(pos)
+                        que_pos_del_set.add(pos)
 
+        #===============================output matching results========================================
+        if len(ref_pos_del_set) == 0 or len(que_pos_del_set) == 0:
+            continue
+
+        ref_pos_del_list = list(ref_pos_del_set)
+        que_pos_del_list = list(que_pos_del_set)
+
+        ref_variants = ""
+        for index in range(len(ref_pos_del_list)-1):
+            pos = ref_pos_del_list[index]
+            ref_variants += '{},{},{};'.format(pos, refPos_snp[pos][1], refPos_snp[pos][2])
+            refPos_snp.pop(pos)
+        ref_pos = ref_pos_del_list[-1]
+        ref_variants += '{},{},{}'.format(ref_pos, refPos_snp[ref_pos][1], refPos_snp[ref_pos][2])
+        refPos_snp.pop(ref_pos)
+
+        query_variants = ""
+        for index in range(len(que_pos_del_list)-1):
+            pos = que_pos_del_list[index]
+            query_variants += '{},{},{};'.format(pos, quePos_snp[pos][1], quePos_snp[pos][2])
+            quePos_snp.pop(pos)
+        que_pos = que_pos_del_list[-1]
+        query_variants += '{},{},{}'.format(que_pos, quePos_snp[que_pos][1], quePos_snp[que_pos][2])
+        quePos_snp.pop(que_pos)
+
+        #output_info = '{},{},{},{},{}'.format(blockSize, lowBound, upperBound+1, subSequence, refSequence.upper())
+        output_info = '{},{},{}'.format(min_pos, max_pos, sub_sequence)
+        match_string = '.\t{}\t{}\t{}\n'.format(ref_variants, query_variants, output_info)
+        output.write(match_string)
+        #==============================output matching results========================================
+
+        #for pos in ref_pos_del_set:
+            #refPos_snp.pop(pos)
+        #for pos in que_pos_del_set:
+            #quePos_snp.pop(pos)
+
+    output.close()
 
 def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     positiveFile = open(args.false_positive, "a+")
@@ -735,8 +785,8 @@ def report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum):
     #true_pos_file.close()
 
     print ('\n######### Matching Result ################\n')
-    print (' ref total: {}\n que total: {}\n ref matches: {}\n que \
-           matches: {}\n ref mismatch: {}\n alt mismatch: {}\n'.format(\
+    print (' ref total: {}\n que total: {}\n ref matches: {}\n que '\
+           'matches: {}\n ref mismatch: {}\n alt mismatch: {}\n'.format(\
             refOriginalNum, queOriginalNum,refOriginalNum-len(refPos_snp),\
             queOriginalNum-len(quePos_snp) , len(refPos_snp), len(quePos_snp)))
 
@@ -754,19 +804,23 @@ def check_tandem_repeat(sequence):
     end_index = sequence_length / 2 + 1
     final_checking = False
     for repeat_length in range(1, end_index, 1):
-        if sequence_length % repeat_length != 0:
-            continue
+        #if sequence_length % repeat_length != 0:
+        #    continue
         is_tandem_repeat = True
         repeat_region = sequence[:repeat_length]
         start_position = repeat_length
-        while(start_position < sequence.length()):
+        while(start_position < len(sequence)):
+            if start_position + repeat_length > sequence_length:
+                break
             matching_region = sequence[start_position: start_position + repeat_length]
-            if matching_region != repeat_length:
+            if matching_region != repeat_region:
                 is_tandem_repeat = False
                 break
+            start_position += repeat_length
         if is_tandem_repeat:
             final_checking = True
-            
+            break
+
     return final_checking
 
 
@@ -774,24 +828,42 @@ def check_tandem_repeat(sequence):
 # add lower bound to this clustering strategy, if distance larger than lower bound
 # , check if the sequence between two variant is repeat region (or so called tandem repeat)
 # using the program wrote for tandem repeat prediction.
-def clustering_snp(data_list, cluster_list, threshold, reference, lower_bould):
+def clustering_snp(data_list, cluster_list, threshold, reference, lower_bound, refPos_snp, quePos_snp):
+
+    #r = refPos_snp[175243825]
+    #print r, r[0]
+    #q = quePos_snp[175243826]
+    #print q, q[0]
 
     if len(data_list) < 1:
         return
     cluster_index = 0
-    previous_data = data_list[1]
+    previous_data = 0
+
     for i in range(len(data_list)):
-        distance = data_list[i] - previous_data - 1
+        distance = data_list[i][0] - previous_data
+        #if data_list[i][0] == 175243838:
+        #    print '@@@@@@@@@', previous_data, distance
+
         if distance > threshold:
             cluster_index += 1
         else:
             if distance > lower_bound:
-                subsequence = reference[previous_data+1: data_list[i]]
+                subsequence = reference[previous_data: data_list[i][0]]
                 if not check_tandem_repeat(subsequence):
                     cluster_index += 1
-                    
+
         cluster_list.append(cluster_index)
-        previous_data = data_list[i]
+        current_data = data_list[i][0]
+        data_source = data_list[i][1]
+        data_length = 1
+        if data_source > 0:
+            data_length = len(refPos_snp[current_data][1])
+        else:
+            data_length = len(quePos_snp[current_data][1])
+        current_data += data_length
+        if previous_data < current_data:
+            previous_data = current_data
 
 def main():
     if len(sys.argv) == 1:
@@ -927,22 +999,39 @@ def main():
         complex_search(quePos_snp, refPos_snp, sequence, True)
     #print ("after complex search:", len(refPos_snp), len(quePos_snp))
 
+#=====================windows stage=============================================
+    '''
+    print ('third stage start...')
+    for block_size in [2, 4, 5,10,20,50,100,200]:
+        print ('try window size ' + str(block_size*2) + '...')
+        if len(refPos_snp) > 0 and len(quePos_snp) > 0:
+            multi_search(refPos_snp, quePos_snp, sequence, block_size)
+        #print ('after multi search in ' + str(block_size) + ' bp range:', len(refPos_snp), len(quePos_snp))
+
+    report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
+    '''
+#=====================windows stage============================================
+
+#=====================clustering stage=========================================
     print ('start clustering...')
     data_list = []
     data_list_index_ref_que_dict = {}
     #data_list_index_threshold = 0
 
     for pos in refPos_snp:
-        data_list.append(pos)
-        data_list_index_ref_que_dict[pos] = 1
+        pos_list = [pos, 1]
+        data_list.append(pos_list)
+        #data_list_index_ref_que_dict[pos] = 1
         #data_list_index_threshold += 1
 
     for pos in quePos_snp:
-        data_list.append(pos)
-        data_list_index_ref_que_dict[pos] = -1
+        pos_list = [pos, -1]
+        data_list.append(pos_list)
+        #data_list_index_ref_que_dict[pos] = -1
         #data_list_index += 1
 
     data_list.sort()
+    #print data_list
     cluster_list = []
     #print data_list
 
@@ -950,7 +1039,10 @@ def main():
 
     thresh = 400
     lower_bound = 10
-    clustering_snp(data_list, cluster_list, thresh, sequence, lower_bound)
+    clustering_snp(data_list, cluster_list, thresh, sequence, lower_bound, refPos_snp, quePos_snp)
+
+    #for i in range(len(data_list)):
+    #    print data_list[i], cluster_list[i]
 
     #print 'clustring...'
     #clusters = hcluster.fclusterdata(data, thresh)
@@ -977,25 +1069,30 @@ def main():
     print ('number of clusters:', len(cluster_list))
     """
 
-    #cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, data_list_index_ref_que_dict, sequence)
-
-    #report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
-
-    #exit()
-
-    print ('third stage start...')
-    for block_size in [2, 4, 5,10,20,50,100,200]:
-        print ('try window size ' + str(block_size*2) + '...')
-        if len(refPos_snp) > 0 and len(quePos_snp) > 0:
-            multi_search(refPos_snp, quePos_snp, sequence, block_size)
-        #print ('after multi search in ' + str(block_size) + ' bp range:', len(refPos_snp), len(quePos_snp))
+    cluster_search(refPos_snp, quePos_snp, data_list, cluster_list, sequence)
 
     report(refPos_snp, quePos_snp, refOriginalNum, queOriginalNum)
+#======================clustering stage==================================================
+    #exit()
+
+    '''
+    for i in range(len(data_list)):
+        data = data_list[i]
+        cluster = cluster_list[i]
+        pos = data[0]
+        category = data[1]
+        if category > 0:
+            if pos in refPos_snp:
+                print pos, cluster
+        else:
+            if pos in quePos_snp:
+                print pos, cluster
+    '''
 
 def test():
-    print check_tandem_repeat('ACGTACGTACGT')
-    print check_tandem_repeat('ATTATTATT')
+    print check_tandem_repeat('AAACCAAAACCC')
+    print check_tandem_repeat('AAAAAAAAA')
 
 
 if __name__ == '__main__':
-    test()
+    main()
