@@ -1,5 +1,6 @@
-#ifndef UTILITIES_H
-#define UTILITIES_H
+//#ifndef UTILITIES_H
+//#define UTILITIES_H
+#pragma once
 
 #ifdef DEBUG
 #define dout cout
@@ -21,23 +22,10 @@
 using namespace std;
 
 /*split function*/
-std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
-	std::stringstream ss(s);
-	std::string item;
-	while (std::getline(ss, item, delim)) {
-		if (! item.empty()){
-			elems.push_back(item);
-		}
-	}
-	return elems;
-}
+std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems);
 
 /*This split function only support char as delim, string as delim please boost split function*/
-std::vector<std::string> split(const std::string &s, char delim) {
-	std::vector<std::string> elems;
-	split(s, delim, elems);
-	return elems;
-}
+std::vector<std::string> split(const std::string &s, char delim);
 
 inline bool FileExists (const std::string& name) {
   struct stat buffer;   
@@ -51,7 +39,7 @@ string ToString(const T & number){
 	return String;
 }
 
-void show_time()
+inline void dsptime()
 {
  time_t nowtime;
  nowtime = time(NULL); //get int time number
@@ -60,4 +48,4 @@ void show_time()
  cout << ptm->tm_hour << ":" << ptm->tm_min << ":" << ptm->tm_sec <<" " << endl;
 }
 
-#endif
+//#endif

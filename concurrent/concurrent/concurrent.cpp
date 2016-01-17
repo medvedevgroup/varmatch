@@ -134,6 +134,13 @@ int usage(char* command) {
 
 int main(int argc, char* argv[])
 {
+	/*auto a = "a\tb";
+	auto b = split(a, '\t');
+	for (auto i = 0; i < b.size(); i++) {
+		cout << b[i] << endl;
+	}*/
+	cout << "hello world" << endl;
+
 	if (argc < 2) {
 		usage(argv[0]);
 		return 0;
