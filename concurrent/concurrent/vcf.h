@@ -1,7 +1,9 @@
 #pragma once // the same purpose as #include guards
 
+#define DEBUG
 #include <unordered_map>
 #include "util.h"
+#include "threadguard.h"
 
 typedef struct SNP {
 	SNP(char snp_type_ = 'S', string ref_ = "", string alt_ = "") :
@@ -16,6 +18,8 @@ typedef unordered_map<int, string> VCFEntryHash;
 
 class VCF
 {
+private:
+	void ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash & pos_2_vcf_entry);
 public:
 	VCF();
 	~VCF();
@@ -24,6 +28,9 @@ public:
 	VCFEntryHash refpos_2_vcf_entry;
 	SnpHash querypos_2_snp;
 	VCFEntryHash querypos_2_vcf_entry;
-	void ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash & pos_2_vcf_entry);
+	
+	void ReadRefVCF(string filename);
+	void ReadQueryVCF(string filename);
+	void DirectSearch();
 };
 

@@ -1,6 +1,6 @@
 // concurrent.cpp : Defines the entry point for the console application.
 //
-
+#define DEBUG 1
 #include "stdafx.h"
 #include <iostream>
 #include <thread>
@@ -8,116 +8,59 @@
 
 using namespace std;
 
-struct Args {
-	string refFilename;
-	string donorFilename;
-	bool inputFastaRef;
-	string refBedFilename;
-	string donorBedFilename;
-	bool inputBedRef;
-	string snpFilename;
-	bool snvModification;
-	string delVcfFilename;
-	bool delModification;
-	bool delFromVcf;
-	string delBedFilename;
-	bool delFromBed;
-	string insVcfFilename;
-	bool insFromVcf;
-	string insFastaFilename;
-	bool insModification;
-	bool insFromFasta;
-	string insBedFilename;
-	bool insFromBed;
-	string allBedFilename;
-	bool allFromBed;
-
-};
+typedef struct Args {
+	string ref_vcf_filename;
+	string que_vcf_filename;
+	string genome_seq_filename;
+	string fp_filename;
+	string fn_filename;
+	string output_filename;
+	bool direct_search;
+	string chr_name;
+	string stat_filename;
+}Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
 	//ez command parsing
-	args.snvModification = false;
-	args.delModification = false;
-	args.insModification = false;
-	args.delFromVcf = false;
-	args.delFromBed = false;
-	args.insFromVcf = false;
-	args.insFromFasta = false;
-	args.insFromBed = false;
-	args.allFromBed = false;
-	args.inputFastaRef = false;
-	args.inputBedRef = false;
+	args.direct_search = false;
 
 	for (int i = 1; i < argc - 1; i++)
 	{
-		if (!strcmp(argv[i], "-i")) {
-			args.refFilename = string(argv[++i]);
-			if (!FileExists(args.refFilename)) {
-				cout << "Error: input fasta file not exist" << endl;
+		if (!strcmp(argv[i], "-r")) {
+			args.ref_vcf_filename = string(argv[++i]);
+			if (!FileExists(args.ref_vcf_filename)) {
+				cout << "[Error] ParserArgs: input reference vcf file not exist" << endl;
 				return false;
 			}
-			args.inputFastaRef = true;
+		}
+		else if (!strcmp(argv[i], "-q")) {
+			args.que_vcf_filename = string(argv[++i]);
+			if (!FileExists(args.ref_vcf_filename)) {
+				cout << "[Error] ParserArgs: input query vcf file not exist" << endl;
+				return false;
+			}
+		}
+		else if (!strcmp(argv[i], "-g")) {
+			args.genome_seq_filename = string(argv[++i]);
+			if (!FileExists(args.genome_seq_filename)) {
+				cout << "[Error] ParserArgs: input genome sequence fasta file not exist" << endl;
+				return false;
+			}
+		}
+		else if (!strcmp(argv[i], "-p")) {
+			args.fp_filename = string(argv[++i]);
+		}
+		else if (!strcmp(argv[i], "-n")) {
+			args.fn_filename = string(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "-o")) {
-			args.donorFilename = string(argv[++i]);
+			args.output_filename = string(argv[++i]);
 		}
-		else if (!strcmp(argv[i], "-I")) {
-			args.refBedFilename = string(argv[++i]);
-			if (!FileExists(args.refBedFilename)) {
-				cout << "Error: input bed reference file not exist" << endl;
-				return false;
-			}
-			args.inputBedRef = true;
-		}
-		else if (!strcmp(argv[i], "-O")) {
-			args.donorBedFilename = string(argv[++i]);
+		else if (!strcmp(argv[i], "-d")) {
+			args.direct_search = true;
 		}
 		else if (!strcmp(argv[i], "-s")) {
-			args.snpFilename = string(argv[++i]);
-			if (!FileExists(args.snpFilename)) {
-				cout << "Error: input snp file not exist" << endl;
-				return false;
-			}
-			args.snvModification = true;
-		}
-		else if (!strcmp(argv[i], "-vd")) {
-			args.delVcfFilename = string(argv[++i]);
-			args.delModification = true;
-			args.delFromVcf = true;
-		}
-		else if (!strcmp(argv[i], "-vi")) {
-			args.insVcfFilename = string(argv[++i]);
-			args.insModification = true;
-			args.insFromVcf = true; //does not implement
-		}
-		else if (!strcmp(argv[i], "-fi")) {
-			args.insFastaFilename = string(argv[++i]);
-			args.insModification = true;
-			args.insFromFasta = true;
-		}
-		else if (!strcmp(argv[i], "-bd")) {
-			args.delBedFilename = string(argv[++i]);
-			args.delModification = true;
-			args.delFromBed = true;
-			if (!FileExists(args.delBedFilename)) {
-				cout << "Error: input del bed file not exist" << endl;
-				return false;
-			}
-		}
-		else if (!strcmp(argv[i], "-bi")) {
-			args.insBedFilename = string(argv[++i]);
-			args.insModification = true;
-			args.insFromBed = true;
-			if (!FileExists(args.insBedFilename)) {
-				cout << "Error: input ins bed file not exist" << endl;
-				return false;
-			}
-		}
-		else if (!strcmp(argv[i], "-b")) {
-			args.allBedFilename = string(argv[++i]);
-			args.insModification = true;
-			args.delModification = true;
-			args.allFromBed = true;
+			args.stat_filename = string(argv[++i]);
 		}
 	}
 	return true;
@@ -134,22 +77,27 @@ int usage(char* command) {
 
 int main(int argc, char* argv[])
 {
-	/*auto a = "a\tb";
-	auto b = split(a, '\t');
-	for (auto i = 0; i < b.size(); i++) {
-		cout << b[i] << endl;
-	}*/
-	cout << "hello world" << endl;
-
+	dout << "Debug Mode" << endl;
 	if (argc < 2) {
 		usage(argv[0]);
-		return 0;
+		//return 0;
 	}
 	Args args;
 	if (!ParserArgs(args, argc, argv)) {
 		usage(argv[0]);
 		return 0;
 	}
+
+	args.ref_vcf_filename = "E:\\data\\CHM1.bt2.fb.norm.chr1.vcf";
+
+	VCF vcf;
+	dsptime();
+	dout << " Read reference vcf file... " << endl;
+	vcf.ReadRefVCF(args.ref_vcf_filename);
+	dsptime();
+	dout << " Finish reading reference vcf file." << endl;
+	
+
     return 0;
 }
 

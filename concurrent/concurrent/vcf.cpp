@@ -1,7 +1,5 @@
 #include "vcf.h"
 
-
-
 VCF::VCF()
 {
 }
@@ -21,6 +19,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash& pos_2_vcf_
 	while (!vcf_file.eof()) { // alternative way is vcf_file != NULL
 		string line;
 		getline(vcf_file, line, '\n');
+		//dout << line << endl;
 		if (line.length() <= 1) continue;
 		if (line[0] == '#') continue;
 		auto columns = split(line, '\t');
@@ -45,4 +44,16 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash& pos_2_vcf_
 	}
 	vcf_file.close();
 	return;
+}
+
+void VCF::ReadRefVCF(string filename) {
+	ReadVCF(filename, this->refpos_2_snp, this->refpos_2_vcf_entry);
+}
+
+void VCF::ReadQueryVCF(string filename) {
+	ReadVCF(filename, this->querypos_2_snp, this->querypos_2_vcf_entry);
+}
+
+void VCF::DirectSearch() {
+
 }
