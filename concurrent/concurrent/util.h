@@ -45,7 +45,7 @@ inline void dsptime()
  nowtime = time(NULL); //get int time number
  struct tm * ptm=localtime(&nowtime);  //get system time
  cout << ptm->tm_mon+1 << "/" << ptm->tm_mday << "/"<< ptm->tm_year+1900 << "," ;
- cout << ptm->tm_hour << ":" << ptm->tm_min << ":" << ptm->tm_sec <<" " << endl;
+ cout << ptm->tm_hour << ":" << ptm->tm_min << ":" << ptm->tm_sec <<" ";
 }
 
 //#endif

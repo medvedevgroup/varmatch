@@ -18,6 +18,7 @@ typedef struct Args {
 	bool direct_search;
 	string chr_name;
 	string stat_filename;
+	int thread_num;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
@@ -62,6 +63,13 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 		else if (!strcmp(argv[i], "-s")) {
 			args.stat_filename = string(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "-m")) {
+			args.thread_num = atoi(argv[++i]);
+		}
+		else {
+			cout << "[Error] Unrecognized parameter: " << argv[i] << endl;
+			return false;
+		}
 	}
 	return true;
 	// end parsing command parameters ...
@@ -90,19 +98,44 @@ int main(int argc, char* argv[])
 
 	args.ref_vcf_filename = "E:\\data\\CHM1.bt2.fb.norm.chr1.vcf";
 	args.que_vcf_filename = "E:\\data\\CHM1.bt2.hc.norm.chr1.vcf";
+	args.genome_seq_filename = "E:\\data\\chr1.fa";
+	args.thread_num = 8;
 
-	VCF vcf;
+	VCF vcf(args.thread_num);
+	dsptime();
+	dout << " Read genome sequence file... " << endl;
+	vcf.ReadGenomeSequence(args.genome_seq_filename);
+	dsptime();
+	dout << " Finish reading genome sequence file." << endl;
+
 	dsptime();
 	dout << " Read reference vcf file... " << endl;
+	//vcf.ReadRefVCF(args.ref_vcf_filename);
+	//thread t(&VCF::ReadRefVCF, vcf, args.ref_vcf_filename);
 	vcf.ReadRefVCF(args.ref_vcf_filename);
-	dsptime();
-	dout << " Finish reading reference vcf file." << endl;
-	dsptime();
-	dout << " Read reference vcf file... " << endl;
-	vcf.ReadRefVCF(args.que_vcf_filename);
-	dsptime();
-	dout << " Finish reading reference vcf file." << endl;
+
 	
+	dsptime();
+	dout << " Read query vcf file... " << endl;
+	vcf.ReadQueryVCF(args.que_vcf_filename);
+
+	//t.join();
+	dsptime();
+	dout << " Finish reading all vcf file." << endl;
+	// check numbers
+	dout << " referece vcf entry number: " << vcf.GetRefSnpNumber() << endl;
+	dout << " query vcf entry number: " << vcf.GetQuerySnpNumber() << endl;
+
+	
+	dsptime();
+	dout << " Direct search ... " << endl;
+	vcf.DirectSearchMultiThread();
+	dsptime();
+	dout << " Finish direct search." << endl;
+
+	// check numbers
+	dout << " referece vcf entry number: " << vcf.GetRefSnpNumber() << endl;
+	dout << " query vcf entry number: " << vcf.GetQuerySnpNumber() << endl;
 
     return 0;
 }

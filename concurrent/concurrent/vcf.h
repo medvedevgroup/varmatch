@@ -19,15 +19,20 @@ typedef struct SNP {
 	string alt;
 }SNP;
 
-typedef vector<unordered_map<int, vector<SNP>>> SnpHash;
+typedef vector<unordered_map<int, vector<SNP> > > SnpHash;
 typedef unordered_map<int, string> VCFEntryHash;
 
 class VCF
 {
 private:
-	void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
 	int thread_num;
-	vector<int> pos_boundries;
+	vector<int> pos_boundries; // boundries for split multi hash table
+	string genome_sequence; // genome sequence from fasta file
+	bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
+
+	void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
+	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps);
+	bool CompareSnps(SNP r, SNP q);
 public:
 	VCF(int thread_num_ = 0);
 	~VCF();
@@ -36,17 +41,18 @@ public:
 	VCFEntryHash refpos_2_vcf_entry;
 	SnpHash querypos_2_snp;
 	VCFEntryHash querypos_2_vcf_entry;
-
-	vector<int> refpos_list;
-	vector<int> querypos_list;
 	
 	void ReadRefVCF(string filename);
 	void ReadQueryVCF(string filename);
-	void ReadGenomeSequence(string filename, string & genome_sequence);
-	//void DirectSearchInThread(int start_index, int end_index);
-	void DirectSearch();
+	void ReadGenomeSequence(string filename);
+	void DecideBoundries();
+	
+	void DirectSearchMultiThread();
 	void ComplexSearch();
 	void ClusteringSnps();
 	void ClusteringSearch();
+
+	int GetRefSnpNumber();
+	int GetQuerySnpNumber();
 };
 
