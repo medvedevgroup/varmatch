@@ -89,11 +89,17 @@ int main(int argc, char* argv[])
 	}
 
 	args.ref_vcf_filename = "E:\\data\\CHM1.bt2.fb.norm.chr1.vcf";
+	args.que_vcf_filename = "E:\\data\\CHM1.bt2.hc.norm.chr1.vcf";
 
 	VCF vcf;
 	dsptime();
 	dout << " Read reference vcf file... " << endl;
 	vcf.ReadRefVCF(args.ref_vcf_filename);
+	dsptime();
+	dout << " Finish reading reference vcf file." << endl;
+	dsptime();
+	dout << " Read reference vcf file... " << endl;
+	vcf.ReadRefVCF(args.que_vcf_filename);
 	dsptime();
 	dout << " Finish reading reference vcf file." << endl;
 	
