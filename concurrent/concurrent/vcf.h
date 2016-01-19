@@ -1,6 +1,5 @@
 #pragma once // the same purpose as #include guards
 
-#define DEBUG
 #include <unordered_map>
 #include <algorithm>
 #include <vector>

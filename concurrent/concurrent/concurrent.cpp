@@ -1,7 +1,6 @@
 // concurrent.cpp : Defines the entry point for the console application.
 //
-#define DEBUG 1
-#include "stdafx.h"
+//#include "stdafx.h"
 #include <iostream>
 #include <thread>
 #include "vcf.h"
@@ -63,7 +62,7 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 		else if (!strcmp(argv[i], "-s")) {
 			args.stat_filename = string(argv[++i]);
 		}
-		else if (!strcmp(argv[i], "-m")) {
+		else if (!strcmp(argv[i], "-t")) {
 			args.thread_num = atoi(argv[++i]);
 		}
 		else {
@@ -96,10 +95,10 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	args.ref_vcf_filename = "E:\\data\\CHM1.bt2.fb.norm.chr1.vcf";
-	args.que_vcf_filename = "E:\\data\\CHM1.bt2.hc.norm.chr1.vcf";
-	args.genome_seq_filename = "E:\\data\\chr1.fa";
-	args.thread_num = 8;
+	//args.ref_vcf_filename = "E:\\data\\CHM1.bt2.fb.norm.chr1.vcf";
+	//args.que_vcf_filename = "E:\\data\\CHM1.bt2.hc.norm.chr1.vcf";
+	//args.genome_seq_filename = "E:\\data\\chr1.fa";
+	//args.thread_num = 8;
 
 	VCF vcf(args.thread_num);
 	dsptime();

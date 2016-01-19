@@ -2,6 +2,8 @@
 //#define UTILITIES_H
 #pragma once
 
+#define DEBUG
+
 #ifdef DEBUG
 #define dout cout
 #else

@@ -170,7 +170,9 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 			if (q_snps.size() == 0) {
 				query_snps.erase(qit);
 			}
-		}
+		}else{
+            ++rit;
+        }
 	}
 }
 
