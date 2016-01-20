@@ -1,6 +1,6 @@
 // concurrent.cpp : Defines the entry point for the console application.
 //
-//#include "stdafx.h"
+#include "stdafx.h"
 #include <iostream>
 #include <thread>
 #include "vcf.h"
@@ -135,6 +135,14 @@ int main(int argc, char* argv[])
 	// check numbers
 	dout << " referece vcf entry number: " << vcf.GetRefSnpNumber() << endl;
 	dout << " query vcf entry number: " << vcf.GetQuerySnpNumber() << endl;
+
+	if (args.direct_search) return 0;
+
+	dsptime();
+	dout << " Complex search ... " << endl;
+	vcf.ComplexSearchMultiThread();
+	dsptime();
+	dout << " Finish complex search." << endl;
 
     return 0;
 }

@@ -21,6 +21,8 @@ typedef struct SNP {
 typedef vector<unordered_map<int, vector<SNP> > > SnpHash;
 typedef unordered_map<int, string> VCFEntryHash;
 
+typedef vector<map<int, vector<SNP> > > SnpMap;
+
 class VCF
 {
 private:
@@ -31,6 +33,7 @@ private:
 
 	void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps);
+	void ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vector<SNP> > & query_snps);
 	bool CompareSnps(SNP r, SNP q);
 public:
 	VCF(int thread_num_ = 0);
@@ -40,6 +43,9 @@ public:
 	VCFEntryHash refpos_2_vcf_entry;
 	SnpHash querypos_2_snp;
 	VCFEntryHash querypos_2_vcf_entry;
+
+	SnpMap refpos_snp_map;
+	SnpMap querypos_snp_map;
 	
 	void ReadRefVCF(string filename);
 	void ReadQueryVCF(string filename);
@@ -47,7 +53,7 @@ public:
 	void DecideBoundries();
 	
 	void DirectSearchMultiThread();
-	void ComplexSearch();
+	void ComplexSearchMultiThread();
 	void ClusteringSnps();
 	void ClusteringSearch();
 

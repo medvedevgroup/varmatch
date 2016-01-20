@@ -105,12 +105,16 @@ void VCF::DecideBoundries() {
 	pos_boundries.push_back(genome_size);
 
 	// initialize two for copy
-	unordered_map<int, vector<SNP> > ref_m;
-	unordered_map<int, vector<SNP> > que_m;
+	unordered_map<int, vector<SNP> > ref_h;
+	unordered_map<int, vector<SNP> > que_h;
+	map<int, vector<SNP> > ref_m;
+	map<int, vector<SNP> > que_m;
 
 	for (int i = 0; i < thread_num; i++) {
-		refpos_2_snp.push_back(ref_m);
-		querypos_2_snp.push_back(que_m);
+		refpos_2_snp.push_back(ref_h);
+		querypos_2_snp.push_back(que_h);
+		refpos_snp_map.push_back(ref_m);
+		querypos_snp_map.push_back(que_m);
 	}
 
 	boundries_decided = true;
@@ -195,8 +199,77 @@ void VCF::DirectSearchMultiThread() {
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
 }
 
+void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vector<SNP> > & query_snps) {
+	// linear algorithm
+	for (auto rit = ref_snps.begin(); rit != ref_snps.end(); ++rit) {
+		int ref_start_pos = rit->first;
+		auto ref_snp_list = rit->second;
+		auto qit_start = query_snps.begin();
+		for (int i = 0; i < ref_snp_list.size(); i++) {
+			auto ref_ref = ref_snp_list[i].ref;
+			auto ref_alt = ref_snp_list[i].alt;
+			int ref_end_pos = ref_start_pos + ref_ref.size();
+			vector<SNP> candidate_query_list;
+			for (auto qit = qit_start; qit != query_snps.end(); ++qit) {
+				int que_start_pos = qit->first;
+				auto que_snp_list = qit->second;
+				if (que_start_pos >= ref_start_pos && que_start_pos < ref_end_pos) {
+					for (int j = 0; j < que_snp_list.size(); j++) {
+						candidate_query_list.push_back(que_snp_list[i]);
+					}
+					qit_start = qit;
+				}
+				else if (que_start_pos < ref_start_pos) {
+					qit_start = qit;
+				}
+				else if (que_start_pos >= ref_end_pos) {
+					break;
+				}
+			}
+
+			//check all permutations
+		}
+	}
+}
+
 // match by overlapping reference region
-void VCF::ComplexSearch() {}
+void VCF::ComplexSearchMultiThread() {
+	if (GetRefSnpNumber() == 0 || GetQuerySnpNumber() == 0) return;
+
+	// transfer data from hash to map
+	for (int i = 0; i < refpos_2_snp.size(); i++) {
+		auto & pos_snp_hash = refpos_2_snp[i];
+		for (auto rit = pos_snp_hash.begin(); rit != pos_snp_hash.end(); ++rit) {
+			refpos_snp_map[i][rit->first] = rit->second;
+		}
+	}
+	refpos_2_snp.clear();
+
+	for (int i = 0; i < querypos_2_snp.size(); i++) {
+		auto & pos_snp_hash = querypos_2_snp[i];
+		for (auto qit = pos_snp_hash.begin(); qit != pos_snp_hash.end(); ++qit) {
+			querypos_snp_map[i][qit->first] = qit->second;
+		}
+	}
+	querypos_2_snp.clear();
+
+
+	vector<thread> threads;
+	//spawn threads
+	unsigned i = 0;
+	for (; i < thread_num - 1; i++) {
+		threads.push_back(thread(&VCF::ComplexSearchInThread, this, ref(refpos_snp_map[i]), ref(querypos_snp_map[i])));
+	}
+	// also you need to do a job in main thread
+	// i equals to (thread_num - 1)
+	if (i != thread_num - 1) {
+		dout << "[Error] thread number not match" << endl;
+	}
+	ComplexSearchInThread(refpos_snp_map[i], querypos_snp_map[i]);
+
+	// call join() on each thread in turn before this function?
+	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+}
 
 // clustering snps
 void VCF::ClusteringSnps() {}
