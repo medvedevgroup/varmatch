@@ -5,18 +5,33 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <tuple>
 #include "util.h"
 #include "threadguard.h"
 using namespace std;
 
 
 typedef struct SNP {
-	SNP(char snp_type_ = 'S', string ref_ = "", string alt_ = "") :
-		snp_type(snp_type_), ref(ref_), alt(alt_){}
+	SNP(int pos_ = 0, char snp_type_ = 'S', string ref_ = "", string alt_ = "") :
+		pos(pos_), snp_type(snp_type_), ref(ref_), alt(alt_){}
+
+	int pos;
 	char snp_type;
 	string ref;
 	string alt;
 }SNP;
+
+// define outside of struct, idiomatic solution for lexicographical compare for structures
+bool operator <(const SNP& x, const SNP& y) {
+	return x.pos < y.pos;
+}
+
+bool operator ==(const SNP& x, const SNP& y) {
+	if (x.pos == y.pos && x.snp_type == y.snp_type && x.alt == y.alt) {
+		return true;
+	}
+	return false;
+}
 
 typedef vector<unordered_map<int, vector<SNP> > > SnpHash;
 typedef unordered_map<int, string> VCFEntryHash;
@@ -35,6 +50,28 @@ private:
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps);
 	void ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vector<SNP> > & query_snps);
 	bool CompareSnps(SNP r, SNP q);
+	
+	//template function can only be defined in head file
+	template <typename T>
+	vector<vector<T>> CreateCombinations(vector<T> dict, int k) {
+		vector<vector<T>> result;
+		int n = dict.size();
+		vector<bool> v(n);
+		fill(v.begin(), v.end() - n + k, true);
+
+		do {
+			vector<T> t;
+			for (int i = 0; i < n; ++i) {
+				if (v[i]) t.push_back(dict[i]);
+			}
+			result.push_back(t);
+		} while (prev_permutation(v.begin(), v.end()));
+		return result;
+	}
+
+	bool ComplexMatch(SNP s, vector<SNP> comb);
+	string ModifySequenceBySnp(string sequence, SNP s, int offset);
+	string ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset);
 public:
 	VCF(int thread_num_ = 0);
 	~VCF();
