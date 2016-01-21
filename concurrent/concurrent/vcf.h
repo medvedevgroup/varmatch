@@ -65,8 +65,13 @@ private:
 	}
 
 	bool ComplexMatch(SNP s, vector<SNP> comb);
+	bool GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vector<SNP> & deleted_ref_snps, vector<SNP> & deleted_que_snps);
+	bool ExponentialComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vector<SNP> & deleted_ref_snps, vector<SNP> & deleted_que_snps);
+
 	string ModifySequenceBySnp(string sequence, SNP s, int offset);
 	string ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset);
+	void FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map, vector<SNP> & candidate_query_list);
+	unsigned int EditDistance(const std::string& s1, const std::string& s2);
 public:
 	VCF(int thread_num_ = 0);
 	~VCF();

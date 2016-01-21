@@ -227,6 +227,7 @@ string VCF::ModifySequenceBySnp(string sequence, SNP s, int offset) {
 	result += sequence.substr(0, snp_pos);
 	result += s.alt;
 	result += sequence.substr(snp_end, sequence.length() - snp_end);
+	transform(result.begin(), result.end(), result.begin(), toupper);
 	return result;
 }
 string VCF::ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset) {
@@ -244,6 +245,7 @@ string VCF::ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset) 
 	if (start_pos < sequence.length()) {
 		result += sequence.substr(start_pos, sequence.length() - start_pos);
 	}
+	transform(result.begin(), result.end(), result.begin(), toupper);
 	return result;
 }
 
@@ -261,8 +263,147 @@ bool VCF::ComplexMatch(SNP s, vector<SNP> comb) {
 	int genome_left = min(ref_left, que_left);
 	int genome_right = max(ref_right, que_right);
 
+	genome_left = max(0, genome_left - 10);
+	genome_right = min(genome_right + 10, (int)genome_sequence.length());
+
 	string subsequence = genome_sequence.substr(genome_left, genome_right - genome_left);
 	return ModifySequenceBySnp(subsequence, s, genome_left) == ModifySequenceBySnpList(subsequence, comb, genome_left);
+}
+
+bool VCF::ExponentialComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vector<SNP> & deleted_ref_snps, vector<SNP> & deleted_que_snps) {
+
+	int ref_start_pos = r_snp.pos;
+	auto ref_ref = r_snp.ref;
+	auto ref_alt = r_snp.alt;
+	int ref_end_pos = ref_start_pos + ref_ref.size();
+	vector<SNP> candidate_query_list;
+	FindVariantsInRange(ref_start_pos, ref_end_pos, query_snps, candidate_query_list);
+
+	int candidate_size = candidate_query_list.size();
+	if (candidate_size == 0) return false;
+	//check all combinations, from largest, one single match is enough
+	bool flag = false;
+	for (int k = candidate_query_list.size(); k >= 1; --k) {
+		vector<vector<SNP>> combinations = CreateCombinations(candidate_query_list, k);
+		bool matched = false;
+		// check combinations with k elements
+		for (auto cit = combinations.begin(); cit != combinations.end(); ++cit) {
+			auto comb = *cit;
+			if (ComplexMatch(r_snp, *cit)) {
+				matched = true;
+
+				// delete corresponding snps
+				deleted_ref_snps.push_back(r_snp);
+				for (auto combit = comb.begin(); combit != comb.end(); ++combit) {
+					deleted_que_snps.push_back(*combit);
+				}
+				break;
+			}
+		}
+		if (matched) {
+			flag = true;
+			break;
+		}
+	}
+	return flag;
+}
+
+unsigned int VCF::EditDistance(const std::string& s1, const std::string& s2)
+{
+	const std::size_t len1 = s1.size(), len2 = s2.size();
+	std::vector<unsigned int> col(len2 + 1), prevCol(len2 + 1);
+
+	for (unsigned int i = 0; i < prevCol.size(); i++)
+		prevCol[i] = i;
+	for (unsigned int i = 0; i < len1; i++) {
+		col[0] = i + 1;
+		for (unsigned int j = 0; j < len2; j++)
+			// note that std::min({arg1, arg2, arg3}) works only in C++11,
+			// for C++98 use std::min(std::min(arg1, arg2), arg3)
+			col[j + 1] = std::min({ prevCol[1 + j] + 1, col[j] + 1, prevCol[j] + (s1[i] == s2[j] ? 0 : 1) });
+		col.swap(prevCol);
+	}
+	return prevCol[len2];
+}
+
+bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vector<SNP> & deleted_ref_snps, vector<SNP> & deleted_que_snps) {
+
+	int ref_start_pos = r_snp.pos;
+	auto ref_ref = r_snp.ref;
+	auto ref_alt = r_snp.alt;
+	int ref_end_pos = ref_start_pos + ref_ref.size();
+
+	auto itlow = query_snps.lower_bound(ref_start_pos);
+	auto itup = query_snps.upper_bound(ref_end_pos);
+	// theoretically, since all snps are independent, we do not need the following two if-statement
+	// but this is engineering
+	if (itlow != query_snps.begin()) {
+		itlow--;
+	}
+	if (itup != query_snps.end()) {
+		itup++;
+	}
+
+	map<int, vector<SNP> > candidate_query_map;
+	vector<SNP> comb;
+
+	for (auto it = itlow; it != itup; ++it) {
+		auto v = it->second;
+		candidate_query_map[it->first] = v;
+		for (int i = 0; i < v.size(); i++) {
+			int snp_start = v[i].pos;
+			int snp_end = snp_start + v[i].ref.length();
+			if (min(ref_end_pos, snp_end) - max(ref_start_pos, snp_start) > 0) {
+				comb.push_back(v[i]);
+			}
+		}
+	}
+
+	if (comb.size() < 1) return false;
+	sort(comb.begin(), comb.end());
+	int ref_left = r_snp.pos;
+	int ref_right = ref_left + r_snp.ref.length();
+
+	int comb_size = comb.size();
+	int que_left = comb[0].pos;
+	int que_right = comb[comb_size - 1].pos + comb[comb_size - 1].ref.length();
+
+	int genome_left = min(ref_left, que_left);
+	int genome_right = max(ref_right, que_right);
+
+	genome_left = max(0, genome_left - 1);
+	genome_right = min(genome_right + 1, (int)genome_sequence.length());
+
+	string subsequence = genome_sequence.substr(genome_left, genome_right - genome_left);
+	string ref_subseq = ModifySequenceBySnp(subsequence, r_snp, genome_left);
+	string que_subseq = subsequence;
+	int edit_distance = EditDistance(ref_subseq, que_subseq);
+
+	return true;
+}
+
+void VCF::FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map, vector<SNP> & candidate_query_list) {
+	auto itlow = snp_map.lower_bound(start);
+	auto itup = snp_map.upper_bound(end);
+	// theoretically, since all snps are independent, we do not need the following two if-statement
+	// but this is engineering
+	if (itlow != snp_map.begin()) {
+		itlow--;
+	}
+	if (itup != snp_map.end()) {
+		itup++;
+	}
+
+	for (auto it = itlow; it != itup; ++it) {
+		auto v = it->second;
+		for (int i = 0; i < v.size(); i++) {
+			int snp_start = v[i].pos;
+			int snp_end = snp_start + v[i].ref.length();
+			if (min(end, snp_end) - max(start, snp_start) > 0) {
+				candidate_query_list.push_back(v[i]);
+			}
+		}
+	}
 }
 
 void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vector<SNP> > & query_snps) {
@@ -282,55 +423,29 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 
 		// for each snp in the vector
 		for (int i = 0; i < ref_snp_list.size(); i++) {
-			auto ref_ref = ref_snp_list[i].ref;
-			auto ref_alt = ref_snp_list[i].alt;
-			int ref_end_pos = ref_start_pos + ref_ref.size();
-			vector<SNP> candidate_query_list;
-
+			auto ref_snp = ref_snp_list[i];
 			// find all snps in query that locate inside the ref snp
-			for (auto qit = qit_start; qit != query_snps.end(); ++qit) {
-				int que_start_pos = qit->first;
-				auto que_snp_list = qit->second;
-				if (que_start_pos >= ref_start_pos && que_start_pos < ref_end_pos) {
-					for (int j = 0; j < que_snp_list.size(); j++) {
-						candidate_query_list.push_back(que_snp_list[i]);
-					}
-					qit_start = qit;
-				}
-				else if (que_start_pos < ref_start_pos) {
-					qit_start = qit;
-				}
-				else if (que_start_pos >= ref_end_pos) {
-					break;
-				}
-			}
+			// following is original algorithm, now it is replaced by following ExponentialComplexMatch
 
+			//for (auto qit = qit_start; qit != query_snps.end(); ++qit) {
+			//	int que_start_pos = qit->first;
+			//	auto que_snp_list = qit->second;
+			//	if (que_start_pos >= ref_start_pos && que_start_pos < ref_end_pos) {
+			//		for (int j = 0; j < que_snp_list.size(); j++) {
+			//			candidate_query_list.push_back(que_snp_list[i]);
+			//		}
+			//		qit_start = qit;
+			//	}
+			//	else if (que_start_pos < ref_start_pos) {
+			//		qit_start = qit;
+			//	}
+			//	else if (que_start_pos >= ref_end_pos) {
+			//		break;
+			//	}
+			//}
+			ExponentialComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
 
-			int candidate_size = candidate_query_list.size();
-			if (candidate_size == 0) continue;
-			
-			//check all combinations, from largest, one single match is enough
-			for (int k = candidate_query_list.size(); k >= 1; --k) {
-				vector<vector<SNP>> combinations = CreateCombinations(candidate_query_list, k);
-				bool matched = false;
-				// check combinations with k elements
-				for (auto cit = combinations.begin(); cit != combinations.end(); ++cit) {
-					auto comb = *cit;
-					if (ComplexMatch(ref_snp_list[i], *cit)) {
-						matched = true;
-
-						// delete corresponding snps
-						deleted_ref_snps.push_back(ref_snp_list[i]);
-						for(auto combit = comb.begin(); combit != comb.end(); ++combit){
-                            deleted_que_snps.push_back(*combit);
-                        }
-						break;
-					}
-				}
-				if (matched) {
-					break;
-				}
-			}
+			//GreedyComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
 		}
 	}
 
