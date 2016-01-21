@@ -6,13 +6,14 @@
 #include <map>
 #include <iostream>
 #include <tuple>
+#include <chrono>
 #include "util.h"
 #include "threadguard.h"
 using namespace std;
 
 
 typedef struct SNP {
-	SNP(int pos_ = 0, char snp_type_ = 'S', string ref_ = "", string alt_ = "") :
+    SNP(int pos_ = 0, char snp_type_ = 'S', string ref_ = "", string alt_ = "") :
 		pos(pos_), snp_type(snp_type_), ref(ref_), alt(alt_){}
 
 	int pos;
@@ -22,16 +23,9 @@ typedef struct SNP {
 }SNP;
 
 // define outside of struct, idiomatic solution for lexicographical compare for structures
-bool operator <(const SNP& x, const SNP& y) {
-	return x.pos < y.pos;
-}
+bool operator <(const SNP& x, const SNP& y);
 
-bool operator ==(const SNP& x, const SNP& y) {
-	if (x.pos == y.pos && x.snp_type == y.snp_type && x.alt == y.alt) {
-		return true;
-	}
-	return false;
-}
+bool operator ==(const SNP& x, const SNP& y);
 
 typedef vector<unordered_map<int, vector<SNP> > > SnpHash;
 typedef unordered_map<int, string> VCFEntryHash;
@@ -45,6 +39,7 @@ private:
 	vector<int> pos_boundries; // boundries for split multi hash table
 	string genome_sequence; // genome sequence from fasta file
 	bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
+    bool complex_search;
 
 	void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps);

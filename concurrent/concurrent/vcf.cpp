@@ -1,10 +1,23 @@
 #include "vcf.h"
 
+
+bool operator <(const SNP& x, const SNP& y) {
+	return x.pos < y.pos;
+}
+
+bool operator ==(const SNP& x, const SNP& y) {
+	if (x.pos == y.pos && x.snp_type == y.snp_type && x.alt == y.alt) {
+		return true;
+	}
+	return false;
+}
+
 VCF::VCF(int thread_num_)
 {
 	genome_sequence = "";
 	boundries_decided = false;
-	if (thread_num_ == 0) {
+    complex_search = false;
+    if (thread_num_ == 0) {
 		thread_num = 1;
 	}
 	else {
@@ -197,14 +210,20 @@ void VCF::DirectSearchMultiThread() {
 
 	// call join() on each thread in turn before this function?
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+
+    threads.clear();
 }
 
 string VCF::ModifySequenceBySnp(string sequence, SNP s, int offset) {
 	// [todo] unit test
 	string result = "";
 	int snp_pos = s.pos - offset;
-	int snp_end = s.pos + s.ref.length();
+	int snp_end = snp_pos + s.ref.length();
 	assert(snp_end <= sequence.length());
+    //if(snp_end > sequence.length()){
+    //    cout << "snp end greater than sequence length" << endl;
+    //    cout << snp_end << "\t" << sequence.length() << endl;
+    //}
 	result += sequence.substr(0, snp_pos);
 	result += s.alt;
 	result += sequence.substr(snp_end, sequence.length() - snp_end);
@@ -216,7 +235,7 @@ string VCF::ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset) 
 	int start_pos = 0;
 	for (int i = 0; i < s.size(); i++) {
 		int snp_pos = s[i].pos - offset;
-		int snp_end = s[i].pos + s[i].ref.length();
+		int snp_end = snp_pos + s[i].ref.length();
 		string snp_alt = s[i].alt;
 		result += sequence.substr(start_pos, snp_pos - start_pos);
 		result += snp_alt;
@@ -230,6 +249,7 @@ string VCF::ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset) 
 
 bool VCF::ComplexMatch(SNP s, vector<SNP> comb) {
 	//size of comb >= 1
+    assert(comb.size() >= 1);
 	sort(comb.begin(), comb.end());
 	int ref_left = s.pos;
 	int ref_right = ref_left + s.ref.length();
@@ -250,8 +270,12 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 	vector<SNP> deleted_ref_snps;
 	vector<SNP> deleted_que_snps;
 	// for each position in ref, i.e. a vector
-	for (auto rit = ref_snps.begin(); rit != ref_snps.end(); ++rit) {
-
+	//dout << ref_snps.size() << endl;
+    //dout << query_snps.size() << endl;
+    //int i = 0;
+    for (auto rit = ref_snps.begin(); rit != ref_snps.end(); ++rit) {
+        //i ++;
+        //dout << i << endl;
 		int ref_start_pos = rit->first;
 		auto ref_snp_list = rit->second;
 		auto qit_start = query_snps.begin();
@@ -297,8 +321,9 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 
 						// delete corresponding snps
 						deleted_ref_snps.push_back(ref_snp_list[i]);
-						auto iit = (*cit).begin();
-						deleted_que_snps.insert(iit, (*cit).begin(), (*cit).end());
+						for(auto combit = comb.begin(); combit != comb.end(); ++combit){
+                            deleted_que_snps.push_back(*combit);
+                        }
 						break;
 					}
 				}
@@ -317,11 +342,10 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 		auto pos = snp.pos;
 		auto & v = ref_snps[pos];
 		auto vit = v.begin();
-		bool found = false;
 		while (vit != v.end()) {
 			if (snp == *vit) {
 				vit = v.erase(vit);
-				found = true;
+				break;
 			}
 			else {
 				++vit;
@@ -340,6 +364,7 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 		while (vit != v.end()) {
 			if (snp == *vit) {
 				vit = v.erase(vit);
+                break;
 			}
 			else {
 				++vit;
@@ -351,15 +376,25 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 	}
 }
 
+void f(){
+    this_thread::sleep_for(chrono::seconds(2));
+    cout << "Hello World" << endl;
+}
 // match by overlapping reference region
 void VCF::ComplexSearchMultiThread() {
 	if (GetRefSnpNumber() == 0 || GetQuerySnpNumber() == 0) return;
+    complex_search = true;
 
 	// transfer data from hash to map
 	for (int i = 0; i < refpos_2_snp.size(); i++) {
 		auto & pos_snp_hash = refpos_2_snp[i];
 		for (auto rit = pos_snp_hash.begin(); rit != pos_snp_hash.end(); ++rit) {
-			refpos_snp_map[i][rit->first] = rit->second;
+			//refpos_snp_map[i][rit->first] = rit->second;
+            auto p = rit->first;
+            auto v = rit->second;
+            for(int j  = 0; j < v.size(); j++){
+                refpos_snp_map[i][p].push_back(v[j]);
+            }
 		}
 	}
 	refpos_2_snp.clear();
@@ -367,7 +402,12 @@ void VCF::ComplexSearchMultiThread() {
 	for (int i = 0; i < querypos_2_snp.size(); i++) {
 		auto & pos_snp_hash = querypos_2_snp[i];
 		for (auto qit = pos_snp_hash.begin(); qit != pos_snp_hash.end(); ++qit) {
-			querypos_snp_map[i][qit->first] = qit->second;
+			//querypos_snp_map[i][qit->first] = qit->second;
+            auto p = qit->first;
+            auto v = qit->second;
+            for(int j = 0; j < v.size(); j++){
+                querypos_snp_map[i][p].push_back(v[j]);
+            }
 		}
 	}
 	querypos_2_snp.clear();
@@ -377,17 +417,64 @@ void VCF::ComplexSearchMultiThread() {
 	//spawn threads
 	unsigned i = 0;
 	for (; i < thread_num - 1; i++) {
-		threads.push_back(thread(&VCF::ComplexSearchInThread, this, ref(refpos_snp_map[i]), ref(querypos_snp_map[i])));
+        if(i >= refpos_snp_map.size() || i >= querypos_snp_map.size()){
+            dout << "[Error] index out of map range" << endl;
+            continue;
+        }
+        if(refpos_snp_map[i].size() == 0 || querypos_snp_map[i].size() == 0){
+            continue;
+        }
+		//threads.push_back(thread(f));
+        //dout << "create new thread" << endl;
+        threads.push_back(thread(&VCF::ComplexSearchInThread, this, ref(refpos_snp_map[i]), ref(querypos_snp_map[i])));
 	}
 	// also you need to do a job in main thread
 	// i equals to (thread_num - 1)
 	if (i != thread_num - 1) {
 		dout << "[Error] thread number not match" << endl;
 	}
-	ComplexSearchInThread(refpos_snp_map[i], querypos_snp_map[i]);
+    if(i >= refpos_snp_map.size() || i >= querypos_snp_map.size()){
+        dout << "[Error] index out of map range" << endl;
+    }else if(refpos_snp_map[i].size() != 0 && querypos_snp_map[i].size() != 0){
+	    ComplexSearchInThread(refpos_snp_map[i], querypos_snp_map[i]);
+    }
 
 	// call join() on each thread in turn before this function?
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+
+    //[todo] check boundary
+    
+    //----------------------------change direction-------------------------------
+    threads.clear();
+    i = 0;
+	for (; i < thread_num - 1; i++) {
+        if(i >= refpos_snp_map.size() || i >= querypos_snp_map.size()){
+            dout << "[Error] index out of map range" << endl;
+            continue;
+        }
+        if(refpos_snp_map[i].size() == 0 || querypos_snp_map[i].size() == 0){
+            continue;
+        }
+		//threads.push_back(thread(f));
+        //dout << "create new thread" << endl;
+        threads.push_back(thread(&VCF::ComplexSearchInThread, this, ref(querypos_snp_map[i]), ref(refpos_snp_map[i])));
+	}
+	// also you need to do a job in main thread
+	// i equals to (thread_num - 1)
+	if (i != thread_num - 1) {
+		dout << "[Error] thread number not match" << endl;
+	}
+    if(i >= refpos_snp_map.size() || i >= querypos_snp_map.size()){
+        dout << "[Error] index out of map range" << endl;
+    }else if(refpos_snp_map[i].size() != 0 && querypos_snp_map[i].size() != 0){
+	    ComplexSearchInThread(querypos_snp_map[i], refpos_snp_map[i]);
+    }
+
+	// call join() on each thread in turn before this function?
+	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+    //[todo] check boundries
+    //-----------------------------------------------------------------------------
+
 }
 
 // clustering snps
@@ -398,16 +485,28 @@ void VCF::ClusteringSearch() {}
 
 int VCF::GetRefSnpNumber() {
 	int result = 0;
-	for (int i = 0; i < refpos_2_snp.size(); i++) {
-		result += refpos_2_snp[i].size();
-	}
+    if(complex_search){
+        for (int i = 0; i < refpos_snp_map.size(); i++){
+            result += refpos_snp_map[i].size();
+        }
+    }else{
+	    for (int i = 0; i < refpos_2_snp.size(); i++) {
+		    result += refpos_2_snp[i].size();
+	    }
+    }
 	return result;
 }
 
 int VCF::GetQuerySnpNumber() {
 	int result = 0;
-	for (int i = 0; i < querypos_2_snp.size(); i++) {
-		result += querypos_2_snp[i].size();
-	}
+    if(complex_search){
+        for(int i = 0; i < querypos_snp_map.size(); i++){
+            result += querypos_snp_map[i].size();
+        }
+    }else{
+	    for (int i = 0; i < querypos_2_snp.size(); i++) {
+		    result += querypos_2_snp[i].size();
+	    }   
+    }
 	return result;
 }

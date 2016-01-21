@@ -144,6 +144,8 @@ int main(int argc, char* argv[])
 	dsptime();
 	dout << " Finish complex search." << endl;
 
+	dout << " referece vcf entry number: " << vcf.GetRefSnpNumber() << endl;
+	dout << " query vcf entry number: " << vcf.GetQuerySnpNumber() << endl;
     return 0;
 }
 
