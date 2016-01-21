@@ -227,7 +227,7 @@ string VCF::ModifySequenceBySnp(string sequence, SNP s, int offset) {
 	result += sequence.substr(0, snp_pos);
 	result += s.alt;
 	result += sequence.substr(snp_end, sequence.length() - snp_end);
-	transform(result.begin(), result.end(), result.begin(), toupper);
+	transform(result.begin(), result.end(), result.begin(), ::toupper);
 	return result;
 }
 string VCF::ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset) {
@@ -245,7 +245,7 @@ string VCF::ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset) 
 	if (start_pos < sequence.length()) {
 		result += sequence.substr(start_pos, sequence.length() - start_pos);
 	}
-	transform(result.begin(), result.end(), result.begin(), toupper);
+	transform(result.begin(), result.end(), result.begin(), ::toupper);
 	return result;
 }
 
