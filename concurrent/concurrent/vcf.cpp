@@ -344,7 +344,10 @@ bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vec
 		itup++;
 	}
 
+	// we have candidate query snps stored separatedly in two data structures
+	// one according to positions
 	map<int, vector<SNP> > candidate_query_map;
+	// one purely stored
 	vector<SNP> comb;
 
 	for (auto it = itlow; it != itup; ++it) {
@@ -361,6 +364,7 @@ bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vec
 
 	if (comb.size() < 1) return false;
 	sort(comb.begin(), comb.end());
+
 	int ref_left = r_snp.pos;
 	int ref_right = ref_left + r_snp.ref.length();
 
@@ -378,6 +382,43 @@ bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vec
 	string ref_subseq = ModifySequenceBySnp(subsequence, r_snp, genome_left);
 	string que_subseq = subsequence;
 	int edit_distance = EditDistance(ref_subseq, que_subseq);
+	int que_offset = genome_left;
+
+	vector<SNP> deleted_snps;
+
+	for (auto it = candidate_query_map.begin(); it != candidate_query_map.end(); ++it) {
+		auto v = it->second;
+		SNP min_s;
+		int min_distance = INT_MAX;
+		string min_subseq;
+		for (int i = 0; i < v.size(); i++) {
+			auto s = v[i];
+			auto subseq = ModifySequenceBySnp(que_subseq, s, que_offset);
+			int distance = EditDistance(ref_subseq, subseq);
+			if (distance < min_distance) {
+				min_distance = distance;
+				min_s = s;
+				min_subseq = subseq;
+			}
+		}
+		if (min_distance < edit_distance) {
+			edit_distance = min_distance;
+			que_subseq = min_subseq;
+			que_offset += (min_s.ref.length() - min_s.alt.length());
+			deleted_snps.push_back(min_s);
+		}
+	}
+
+	if (edit_distance == 0) {
+		deleted_ref_snps.push_back(r_snp);
+		for (int i = 0; i < deleted_snps.size(); i++)
+			deleted_que_snps.push_back(deleted_snps[i]);
+
+		return true;
+	}
+	else {
+		return false;
+	}
 
 	return true;
 }
@@ -424,28 +465,10 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 		// for each snp in the vector
 		for (int i = 0; i < ref_snp_list.size(); i++) {
 			auto ref_snp = ref_snp_list[i];
-			// find all snps in query that locate inside the ref snp
-			// following is original algorithm, now it is replaced by following ExponentialComplexMatch
 
-			//for (auto qit = qit_start; qit != query_snps.end(); ++qit) {
-			//	int que_start_pos = qit->first;
-			//	auto que_snp_list = qit->second;
-			//	if (que_start_pos >= ref_start_pos && que_start_pos < ref_end_pos) {
-			//		for (int j = 0; j < que_snp_list.size(); j++) {
-			//			candidate_query_list.push_back(que_snp_list[i]);
-			//		}
-			//		qit_start = qit;
-			//	}
-			//	else if (que_start_pos < ref_start_pos) {
-			//		qit_start = qit;
-			//	}
-			//	else if (que_start_pos >= ref_end_pos) {
-			//		break;
-			//	}
-			//}
-			ExponentialComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
+			//ExponentialComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
 
-			//GreedyComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
+			GreedyComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
 		}
 	}
 
