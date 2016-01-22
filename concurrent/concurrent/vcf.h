@@ -7,6 +7,8 @@
 #include <iostream>
 #include <tuple>
 #include <chrono>
+#include <cstdint>
+#include <limits>
 #include "util.h"
 #include "threadguard.h"
 using namespace std;

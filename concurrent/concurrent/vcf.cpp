@@ -219,7 +219,9 @@ string VCF::ModifySequenceBySnp(string sequence, SNP s, int offset) {
 	string result = "";
 	int snp_pos = s.pos - offset;
 	int snp_end = snp_pos + s.ref.length();
-	assert(snp_end <= sequence.length());
+	if(snp_end > sequence.length()){
+        dout << "[Error] snp end greater than sequence length" << endl;
+    }
     //if(snp_end > sequence.length()){
     //    cout << "snp end greater than sequence length" << endl;
     //    cout << snp_end << "\t" << sequence.length() << endl;
@@ -327,7 +329,7 @@ unsigned int VCF::EditDistance(const std::string& s1, const std::string& s2)
 }
 
 bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vector<SNP> & deleted_ref_snps, vector<SNP> & deleted_que_snps) {
-
+    dout << "==" << endl;
 	int ref_start_pos = r_snp.pos;
 	auto ref_ref = r_snp.ref;
 	auto ref_alt = r_snp.alt;
@@ -350,16 +352,28 @@ bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vec
 	// one purely stored
 	vector<SNP> comb;
 
+    int que_left = std::numeric_limits<int>::max();
+    int que_right = 0;
 	for (auto it = itlow; it != itup; ++it) {
 		auto v = it->second;
-		candidate_query_map[it->first] = v;
+        bool flag = false;
 		for (int i = 0; i < v.size(); i++) {
 			int snp_start = v[i].pos;
 			int snp_end = snp_start + v[i].ref.length();
-			if (min(ref_end_pos, snp_end) - max(ref_start_pos, snp_start) > 0) {
+			//if(ref_start_pos <= snp_start && ref_end_pos >= snp_start){
+            if (min(ref_end_pos, snp_end) - max(ref_start_pos, snp_start) > 0) {
 				comb.push_back(v[i]);
+                if (que_left > snp_start ) que_left = snp_start;
+                if (que_right < snp_end) que_right = snp_end;
+                flag = true;
+                dout << "candidates:" << ref_start_pos << "," << ref_end_pos << ": ";
+                dout << snp_start << "," << snp_end << endl;
+                dout << v[i].pos << "\t" << v[i].ref << "\t" << v[i].alt << endl;
 			}
 		}
+        if(flag){
+		    candidate_query_map[it->first] = v;
+        }
 	}
 
 	if (comb.size() < 1) return false;
@@ -369,8 +383,8 @@ bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vec
 	int ref_right = ref_left + r_snp.ref.length();
 
 	int comb_size = comb.size();
-	int que_left = comb[0].pos;
-	int que_right = comb[comb_size - 1].pos + comb[comb_size - 1].ref.length();
+	//int que_left = comb[0].pos;
+	//int que_right = comb[comb_size - 1].pos + comb[comb_size - 1].ref.length();
 
 	int genome_left = min(ref_left, que_left);
 	int genome_right = max(ref_right, que_right);
@@ -382,27 +396,36 @@ bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vec
 	string ref_subseq = ModifySequenceBySnp(subsequence, r_snp, genome_left);
 	string que_subseq = subsequence;
 	int edit_distance = EditDistance(ref_subseq, que_subseq);
+    int len_distance = abs(ref_subseq.length() - que_subseq.length());
 	int que_offset = genome_left;
 
 	vector<SNP> deleted_snps;
-
+    dout << "genome sequence:" << que_subseq << endl;
+    dout << r_snp.pos << "\t" << r_snp.ref << "\t" << r_snp.alt << endl;
+    dout << "ref:" << ref_subseq << endl;
 	for (auto it = candidate_query_map.begin(); it != candidate_query_map.end(); ++it) {
 		auto v = it->second;
 		SNP min_s;
-		int min_distance = INT_MAX;
+		int min_distance = std::numeric_limits<int>::max();
+        int min_len_distance = min_distance;
 		string min_subseq;
 		for (int i = 0; i < v.size(); i++) {
 			auto s = v[i];
+            dout << que_subseq << "\t" << s.pos << "\t" << que_offset << endl;
+            dout << s.pos << "\t" << s.ref << "\t" << s.alt << endl;
 			auto subseq = ModifySequenceBySnp(que_subseq, s, que_offset);
 			int distance = EditDistance(ref_subseq, subseq);
-			if (distance < min_distance) {
+            int len_dis = abs(ref_subseq.size()- subseq.size());
+			if (distance < min_distance && len_dis <= min_len_distance) {
 				min_distance = distance;
 				min_s = s;
 				min_subseq = subseq;
+                min_len_distance = len_dis;
 			}
 		}
-		if (min_distance < edit_distance) {
-			edit_distance = min_distance;
+		if (min_distance < edit_distance && min_len_distance <= len_distance) {
+			//dout << "distance: " << edit_distance << "," << min_distance << endl;
+            edit_distance = min_distance;
 			que_subseq = min_subseq;
 			que_offset += (min_s.ref.length() - min_s.alt.length());
 			deleted_snps.push_back(min_s);
@@ -440,7 +463,8 @@ void VCF::FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map
 		for (int i = 0; i < v.size(); i++) {
 			int snp_start = v[i].pos;
 			int snp_end = snp_start + v[i].ref.length();
-			if (min(end, snp_end) - max(start, snp_start) > 0) {
+			//if(end > snp_start && start >= snp_start){
+            if (min(end, snp_end) - max(start, snp_start) > 0) {
 				candidate_query_list.push_back(v[i]);
 			}
 		}
@@ -466,9 +490,9 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 		for (int i = 0; i < ref_snp_list.size(); i++) {
 			auto ref_snp = ref_snp_list[i];
 
-			//ExponentialComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
+			ExponentialComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
 
-			GreedyComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
+			//GreedyComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
 		}
 	}
 
