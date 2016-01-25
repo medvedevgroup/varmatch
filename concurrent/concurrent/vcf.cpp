@@ -277,16 +277,19 @@ bool VCF::ExponentialComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps
 	int ref_start_pos = r_snp.pos;
 	auto ref_ref = r_snp.ref;
 	auto ref_alt = r_snp.alt;
+    int ref_change = ref_alt.length() - ref_ref.length();
 	int ref_end_pos = ref_start_pos + ref_ref.size();
 	vector<SNP> candidate_query_list;
-	FindVariantsInRange(ref_start_pos, ref_end_pos, query_snps, candidate_query_list);
+    vector<int> candidate_changes;
+	FindVariantsInRange(ref_start_pos, ref_end_pos, query_snps, candidate_query_list, candidate_changes);
 
 	int candidate_size = candidate_query_list.size();
 	if (candidate_size == 0) return false;
 	//check all combinations, from largest, one single match is enough
 	bool flag = false;
 	for (int k = candidate_query_list.size(); k >= 1; --k) {
-		vector<vector<SNP>> combinations = CreateCombinations(candidate_query_list, k);
+		vector<vector<SNP>> combinations = CreateCombinations(candidate_query_list, k, candidate_changes, ref_change);
+		//vector<vector<SNP>> combinations = CreateCombinations(candidate_query_list, k);
 		bool matched = false;
 		// check combinations with k elements
 		for (auto cit = combinations.begin(); cit != combinations.end(); ++cit) {
@@ -446,7 +449,7 @@ bool VCF::GreedyComplexMatch(SNP r_snp, map<int, vector<SNP> > & query_snps, vec
 	return true;
 }
 
-void VCF::FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map, vector<SNP> & candidate_query_list) {
+void VCF::FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map, vector<SNP> & candidate_query_list, vector<int>& candidate_changes) {
 	auto itlow = snp_map.lower_bound(start);
 	auto itup = snp_map.upper_bound(end);
 	// theoretically, since all snps are independent, we do not need the following two if-statement
@@ -463,9 +466,11 @@ void VCF::FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map
 		for (int i = 0; i < v.size(); i++) {
 			int snp_start = v[i].pos;
 			int snp_end = snp_start + v[i].ref.length();
+            int change = v[i].alt.length() - v[i].ref.length();
 			//if(end > snp_start && start >= snp_start){
             if (min(end, snp_end) - max(start, snp_start) > 0) {
 				candidate_query_list.push_back(v[i]);
+                candidate_changes.push_back(change);
 			}
 		}
 	}

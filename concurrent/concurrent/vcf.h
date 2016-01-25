@@ -50,7 +50,8 @@ private:
 	
 	//template function can only be defined in head file
 	template <typename T>
-	vector<vector<T>> CreateCombinations(vector<T> dict, int k) {
+	vector<vector<T>> CreateCombinations(vector<T> dict, int k, vector<int> changes, int target) {
+	//vector<vector<T>> CreateCombinations(vector<T> dict, int k) {
 		vector<vector<T>> result;
 		int n = dict.size();
 		vector<bool> v(n);
@@ -58,10 +59,16 @@ private:
 
 		do {
 			vector<T> t;
+            int sum = 0;
 			for (int i = 0; i < n; ++i) {
-				if (v[i]) t.push_back(dict[i]);
+				if (v[i]){
+                    t.push_back(dict[i]);
+                    sum += changes[i];
+                }
 			}
-			result.push_back(t);
+            if(sum == target){
+			    result.push_back(t);
+            }
 		} while (prev_permutation(v.begin(), v.end()));
 		return result;
 	}
@@ -72,7 +79,7 @@ private:
 
 	string ModifySequenceBySnp(string sequence, SNP s, int offset);
 	string ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset);
-	void FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map, vector<SNP> & candidate_query_list);
+	void FindVariantsInRange(int start, int end, map<int, vector<SNP> > snp_map, vector<SNP> & candidate_query_list, vector<int> & candidate_changes);
 	unsigned int EditDistance(const std::string& s1, const std::string& s2);
 public:
 	VCF(int thread_num_ = 0);
