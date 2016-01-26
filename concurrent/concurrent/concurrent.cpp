@@ -101,51 +101,10 @@ int main(int argc, char* argv[])
 	//args.thread_num = 8;
 
 	VCF vcf(args.thread_num);
-	dsptime();
-	dout << " Read genome sequence file... " << endl;
-	vcf.ReadGenomeSequence(args.genome_seq_filename);
-	dsptime();
-	dout << " Finish reading genome sequence file." << endl;
-
-	dsptime();
-	dout << " Read reference vcf file... " << endl;
-	//vcf.ReadRefVCF(args.ref_vcf_filename);
-	//thread t(&VCF::ReadRefVCF, vcf, args.ref_vcf_filename);
-	vcf.ReadRefVCF(args.ref_vcf_filename);
-
-	
-	dsptime();
-	dout << " Read query vcf file... " << endl;
-	vcf.ReadQueryVCF(args.que_vcf_filename);
-
-	//t.join();
-	dsptime();
-	dout << " Finish reading all vcf file." << endl;
-	// check numbers
-	dout << " referece vcf entry number: " << vcf.GetRefSnpNumber() << endl;
-	dout << " query vcf entry number: " << vcf.GetQuerySnpNumber() << endl;
-
-	
-	dsptime();
-	dout << " Direct search ... " << endl;
-	vcf.DirectSearchMultiThread();
-	dsptime();
-	dout << " Finish direct search." << endl;
-
-	// check numbers
-	dout << " referece vcf entry number: " << vcf.GetRefSnpNumber() << endl;
-	dout << " query vcf entry number: " << vcf.GetQuerySnpNumber() << endl;
-
-	if (args.direct_search) return 0;
-
-	dsptime();
-	dout << " Complex search ... " << endl;
-	vcf.ComplexSearchMultiThread();
-	dsptime();
-	dout << " Finish complex search." << endl;
-
-	dout << " referece vcf entry number: " << vcf.GetRefSnpNumber() << endl;
-	dout << " query vcf entry number: " << vcf.GetQuerySnpNumber() << endl;
+	vcf.Compare(args.ref_vcf_filename,
+			args.que_vcf_filename,
+			args.genome_seq_filename,
+			args.direct_search);
     return 0;
 }
 
