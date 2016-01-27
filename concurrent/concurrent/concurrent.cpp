@@ -23,7 +23,7 @@ typedef struct Args {
 bool ParserArgs(Args & args, int argc, char* argv[]) {
 	//ez command parsing
 	args.direct_search = false;
-
+    args.thread_num = 1;
 	for (int i = 1; i < argc - 1; i++)
 	{
 		if (!strcmp(argv[i], "-r")) {
@@ -77,7 +77,13 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 int usage(char* command) {
 	cout << "\n";
 	cout << "\tPlease cite our paper if you are using this program in your research." << endl;
-	cout << endl;
+    cout << endl;
+	cout << "Usage: " << endl;
+    cout << command << " -g genome_file(FASTA format)" << endl;
+    cout << "\t-r reference_vcf_file" << endl;
+    cout << "\t-q query_vcf_file" << endl;
+    cout << "\t[-t thread_number]" << endl;
+    cout << endl;
 
 	return 0;
 }
@@ -87,7 +93,7 @@ int main(int argc, char* argv[])
 	dout << "Debug Mode" << endl;
 	if (argc < 2) {
 		usage(argv[0]);
-		//return 0;
+		return 0;
 	}
 	Args args;
 	if (!ParserArgs(args, argc, argv)) {

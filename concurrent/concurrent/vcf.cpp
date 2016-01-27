@@ -638,7 +638,6 @@ void VCF::ComplexSearchMultiThread() {
 	}
 	querypos_2_snp.clear();
 
-    return;
 	vector<thread> threads;
 	//spawn threads
 	unsigned i = 0;
@@ -733,9 +732,10 @@ bool VCF::CheckTandemRepeat(string sequence) {
 void VCF::ClusteringSnps(int threshold, int lower_bound) {
 	// firstly assign ref/que to each snps correctly
     //
-    int num = 0;
-	for (int i = 0; i < refpos_snp_map.size(); i++) {
-		auto & m = refpos_snp_map[i];
+
+    //int num = 0;
+	for (int i = 0; i < refpos_2_snp.size(); i++) {
+		auto & m = refpos_2_snp[i];
 		for (auto it = m.begin(); it != m.end(); ++it) {
 			auto & v = it->second;
 			for (int k = 0; k < v.size(); k++) {
@@ -743,33 +743,33 @@ void VCF::ClusteringSnps(int threshold, int lower_bound) {
 					v[k].flag = 1;
 				}
 				data_list.push_back(v[k]);
-                num ++;
+                //num ++;
 			}
 		}
 	}
-    dout << "ref num: " << num << endl;
+    //dout << "ref num: " << num << endl;
 
-    num = 0;
-	for (int i = 0; i < querypos_snp_map.size(); i++) {
-		auto & m = querypos_snp_map[i];
+    //num = 0;
+	for (int i = 0; i < querypos_2_snp.size(); i++) {
+		auto & m = querypos_2_snp[i];
 		for (auto it = m.begin(); it != m.end(); ++it) {
 			auto & v = it->second;
 			for (int k = 0; k < v.size(); k++) {
 				v[k].flag = -1;
 				data_list.push_back(v[k]);
-                num ++;
+                //num ++;
 			}
 		}
 	}
 
-    dout << "que num: " << num << endl;
-
+    //dout << "que num: " << num << endl;
+    
 	if (data_list.size() == 0)
 		return;
 
     sort(data_list.begin(), data_list.end());
 
-    num = 0;
+    //num = 0;
 	int cluster_index = 0;
 	int previous_data = 0;
 
@@ -789,12 +789,12 @@ void VCF::ClusteringSnps(int threshold, int lower_bound) {
 		}
 
 		cluster_snps_map[cluster_index].push_back(snp);
-		num ++;
+		//num ++;
         int current_data = snp.pos + snp.ref.length();
 		if (previous_data < current_data)
 			previous_data = current_data;
 	}
-    cout << "total num: " << num << endl;
+    //cout << "total num: " << num << endl;
 }
 
 bool VCF::MatchSnpLists(vector<SNP> ref_snp_list, vector<SNP> query_snp_list, vector<SNP> & mixed_list, string subsequence, int offset) {
@@ -1022,7 +1022,7 @@ void VCF::Compare(string ref_vcf, string query_vcf, string genome_seq, bool dire
 	//------------complex search
 	//dsptime();
 	//dout << " Complex search ... " << endl;
-	ComplexSearchMultiThread();
+	//ComplexSearchMultiThread();
 	//dsptime();
 	//dout << " Finish complex search." << endl;
 	//dout << " referece vcf entry number: " << GetRefSnpNumber() << endl;
