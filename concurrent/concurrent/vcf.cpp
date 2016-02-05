@@ -728,12 +728,12 @@ bool VCF::CheckTandemRepeat(string sequence) {
 	return final_checking;
 }
 
-// clustering snps
-void VCF::ClusteringSnps(int threshold, int lower_bound) {
-	// firstly assign ref/que to each snps correctly
-    //
-
-    //int num = 0;
+/*
+	clustering snps
+	algorithm description, please refer to paper method
+*/
+void VCF::ClusteringSnps() {
+	//int num = 0;
 	for (int i = 0; i < refpos_2_snp.size(); i++) {
 		auto & m = refpos_2_snp[i];
 		for (auto it = m.begin(); it != m.end(); ++it) {
@@ -743,13 +743,13 @@ void VCF::ClusteringSnps(int threshold, int lower_bound) {
 					v[k].flag = 1;
 				}
 				data_list.push_back(v[k]);
-                //num ++;
+				//num ++;
 			}
 		}
 	}
-    //dout << "ref num: " << num << endl;
+	//dout << "ref num: " << num << endl;
 
-    //num = 0;
+	//num = 0;
 	for (int i = 0; i < querypos_2_snp.size(); i++) {
 		auto & m = querypos_2_snp[i];
 		for (auto it = m.begin(); it != m.end(); ++it) {
@@ -757,19 +757,98 @@ void VCF::ClusteringSnps(int threshold, int lower_bound) {
 			for (int k = 0; k < v.size(); k++) {
 				v[k].flag = -1;
 				data_list.push_back(v[k]);
-                //num ++;
+				//num ++;
 			}
 		}
 	}
 
-    //dout << "que num: " << num << endl;
-    
+	//dout << "que num: " << num << endl;
+
 	if (data_list.size() == 0)
 		return;
 
+	sort(data_list.begin(), data_list.end());
+
+	int cluster_index = 0;
+	int ins_ref = 0;
+	int del_ref = 0;
+	int ins_que = 0;
+	int del_que = 0;
+
+	for (int i = 0; i < data_list.size(); i++) {
+		auto snp = data_list[i];
+		// check if need to separator clusters
+		if (i > 0) {
+			int start = data_list[i - 1].pos + data_list[i - 1].ref.length();
+			int end = snp.pos;
+			string separator = genome_sequence.substr(start, end - start);
+			if (separator.length() > 2 * max(ins_ref + del_que, ins_que + del_ref) && !CheckTandemRepeat(separator)) {
+				cluster_index++;
+				ins_ref = 0;
+				del_ref = 0;
+				ins_que = 0;
+				del_que = 0;
+			}
+		}
+		// assign snp to cluster
+		cluster_snps_map[cluster_index].push_back(snp);
+		
+		int ref_length = snp.ref.length();
+		int alt_length = snp.alt.length();
+		int diff_length = abs(ref_length - alt_length);
+		if (snp.flag == 1) {
+			if (snp.snp_type == 'I') {
+				ins_ref += diff_length;
+			}
+			else if (snp.snp_type == 'D') {
+				del_ref += diff_length;
+			}
+		}
+		else {
+			if (snp.snp_type == 'I') {
+				ins_que += diff_length;
+			}
+			else if (snp.snp_type == 'D') {
+				del_que += diff_length;
+			}
+		}
+	}
+
+}
+
+/* 
+	clustering snps
+	old algorithm, fixed length bound and threshold
+	expected to have almost the same result but maybe worse than new algorithm
+	keep old algorithm for testing
+ */
+void VCF::ClusteringSnpsOldAlgorithm(int threshold, int lower_bound) {
+	for (int i = 0; i < refpos_2_snp.size(); i++) {
+		auto & m = refpos_2_snp[i];
+		for (auto it = m.begin(); it != m.end(); ++it) {
+			auto & v = it->second;
+			for (int k = 0; k < v.size(); k++) {
+				if (v[k].flag != 1) {
+					v[k].flag = 1;
+				}
+				data_list.push_back(v[k]);
+			}
+		}
+	}
+	for (int i = 0; i < querypos_2_snp.size(); i++) {
+		auto & m = querypos_2_snp[i];
+		for (auto it = m.begin(); it != m.end(); ++it) {
+			auto & v = it->second;
+			for (int k = 0; k < v.size(); k++) {
+				v[k].flag = -1;
+				data_list.push_back(v[k]);
+			}
+		}
+	}
+	if (data_list.size() == 0)
+		return;
     sort(data_list.begin(), data_list.end());
 
-    //num = 0;
 	int cluster_index = 0;
 	int previous_data = 0;
 
@@ -787,14 +866,11 @@ void VCF::ClusteringSnps(int threshold, int lower_bound) {
 					cluster_index++;
 			}
 		}
-
 		cluster_snps_map[cluster_index].push_back(snp);
-		//num ++;
         int current_data = snp.pos + snp.ref.length();
 		if (previous_data < current_data)
 			previous_data = current_data;
 	}
-    //cout << "total num: " << num << endl;
 }
 
 bool VCF::MatchSnpLists(vector<SNP> ref_snp_list, vector<SNP> query_snp_list, vector<SNP> & mixed_list, string subsequence, int offset) {
@@ -856,6 +932,7 @@ bool VCF::MatchSnpLists(vector<SNP> ref_snp_list, vector<SNP> query_snp_list, ve
                         }
 					}
 				}
+				//[todo] maybe multi-matching are in one cluster, should check left variants
 				return true;
 			}
 		}

@@ -128,6 +128,8 @@ private:
 
 	bool MatchSnpLists(vector<SNP> ref_snp_list, vector<SNP> query_snp_list, vector<SNP> & mixed_list, string subsequence, int offset);
 
+	void ClusteringSnpsOldAlgorithm(int threshold = 400, int lower_bound = 10);
+
 	//---------------------------following can be public:---------------------------
 
 public:
@@ -155,7 +157,7 @@ public:
 	void ReadGenomeSequence(string filename);
 	void DirectSearchMultiThread();
 	void ComplexSearchMultiThread();
-	void ClusteringSnps(int threshold = 400, int lower_bound = 10);
+	void ClusteringSnps();
 	// default value better be in declaration, or definition, but never both
 	void ClusteringSearchMultiThread();
 
