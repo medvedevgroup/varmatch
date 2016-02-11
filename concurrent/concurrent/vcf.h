@@ -38,12 +38,14 @@ typedef vector<map<int, vector<SNP> > > SnpMap;
 class VCF
 {
 private:
+    int debug_f;
 	int thread_num;
 	vector<int> pos_boundries; // boundries for split multi hash table
 	string genome_sequence; // genome sequence from fasta file
 	bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
     bool complex_search;
 	bool clustering_search;
+    const static int MAX_REPEAT_LEN = 1000;
 
 	void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
 	void DecideBoundries();
@@ -122,11 +124,15 @@ private:
 									vector<SNP> & candidate_query_list,
 									vector<int> & candidate_changes);
 	unsigned int EditDistance(const std::string& s1, const std::string& s2);
-	bool CheckTandemRepeat(string sequence);
+	bool CheckTandemRepeat(string sequence, int unit_threshold);
 
 	void ClusteringSearchInThread(int start, int end);
 
-	bool MatchSnpLists(vector<SNP> ref_snp_list, vector<SNP> query_snp_list, vector<SNP> & mixed_list, string subsequence, int offset);
+	bool MatchSnpLists(vector<SNP> & ref_snp_list,
+            vector<SNP> & query_snp_list,
+            vector<SNP> & mixed_list,
+            string subsequence,
+            int offset);
 
 	void ClusteringSnpsOldAlgorithm(int threshold = 400, int lower_bound = 10);
 
