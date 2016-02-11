@@ -3,7 +3,7 @@ CXXFLAGS=-g -std=c++11 -pthread
 
 all: concurrent
 
-concurrent: concurrent.cpp vcf.cpp vcf.h util.cpp
+concurrent: concurrent.cpp vcf.cpp util.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 clean:

@@ -110,8 +110,8 @@ private:
 								vector<SNP> & deleted_ref_snps,
 								vector<SNP> & deleted_que_snps);
 
-	string ModifySequenceBySnp(string sequence, SNP s, int offset);
-	string ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset);
+	string ModifySequenceBySnp(const string sequence, SNP s, int offset);
+	string ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset);
 	void FindVariantsInRange_NlgN(int start,
 								int end,
 								map<int, vector<SNP> > snp_map,
@@ -131,7 +131,7 @@ private:
 	bool MatchSnpLists(vector<SNP> & ref_snp_list,
             vector<SNP> & query_snp_list,
             vector<SNP> & mixed_list,
-            string subsequence,
+            const string subsequence,
             int offset);
 
 	void ClusteringSnpsOldAlgorithm(int threshold = 400, int lower_bound = 10);

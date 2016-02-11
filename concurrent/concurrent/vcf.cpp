@@ -216,7 +216,7 @@ void VCF::DirectSearchMultiThread() {
     threads.clear();
 }
 
-string VCF::ModifySequenceBySnp(string sequence, SNP s, int offset) {
+string VCF::ModifySequenceBySnp(const string sequence, SNP s, int offset) {
 	// [todo] unit test
 	string result = "";
 	int snp_pos = s.pos - offset;
@@ -234,21 +234,37 @@ string VCF::ModifySequenceBySnp(string sequence, SNP s, int offset) {
 	transform(result.begin(), result.end(), result.begin(), ::toupper);
 	return result;
 }
-string VCF::ModifySequenceBySnpList(string sequence, vector<SNP> s, int offset) {
+string VCF::ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset) {
 	// [todo] unit test
-	string result = "";
+	string result = sequence;
 	int start_pos = 0;
-	for (int i = 0; i < s.size(); i++) {
+    if(s.size() == 1){
+        return ModifySequenceBySnp(sequence, s[0], offset);
+    }
+    sort(s.begin(), s.end());
+    //dout << sequence << endl;
+	for (int i = s.size()-1; i >= 0; i--) {
 		int snp_pos = s[i].pos - offset;
 		int snp_end = snp_pos + s[i].ref.length();
 		string snp_alt = s[i].alt;
-		result += sequence.substr(start_pos, snp_pos - start_pos);
-		result += snp_alt;
-		start_pos = snp_end;
-	}
-	if (start_pos < sequence.length()) {
-		result += sequence.substr(start_pos, sequence.length() - start_pos);
-	}
+		//result += sequence.substr(start_pos, snp_pos - start_pos);
+		//result += snp_alt;
+		//start_pos = snp_end;
+        int result_length = result.length();
+        if(snp_pos > result_length || snp_end > result_length){
+        //    dout << "[Warning] overlapping variants detected" << endl;
+        //    dout << "=============================" << endl;
+	    //    dout << result << endl;
+        //    dout << snp_pos << "," << snp_end << "," << s[i].ref << "," << s[i].alt << endl;
+            result = sequence;
+            transform(result.begin(), result.end(), result.begin(), ::toupper);
+            return result;
+        }
+        result = result.substr(0, snp_pos) + s[i].alt + result.substr(snp_end, result_length-snp_end);
+    }
+	//if (start_pos < sequence.length()) {
+	//	result += sequence.substr(start_pos, sequence.length() - start_pos);
+	//}
 	transform(result.begin(), result.end(), result.begin(), ::toupper);
 	return result;
 }
@@ -819,6 +835,12 @@ void VCF::ClusteringSnps() {
                 }
             }
 		}
+        //if(snp.pos == 167582762 || snp.pos == 167582766){
+        //if(cluster_index == 30166){
+        //    dout << snp.flag << "\t" << snp.pos << "\t" << snp.ref << "\t" << snp.alt << endl;
+        //    dout << c_end << "," << c_start << endl;
+        //    dout << cluster_index << endl;
+        //}
 
         if(c_start < snp.pos + snp.ref.length()) c_start = snp.pos + snp.ref.length();
 		
@@ -846,7 +868,7 @@ void VCF::ClusteringSnps() {
 			}
 		}
 	}
-    cout << cluster_index << " clusters" << endl;
+    //cout << cluster_index << " clusters" << endl;
 }
 
 /* 
@@ -910,7 +932,7 @@ void VCF::ClusteringSnpsOldAlgorithm(int threshold, int lower_bound) {
 bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                         vector<SNP> & query_snp_list,
                         vector<SNP> & mixed_list,
-                        string subsequence,
+                        const string subsequence,
                         int offset)
 {
     //dout << "try match" << endl;
@@ -918,6 +940,9 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 	sort(mixed_list.begin(), mixed_list.end());
 
 	int ref_index = 0;
+    //if(debug_f == -1){
+    //    dout << "ref:" << endl;
+    //}
 	for (int i = ref_snp_list.size(); i >= 1; i--) {
 		vector<vector<SNP> > combinations = CreateCombinations(ref_snp_list, i);
 		//dout << ref_snp_list.size() << "\t" << i << "\t" << combinations.size() << endl;
@@ -926,18 +951,25 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 			ref_index++;
             
             //dout << subsequence << endl;
+            //if(debug_f == -1){
             //for(int j = 0; j < c.size(); j++){
-            //    dout << c[j].flag << "," << c[j].pos << "," << c[j].ref << "," << c[j].alt << endl;
+            //    dout << c[j].flag << "," << c[j].pos << "," << c[j].ref << "," << c[j].alt << ":";
+            //}
             //}
             //dout << offset << endl;
 			
             string ref_sequence = ModifySequenceBySnpList(subsequence, c, offset);
-			ref_choice_snps[ref_sequence] = c;
+			//if(debug_f == -1){
+            //    dout << ref_sequence << endl;
+            //}
+            ref_choice_snps[ref_sequence] = c;
 		}
 	}
 
     //dout << "hello world" << endl;
-
+    if(debug_f == -1){
+        dout << "que:" << endl;
+    }
     //dout << '@' << query_snp_list.size() << endl;
 	for (int i = query_snp_list.size(); i >= 1; i--) {
 		vector<vector<SNP> > combinations = CreateCombinations(query_snp_list, i);
@@ -945,12 +977,20 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 			auto c = combinations[k];
 		    //dout  << "@" << i << "\t" << combinations.size() << endl;
 			string que_sequence = ModifySequenceBySnpList(subsequence, c, offset);
+            //if(debug_f == -1){
+            //for(int j = 0; j < c.size(); j++){
+            //    dout << c[j].flag << "," << c[j].pos << "," << c[j].ref << "," << c[j].alt << ":";
+            //}
+            //dout << que_sequence << endl;
+            //}
 			if (ref_choice_snps.find(que_sequence) != ref_choice_snps.end()) {
 				// delete all matched
                 auto r = ref_choice_snps[que_sequence];
 				//dout << "$$matched: " << c.size() << "\t" << r.size() << endl;
 				sort(r.begin(), r.end());
-                //dout << "#match" << endl;
+                //if(debug_f == -1){
+                //    dout << "#match" << endl;
+                //}
                 //dout << "ref:";
 				for (int m = 0; m < r.size(); m++) {
 					SNP r_snp = r[m];
@@ -990,7 +1030,7 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                             m_snp.alt == q_snp.alt &&
                             m_snp.flag == q_snp.flag)
                         {
-                  //          dout << m_snp.pos << "," << m_snp.ref << "," << m_snp.alt << "," << m_snp.flag << ":";
+                            //dout << m_snp.pos << "," << m_snp.ref << "," << m_snp.alt << "," << m_snp.flag << ":";
 							mixed_list.erase(n);
                             break;
                         }
@@ -1018,7 +1058,6 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 }
 
 void VCF::ClusteringSearchInThread(int start, int end) {
-    debug_f = -1;
     for (int cluster_id = start; cluster_id < end; cluster_id++) {
 		if (cluster_snps_map.find(cluster_id) != cluster_snps_map.end()) {
 			
@@ -1049,7 +1088,11 @@ void VCF::ClusteringSearchInThread(int start, int end) {
 			if (candidate_ref_snps.size() <= 1 && candidate_que_snps.size() <= 1) continue;
 			//dout << cluster_id << " before matching: " << snp_list.size() << endl;
 			//dout << candidate_ref_snps.size() << "\t" << candidate_que_snps.size() << endl;
-		    
+		    //if(cluster_id == 30166){
+            //    debug_f = -1;
+            //}else{
+            //    debug_f = 1;
+            //} 
             
             if(candidate_ref_snps.size() > 10 || candidate_que_snps.size() > 10){
                 //need re-clustering
