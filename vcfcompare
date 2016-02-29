@@ -2,6 +2,7 @@
 
 import sys
 
+author_email = 'chensun@cse.psu.edu'
 versionError = 'You are using an old version of python, please upgrade to python 2.7+\n'
 
 if sys.hexversion < 0x02070000:
@@ -11,6 +12,7 @@ if sys.hexversion < 0x02070000:
 import subprocess
 import argparse
 import os
+import sys
 
 citation = 'Please cite our paper'
 
@@ -21,6 +23,10 @@ parser.add_argument('-g', '--genome', required=True, help='genome sequence file 
 parser.add_argument('-t', '--thread', default='1', help='thread number for parallel')
 parser.add_argument('-n', '--no_normalize', action='store_true', help='if activate, program will not normalize reference vcf and query vcf file before comparing')
 parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
+parser.add_argument('-m', '--multi_genome', help='genome sequence file directory containing multi genome files')
+# strategy for whole genome:
+#   since current version of vt-normalize can not handle whole genome sequence data
+#   vcfcompare split whole genome data according to chromosome detected in --whole-genome directory
 args = parser.parse_args()
 
 def shell_run(command):
@@ -31,12 +37,43 @@ def shell_run(command):
         print(command)
         subprocess.call(command, shell=True)
 
+def check_command(command): 
+    """
+    check if corresponding command available
+    """
+    if os.path.isfile(command):
+        return True
+
+    for cmdpath in os.environ['PATH'].split(':'):
+        if os.path.isdir(cmdpath) and command in os.listdir(cmdpath):
+            return True
+    return False
+
 ref_vcf_filename = args.reference
 que_vcf_filename = args.query
 genome_filename = args.genome
+script_path = sys.path[0]
+normalize_tool = script_path + '/vt/vt normalize'
+compare_tool = script_path + '/concurrent/concurrent/concurrent'
+
+if not check_command(normalize_tool):
+    if check_command('vt normalize'):
+        normalize_tool = 'vt normalize'
+    else:
+        print ('Error: can not find program: '+ normalize_tool)
+        print ('\t Try make before execute, or contact author for service: ' + author_email)
+
+if not check_command(compare_tool):
+    print ('Error: can not find program: '+ compare_tool)
+    print ('\t Try make before execute, or contact author for service: ' + author_email)
+genome_list = []
+ref_vcf_list = []
+que_vcf_list = []
 
 if(not args.no_normalize):
     ref_vcf_filename = args.reference + '.norm'
     que_vcf_filename = args.query + '.norm'
     print('Normalizing reference vcf file...')
-    normalize_command = './vt/vt normalize args.reference -r ' + genome_filename + ' -o ' + ref_vcf_filename
+    normalize_command = './vt/vt normalize ' + args.reference + ' -r ' + genome_filename + ' -o ' + ref_vcf_filename
+    print('Normalizing query vcf file...')
+    normalize_command = './vt/vt normalize'
