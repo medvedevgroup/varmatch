@@ -4,6 +4,7 @@ all: vm vt
 vm:
 	$(MAKE) -C src all
 	chmod +x varmatch
+	chmod +x purify
 	
 vt:
 	$(MAKE) -C vt 

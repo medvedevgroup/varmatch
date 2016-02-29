@@ -12,7 +12,6 @@ if sys.hexversion < 0x02070000:
 import subprocess
 import argparse
 import os
-import sys
 
 citation = 'Please cite our paper'
 
@@ -24,7 +23,7 @@ parser.add_argument('-t', '--thread', default='1', help='thread number for paral
 parser.add_argument('-n', '--no_normalize', action='store_true', help='if activate, program will not normalize reference vcf and query vcf file before comparing')
 parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
 parser.add_argument('--multi_genome', help='genome sequence file directory containing multi genome FASTA files')
-parser.add_argument('-o', '--output', help='output directory, defaul is the current directory')
+parser.add_argument('-o', '--output', help='output directory, default is the current directory')
 parser.add_argument('-v', '--visualize', help='visualize results')
 
 # strategy for whole genome:

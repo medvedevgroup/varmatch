@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+
+from sys import argv
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--input', help='original vcf file')
+parser.add_argument('-o', '--output', help='purified vcf file')
+parser.add_argument('-g', '--genome', help='genome FASTA file')
+args = parser.parse_args()
+
+refFilename = args.genome
+vcfFilename = args.input
+purifyFilename = args.output
+
+def read_reference(refFilename):
+    sequence = ''
+    refFile = open(refFilename)
+
+    for line in refFile.readlines():
+        if line.startswith(">"):
+            continue
+        line = line.strip()
+        sequence += line
+    refFile.close()
+    return sequence
+
+def main():
+    vcfFile = open(vcfFilename)
+    purifyFile = open(purifyFilename, "w")
+    
+    references = {}
+    for r in refList:
+        refFilename = refDir + '/chr' + r + '.fa'
+        references['chr'+r] = read_reference(refFilename)
+
+    num = 0
+    heteNum = 0
+
+    for line in vcfFile.readlines():
+        if line.startswith("#"):
+            purifyFile.write(line)
+            continue
+        line = line.strip()
+        columns = line.split("\t")
+        chrom = columns[0]
+        pos = int(columns[1]) - 1
+        reservedRef = columns[3]
+        reservedAlt = columns[4]
+        ref = columns[3].upper()
+        alt = columns[4].upper()
+        end = pos + len(ref)
+        refSeq = references[chrom][pos:end].upper()
+        info = columns[7].split(";")[2]
+        infoId = info.split("=")[1]
+
+        if ref != refSeq:
+            if alt == refSeq:
+                columns[4] = reservedRef
+                columns[3] = reservedAlt
+                columns[7] += '*'
+                result = "\t".join(columns)
+                heteNum += 1
+                purifyFile.write(result+"\n")
+            else:
+                print pos+1, ref, alt, refSeq, infoId
+                num += 1
+        else:
+            purifyFile.write(line+"\n")
+    vcfFile.close()
+    purifyFile.close()
+    print(num, heteNum)
+
+if __name__ == '__main__':
+    main()
