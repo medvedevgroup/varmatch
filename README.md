@@ -16,7 +16,7 @@ make all
 :warning: Use recursive clone(`--recursive`) as VarMatch dependes on submodules.
 
 **Install Without Normalization:**
-VarMatch use vt normalize to normalize variants, but normalization is not necessary. If you do not want normalization, use following command to build:
+VarMatch use `vt normalize` to normalize variants, but normalization is not necessary. If you do not want normalization, use following command to build:
 ```
 git clone https://github.com/medvedevgroup/varmatch.git
 cd varmatch
