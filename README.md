@@ -33,7 +33,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - -q query vcf file
 - -g genome fasta file
 
-use -h/--help for detailed help message.
+use `-h/--help` for detailed help message.
 
 **Detailed Usage:**
 ```
