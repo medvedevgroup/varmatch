@@ -1,40 +1,40 @@
-# VCF-Compare
-VCF entries cross-validating tool
+# VarMatch
+matching equivalent genetic variants with different complex representations
+
 # Prerequite
-python 3.0+
+python 2.7 or later
+GCC 4.7 or later for c++11 support
+
 # Installation
-Directly download the directory
+You can build VarMatch from source. Use recursive clone for VarMatch submodules.
+```
+git clone --recursive https://github.com/medvedevgroup/varmatch.git
+cd varmatch
+make all
+```
+
+VarMatch use vt normalize to normalize variants, but normalization is not necessary. If you do not want normalization, use following command to build:
+```
+git clone https://github.com/medvedevgroup/varmatch.git
+cd varmatch
+make varmatch
+```
+And when using VarMatch, use `-n` parameter to indicate that you do not need normalization.
+
 # Usage
 **Quick Usage:**
 ```
-python3 ./vcfcompare.py -r one.vcf -q another.vcf -g chr1.fa
+varmatch -r one.vcf -q another.vcf -g chr1.fa
 ```
+-r reference vcf file name
+-q query vcf file name
+-g genome fasta file name
+
 use -h/--help for detailed help message.
-Note VCF file need to be normalized first to get accurate match.
 
 **Detailed Usage:**
 ```
-usage: vcfcompare.py [-h] -r REFERENCE -q QUERY -g GENOME [-p FALSE_POSITIVE]
-                     [-n FALSE_NEGATIVE] [-o OUTPUT] [-d] [-c CHR] [-s STAT]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -r REFERENCE, --reference REFERENCE
-                        reference vcf file path, usually larger than query vcf file
-  -q QUERY, --query QUERY
-                        query vcf file path
-  -g GENOME, --genome GENOME
-                        reference genome file path, fasta file format
-  -p FALSE_POSITIVE, --false_positive FALSE_POSITIVE
-                        false positive, i.e. mismatch vcf entries in query vcf file, default=false_positive.vcf
-  -n FALSE_NEGATIVE, --false_negative FALSE_NEGATIVE
-                        false negative, i.e. mismatch vcf entries in reference vcf file, default=false_negative.vcf
-  -o OUTPUT, --output OUTPUT
-                        output matched variants in stage 2 and 3, default=multi_match.out
-  -d, --direct_search   if activate, only perform stage 1, default=not activate
-  -c CHR, --chr CHR     chromosome name or id, used for parallel multi genome analysis
-  -s STAT, --stat STAT  append statistics result into a file, useful for parallel multi genome analysis
-
+TBA
 ```
 
 # Output
@@ -50,3 +50,6 @@ optional arguments:
  alt mismatch: Number of mismatch in query VCF file
 
 ```
+# VarMatch Parallel Mode
+VarMatch supports parallel computing with `-t ` parameter.
+Parallel computing is based on C++11 Concurrency standard.

@@ -24,6 +24,7 @@ parser.add_argument('-t', '--thread', default='1', help='thread number for paral
 parser.add_argument('-n', '--no_normalize', action='store_true', help='if activate, program will not normalize reference vcf and query vcf file before comparing')
 parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
 parser.add_argument('-m', '--multi_genome', help='genome sequence file directory containing multi genome files')
+
 # strategy for whole genome:
 #   since current version of vt-normalize can not handle whole genome sequence data
 #   vcfcompare split whole genome data according to chromosome detected in --whole-genome directory
@@ -54,14 +55,7 @@ que_vcf_filename = args.query
 genome_filename = args.genome
 script_path = sys.path[0]
 normalize_tool = script_path + '/vt/vt normalize'
-compare_tool = script_path + '/concurrent/concurrent/concurrent'
-
-if not check_command(normalize_tool):
-    if check_command('vt normalize'):
-        normalize_tool = 'vt normalize'
-    else:
-        print ('Error: can not find program: '+ normalize_tool)
-        print ('\t Try make before execute, or contact author for service: ' + author_email)
+compare_tool = script_path + '/vm/vm'
 
 if not check_command(compare_tool):
     print ('Error: can not find program: '+ compare_tool)
@@ -71,6 +65,14 @@ ref_vcf_list = []
 que_vcf_list = []
 
 if(not args.no_normalize):
+    # check if vt normalize exist
+    if not check_command(normalize_tool):
+        if check_command('vt normalize'):
+            normalize_tool = 'vt normalize'
+        else:
+            print ('Error: can not find program: '+ normalize_tool)
+            print ('\t Try make before execute, or contact author for service: ' + author_email)
+
     ref_vcf_filename = args.reference + '.norm'
     que_vcf_filename = args.query + '.norm'
     print('Normalizing reference vcf file...')

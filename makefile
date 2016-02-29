@@ -1,14 +1,14 @@
-all: vcf vt
-.PHONY: all vcf vt clean
+all: vm vt
+.PHONY: all vm vt clean
 
-vcf:
-	$(MAKE) -C src all
-	-chmod +x vcfcompare
+vm:
+	$(MAKE) -C vm all
+	chmod +x varmatch
 	
 vt:
-	$(MAKE) -C vt all
+	$(MAKE) -C vt 
 
 clean:
-	$(MAKE) -C src clean
+	$(MAKE) -C vm clean
 	$(MAKE) -C vt clean
 
