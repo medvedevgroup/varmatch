@@ -2,9 +2,8 @@
 matching equivalent genetic variants with different complex representations
 
 # Prerequite
-*python 2.7 or later
-
-*GCC 4.7 or later for c++11 support
+- python 2.7 or later
+- GCC 4.7 or later for c++11 support
 
 # Installation
 **Quick Install Instruction:**
