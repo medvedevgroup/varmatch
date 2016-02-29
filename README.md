@@ -29,9 +29,9 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa
 ```
--r reference vcf file
--q query vcf file
--g genome fasta file
+- r reference vcf file
+- q query vcf file
+- g genome fasta file
 
 use -h/--help for detailed help message.
 
