@@ -17,13 +17,15 @@ import sys
 citation = 'Please cite our paper'
 
 parser = argparse.ArgumentParser(epilog = citation)
-parser.add_argument('-r', '--reference', required=True, help='reference vcf file path')
-parser.add_argument('-q', '--query', required=True, help='query vcf file path')
-parser.add_argument('-g', '--genome', required=True, help='genome sequence file path, FASTA file format')
+parser.add_argument('-r', '--reference', help='reference vcf file path')
+parser.add_argument('-q', '--query', help='query vcf file path')
+parser.add_argument('-g', '--genome', help='genome sequence file path, FASTA file format')
 parser.add_argument('-t', '--thread', default='1', help='thread number for parallel')
 parser.add_argument('-n', '--no_normalize', action='store_true', help='if activate, program will not normalize reference vcf and query vcf file before comparing')
 parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
-parser.add_argument('-m', '--multi_genome', help='genome sequence file directory containing multi genome files')
+parser.add_argument('--multi_genome', help='genome sequence file directory containing multi genome FASTA files')
+parser.add_argument('-o', '--output', help='output directory, defaul is the current directory')
+parser.add_argument('-v', '--visualize', help='visualize results')
 
 # strategy for whole genome:
 #   since current version of vt-normalize can not handle whole genome sequence data
@@ -50,32 +52,167 @@ def check_command(command):
             return True
     return False
 
-ref_vcf_filename = args.reference
-que_vcf_filename = args.query
-genome_filename = args.genome
+check_purify_command = False
+check_normalize_command = False
+check_compare_command = False
+
 script_path = sys.path[0]
+purify_tool = script_path + '/purify'
 normalize_tool = script_path + '/vt/vt normalize'
-compare_tool = script_path + '/vm/vm'
+compare_tool = script_path + '/src/vm'
+output_dir = ''
+visual_dir = ''
+temp_dir = ''
 
 if not check_command(compare_tool):
     print ('Error: can not find program: '+ compare_tool)
-    print ('\t Try make before execute, or contact author for service: ' + author_email)
-genome_list = []
-ref_vcf_list = []
-que_vcf_list = []
+    print ('\t Try "make" before execute, or contact author for service: ' + author_email)
 
-if(not args.no_normalize):
+# [todo] check vcf files, corresponding genome file should exist
+
+# purify vcf file
+def purify(input_file, output_file, genome_file):
+    if not check_command(purify_tool):
+        print ('Error: can not find program: '+ purify_tool)
+        print ('\t Try "make" command before execute, or contact author for support: ' + author_email)
+        exit()
+    else:
+        check_purify_command = True
+    purify_command = purify_tool + ' ' + input_file + ' -r ' + genome_file + ' -o ' + output_file
+    shell_run(purify_command)
+
+def normalize(input_file, output_file, genome_file):
     # check if vt normalize exist
     if not check_command(normalize_tool):
         if check_command('vt normalize'):
             normalize_tool = 'vt normalize'
+            check_normalize_command = True
         else:
             print ('Error: can not find program: '+ normalize_tool)
-            print ('\t Try make before execute, or contact author for service: ' + author_email)
+            print ('\t Try "make" command before execute, or contact author for support: ' + author_email)
+            exit()
+    else:
+        check_normalize_command = True
 
-    ref_vcf_filename = args.reference + '.norm'
-    que_vcf_filename = args.query + '.norm'
-    print('Normalizing reference vcf file...')
-    normalize_command = './vt/vt normalize ' + args.reference + ' -r ' + genome_filename + ' -o ' + ref_vcf_filename
-    print('Normalizing query vcf file...')
-    normalize_command = './vt/vt normalize'
+    normalize_command = normalize_tool + ' ' + input_file + ' -r ' + genome_file + ' -o ' + output_file
+    shell_run(normalize_command)
+
+def pairwise_compare(reference_file, query_file, genome_file):
+    if not check_command(compare_tool):
+        print ('Error: can not find program: '+ compare_tool)
+        print ('\t Try "make" command before execute, or contact author for support: ' + author_email)
+        exit()
+    else:
+        check_compare_command = True
+    compare_command = purify_tool + ' -r ' + reference_file + ' -q ' + query_file + ' -g ' + genome_file
+    shell_run(compare_command)
+
+def varmatch_pairwise(reference_file, query_file, genome_file):
+    ref_basename = os.path.basename(reference_file)
+    que_basename = os.path.basename(query_file)
+    ref_purify_file = temp_dir + '/' + ref_basename + '.purify'
+    que_purify_file = temp_dir + '/' + que_basename + '.purify'
+    purify(reference_file, ref_purify_file, genome_file)
+    purify(query_file, que_purify_file, genome_file)
+    ref_purify_norm_file = ref_purify_file+'.norm'
+    que_purify_norm_file = que_purify_file+'.norm'
+    if not args.no_normalize:
+        normalize(ref_purify_file, ref_purify_norm_file, genome_file)
+        normalize(que_purify_file, que_purify_norm_file, genome_file)
+    else:
+        ref_purify_norm_file = ref_purify_file
+        que_purify_norm_file = que_purify_file
+
+    pairwise_compare(ref_purify_norm_file, que_purify_norm_file, genome_file)
+
+
+    
+
+def detect_multi_genome(genome_dir, chr_list, prefix_list, suffix_list):
+    if not os.path.isdir(genome_dir):
+        print ('Error: in multi genome mode, genome directory does not exist')
+        exit()
+
+    genome_dict = {}
+
+    for c in chr_list:
+        chr_exist = False
+        for p in prefix_list:
+            if chr_exist:
+                break
+            for s in suffix_list:
+                chr_filename = genome_dir + '/' + p + c + s
+                if os.path.isfile(chr_filename):
+                    chr_exist = True
+                    genome_dict[c] = chr_filename
+                    break
+
+    return genome_dict
+
+def split_multi_genome(vcf_file, detected_chr_list):
+    vcf_name_dict = {}
+    basename = os.path.basename(vcf_file)
+    for c in detected_chr_list:
+        vcf_name_dict[c] = temp_dir + '/' + basename + '.' + c + '.vcf'
+
+    vcf_handle_dict = {}
+    for c in detected_chr_list:
+        vcf_handle_dict[c] = open(vcf_name_dict, 'w')
+
+    with open(vcf_file) as f:
+        for line in f.readlines():
+            if line.startswith('#'):
+                for c in detected_chr_list:
+                    vcf_handle_dict[c].write(line)
+                continue
+            for c in detected_chr_list:
+                if line.split('\t')[0] == c:
+                    vcf_handle_dict[c].write(line)
+                    break
+
+    for c in detected_chr_list:
+        close(vcf_handle_dict[c])
+
+def varmatch_multi_genome(reference_file, query_file, genome_dir):
+    #split vcf according to chromosome and then use varmatch_pairwise
+    human_chromosome_list = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y']
+    chromosome_prefix_list = ['chr']
+    fasta_suffix_list = ['.fa', '.fasta', '.fna', '.seq', '.fsa']
+    genome_dict = detect_multi_genome(genome_dir, human_chromosome_list, chromosome_prefix_list, fasta_suffix_list)
+    detected_chr_list = genome_dict.keys().sort()
+
+    ref_vcf_dict = split_multi_genome(reference_file, detected_chr_list)
+    que_vcf_dict = split_multi_genome(query_file, detected_chr_list)
+
+    for c in detected_chr_list:
+        varmatch_pairwise(ref_vcf_dict[c], que_vcf_dict[c], genome_dict[c])
+    
+def varmatch_multi_vcf(vcf_dir):
+    print 'multiple vcf files'
+
+def main():
+    # create output directory
+    if args.output is None or args.output == '':
+        output_dir = os.getcwd() + '/output'
+    else:
+        output_dir = args.output
+    if output_dir == '':
+        output_dir = os.getcwd() + '/output'
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
+    temp_dir = output_dir + '/temp'
+    visual_dir = output_dir + '/visualization'
+
+    if not os.path.exists(temp_dir):
+        os.mkdir(temp_dir)
+
+    if args.multi_genome is not None and args.multi_genome != '':
+        varmatch_multi_genome(args.reference, args.query, args.multi_genome)
+    else:
+        varmatch_pairwise(args.reference, args.query, args.genome)
+
+if __name__ == '__main__':
+    main()
+
+
