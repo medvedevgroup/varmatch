@@ -93,7 +93,10 @@ def pairwise_compare(reference_file, query_file, genome_file):
         exit()
     else:
         check_compare_command = True
-    compare_command = purify_tool + ' -r ' + reference_file + ' -q ' + query_file + ' -g ' + genome_file
+    compare_command = compare_tool + ' -r ' + reference_file + ' -q ' + query_file + ' -g ' + genome_file
+
+    if args.thread is not None and int(args.thread) > 1:
+        compare_command += ' -t ' + args.thread
     shell_run(compare_command)
 
 def varmatch_pairwise(reference_file, query_file, genome_file):
@@ -124,10 +127,10 @@ def detect_multi_genome(genome_list_file, chr_list):
             chr_name = columns[0]
             if chr_name in chr_list:
                 genome_dict[chr_name] = columns[1]
-
     return genome_dict
 
 def split_multi_genome(vcf_file, detected_chr_list):
+    print ('Split variant file according to chromosomes...')
     vcf_name_dict = {}
     basename = os.path.basename(vcf_file)
     for c in detected_chr_list:
@@ -135,7 +138,7 @@ def split_multi_genome(vcf_file, detected_chr_list):
 
     vcf_handle_dict = {}
     for c in detected_chr_list:
-        vcf_handle_dict[c] = open(vcf_name_dict, 'w')
+        vcf_handle_dict[c] = open(vcf_name_dict[c], 'w')
 
     with open(vcf_file) as f:
         for line in f.readlines():
@@ -150,13 +153,27 @@ def split_multi_genome(vcf_file, detected_chr_list):
                     break
 
     for c in detected_chr_list:
-        close(vcf_handle_dict[c])
+        vcf_handle_dict[c].close()
+    return vcf_name_dict
 
 def varmatch_multi_genome(reference_file, query_file, genome_list_file):
     #split vcf according to chromosome and then use varmatch_pairwise
     human_chromosome_list = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','X','Y']
     genome_dict = detect_multi_genome(genome_list_file, human_chromosome_list)
-    detected_chr_list = genome_dict.keys().sort()
+    detected_chr_list = list(genome_dict.keys())
+    detected_chr_list.sort()
+    print ('\t[Multiple genome mode]')
+    print ('\tDetected genomes:')
+    chr_list_string = ''
+    for c in detected_chr_list:
+        chr_list_string += '\t'+c
+    chr_list_string += '\n'
+    print (chr_list_string)
+    for c in detected_chr_list:
+        if not os.path.isfile(genome_dict[c]):
+            print ('[Error:] Can not find genome file ' + genome_dict[c])
+            exit()
+
 
     ref_vcf_dict = split_multi_genome(reference_file, detected_chr_list)
     que_vcf_dict = split_multi_genome(query_file, detected_chr_list)

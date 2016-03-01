@@ -27,6 +27,9 @@ def read_reference(refFilename):
     return sequence
 
 def main():
+    print ('\t[input] ' + args.input)
+    print ('\t[genome]' + args.genome)
+    
     vcfFile = open(vcfFilename)
     purifyFile = open(purifyFilename, "w")
     
@@ -52,11 +55,17 @@ def main():
         infoId = info.split("=")[1]
 
         if ref != refSeq:
+            num += 1
             continue
         else:
             purifyFile.write(line)
     vcfFile.close()
     purifyFile.close()
+    if(num == 0):
+        print ('\t all variants in input vcf file match genome sequence')
+    else:
+        print ('\t[Warning] ' + str(num) + ' variants do not match genome sequence and removed!')
+    print ('\t[output]' + args.output)
 
 if __name__ == '__main__':
     main()
