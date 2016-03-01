@@ -2,6 +2,7 @@
 
 from sys import argv
 import sys
+import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input', help='original vcf file')
@@ -29,10 +30,7 @@ def main():
     vcfFile = open(vcfFilename)
     purifyFile = open(purifyFilename, "w")
     
-    references = {}
-    for r in refList:
-        refFilename = refDir + '/chr' + r + '.fa'
-        references['chr'+r] = read_reference(refFilename)
+    reference = read_reference(refFilename)
 
     num = 0
     heteNum = 0
@@ -41,7 +39,6 @@ def main():
         if line.startswith("#"):
             purifyFile.write(line)
             continue
-        line = line.strip()
         columns = line.split("\t")
         chrom = columns[0]
         pos = int(columns[1]) - 1
@@ -50,26 +47,16 @@ def main():
         ref = columns[3].upper()
         alt = columns[4].upper()
         end = pos + len(ref)
-        refSeq = references[chrom][pos:end].upper()
+        refSeq = reference[pos:end].upper()
         info = columns[7].split(";")[2]
         infoId = info.split("=")[1]
 
         if ref != refSeq:
-            if alt == refSeq:
-                columns[4] = reservedRef
-                columns[3] = reservedAlt
-                columns[7] += '*'
-                result = "\t".join(columns)
-                heteNum += 1
-                purifyFile.write(result+"\n")
-            else:
-                print pos+1, ref, alt, refSeq, infoId
-                num += 1
+            continue
         else:
-            purifyFile.write(line+"\n")
+            purifyFile.write(line)
     vcfFile.close()
     purifyFile.close()
-    print(num, heteNum)
 
 if __name__ == '__main__':
     main()
