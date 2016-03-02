@@ -18,28 +18,34 @@ import os
 citation = 'Please cite our paper'
 
 parser = argparse.ArgumentParser(epilog = citation)
-parser.add_argument('-r', '--reference', help='reference vcf file path')
-parser.add_argument('-q', '--query', help='query vcf file path')
-parser.add_argument('-g', '--genome', help='genome sequence file path, FASTA file format')
-parser.add_argument('-t', '--thread', default='1', help='thread number for parallel')
-parser.add_argument('-n', '--no_normalize', action='store_true', help='if activate, program will not normalize reference vcf and query vcf file before comparing')
+parser.add_argument('-r', nargs=1, metavar='reference.vcf', help='reference vcf file path')
+parser.add_argument('-q', nargs=1, metavar='query.vcf', help='query vcf file path')
+parser.add_argument('-g', nargs=1, metavar='genome.fa', help='genome sequence file path, FASTA file format')
+parser.add_argument('-t', metavar='N', default='1', help='thread number for parallel')
+parser.add_argument('-n', '--no_normalize', action='store_true', help='if activate, program will not normalize reference vcf and query vcf file before comparing.')
 parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
-parser.add_argument('--multi_genome', help='genome list file contain chromosome name and FASTA file absolute path')
-parser.add_argument('-o', '--output', help='output directory, default is the current directory')
+parser.add_argument('--multi_genome', nargs=1, metavar='genome_list.txt', help='genome list file contain chromosome name and FASTA file absolute path')
+parser.add_argument('--multi_vcf', nargs='+', metavar='file.vcf ...', help='vcf files (usually more than two) that need to compare')
+parser.add_argument('-o', '--output', metavar='output/', help='output directory, default is the current directory')
 parser.add_argument('-v', '--visualize', help='visualize results')
-
+parser.add_argument('--no_purify', action='store_true', help='if activate, program will not check if variant matches reference genome sequence.')
 # strategy for whole genome:
 #   since current version of vt-normalize can not handle whole genome sequence data
 #   vcfcompare split whole genome data according to chromosome detected in --whole-genome directory
 args = parser.parse_args()
 
-def shell_run(command):
+def shell_run(command, hide=False):
     if not RUN:
         time.sleep(3.5)
         print(command)
     else:
-        print(command)
-        subprocess.call(command, shell=True)
+        #print(command)
+        if hide: # hide output
+            FNULL = open(os.devnull, 'w')
+            subprocess.call(command, shell=True, stdout=FNULL, stderr=subprocess.STDOUT)
+            FNULL.close()
+        else:
+            subprocess.call(command, shell=True)
 
 def check_command(command): 
     """
@@ -83,7 +89,7 @@ def normalize(input_file, output_file, genome_file):
         check_normalize_command = True
 
     normalize_command = normalize_tool + ' ' + input_file + ' -r ' + genome_file + ' -o ' + output_file
-    shell_run(normalize_command)
+    shell_run(normalize_command, True)
 
 def pairwise_compare(reference_file, query_file, genome_file):
     global check_compare_command
@@ -102,10 +108,16 @@ def pairwise_compare(reference_file, query_file, genome_file):
 def varmatch_pairwise(reference_file, query_file, genome_file):
     ref_basename = os.path.basename(reference_file)
     que_basename = os.path.basename(query_file)
+
     ref_purify_file = temp_dir + '/' + ref_basename + '.purify.vcf'
     que_purify_file = temp_dir + '/' + que_basename + '.purify.vcf'
-    purify(reference_file, ref_purify_file, genome_file)
-    purify(query_file, que_purify_file, genome_file)
+    if not args.no_purify:
+        purify(reference_file, ref_purify_file, genome_file)
+        purify(query_file, que_purify_file, genome_file)
+    else:
+        ref_purify_file = reference_file
+        que_purify_file = query_file
+
     ref_purify_norm_file = temp_dir + '/' + ref_basename + '.norm.vcf'
     que_purify_norm_file = temp_dir + '/' + que_basename + '.norm.vcf'
     if not args.no_normalize:
@@ -164,10 +176,11 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
     detected_chr_list.sort()
     print ('\t[Multiple genome mode]')
     print ('\tDetected genomes:')
-    chr_list_string = ''
+    chr_list_string = '\t'
+    #print (chr_list_string, detected_chr_list)
     for c in detected_chr_list:
-        chr_list_string += '\t'+c
-    chr_list_string += '\n'
+        chr_list_string += c+','
+    chr_list_string = chr_list_string[:-1] + '\n'
     print (chr_list_string)
     for c in detected_chr_list:
         if not os.path.isfile(genome_dict[c]):
@@ -180,12 +193,41 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
 
     for c in detected_chr_list:
         varmatch_pairwise(ref_vcf_dict[c], que_vcf_dict[c], genome_dict[c])
+
+    #[todo] summarize running results
     
-def varmatch_multi_vcf(vcf_dir):
-    print 'multiple vcf files'
+def varmatch_multi_vcf(vcf_list, genome_file):
+
+    basename_finalname = {}
+    basename_list = []
+    for vcf_file in vcf_list:
+        if not os.path.isfile(vcf_file):
+            print('Error: Can not open vcf file '+vcf_file)
+        
+        basename = os.path.basename(vcf_file)
+        purify_file = temp_dir + '/' + basename + '.purify.vcf'
+        if not args.no_purify:
+            purify(vcf_file, purify_file, genome_file)
+        else:
+            purify_file = vcf_file
+
+        purify_norm_file = temp_dir + '/' + basename + '.norm.vcf'
+        if not args.no_normalize:
+            normalize(purify_file, purify_norm_file, genome_file)
+        else:
+            purify_norm_file = purify_file
+        basename_finalname[basename] = purify_norm_file
+        basename_list.append(basename)
+
+    #[todo] pairwise matching, then summarize
+        
 
 def main():
-    
+   
+    if len(sys.argv) < 2:
+        parser.print_help()
+        exit()
+
     #initialize global variables
     global check_purify_command
     global check_normalize_command
@@ -230,9 +272,11 @@ def main():
         os.mkdir(temp_dir)
 
     if args.multi_genome is not None and args.multi_genome != '':
-        varmatch_multi_genome(args.reference, args.query, args.multi_genome)
+        varmatch_multi_genome(args.r, args.q, args.multi_genome)
+    elif args.multi_vcf is not None:
+        varmatch_multi_vcf(args.multi_vcf, args.g)
     else:
-        varmatch_pairwise(args.reference, args.query, args.genome)
+        varmatch_pairwise(args.r, args.q, args.g)
 
 if __name__ == '__main__':
     main()

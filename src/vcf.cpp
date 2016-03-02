@@ -1176,6 +1176,81 @@ void VCF::ClusteringSearchInThread(int start, int end) {
                         }
                     }
                 }
+                
+                if(cluster_ref_snps.size() > 20 || cluster_que_snps.size() > 20){
+                    
+                    // final check by variant length, if not applicable, skip it and give a warning.
+                    if (cluster_ref_snps.size() > cluster_que_snps.size()){
+
+                        int ref_sum_del_len = 0;
+                        int ref_sum_ins_len = 0;
+                        for(int j = 0; j < cluster_ref_snps.size(); j++){
+                            int len_change = cluster_ref_snps[j].ref.size() -  cluster_ref_snps[j].alt.size();
+                            if (len_change > 0){
+                                ref_sum_del_len += len_change;
+                            }else if(len_change < 0){
+                                ref_sum_ins_len -= len_change;
+                            }
+                        }
+                        bool skip_flag = false;
+                        for(int j = 0; j < cluster_que_snps.size(); j++){
+                            int len_change = cluster_que_snps[j].ref.size() - cluster_que_snps[j].alt.size();
+                            if(len_change > 0){
+                                if (ref_sum_del_len < len_change){
+                                    skip_flag = true;
+                                    break;
+                                }
+                            }else if(len_change < 0){
+                                if (ref_sum_ins_len < len_change * -1){
+                                    skip_flag = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (skip_flag) continue;
+
+                    }else{
+                    
+                        int que_sum_del_len = 0;
+                        int que_sum_ins_len = 0;
+                        for(int j = 0; j < cluster_que_snps.size(); j++){
+                            int len_change = cluster_que_snps[j].ref.size() -  cluster_que_snps[j].alt.size();
+                            if (len_change > 0){
+                                que_sum_del_len += len_change;
+                            }else if(len_change < 0){
+                                que_sum_ins_len -= len_change;
+                            }
+                        }
+                        bool skip_flag = false;
+                        for(int j = 0; j < cluster_ref_snps.size(); j++){
+                            int len_change = cluster_ref_snps[j].ref.size() - cluster_ref_snps[j].alt.size();
+                            if(len_change > 0){
+                                if (que_sum_del_len < len_change){
+                                    skip_flag = true;
+                                    break;
+                                }
+                            }else if(len_change < 0){
+                                if (que_sum_ins_len < len_change * -1){
+                                    skip_flag = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if(skip_flag) continue;
+                    
+                    }
+
+                    cout << "[Warning] large cluster found, skip it." << endl;
+                    //dout << "ref snps:" << endl;
+                    //for(int j = 0; j < cluster_ref_snps.size(); j++){
+                    //    dout << cluster_ref_snps[j].flag << "," << cluster_ref_snps[j].pos << "," << cluster_ref_snps[j].ref << "," << cluster_ref_snps[j].alt << endl;
+                    //}
+                    //dout << "alt snps:" << endl;
+                    //for(int j = 0; j < cluster_que_snps.size(); j++){
+                    //    dout << cluster_que_snps[j].flag << "," << cluster_que_snps[j].pos << "," << cluster_que_snps[j].ref << "," << cluster_que_snps[j].alt << endl;
+                    //}
+                    continue;
+                }
 
                 while(cluster_ref_snps.size() > 0 &&
                         cluster_que_snps.size() > 0 &&
