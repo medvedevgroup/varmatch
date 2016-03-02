@@ -82,6 +82,7 @@ int usage(char* command) {
     cout << command << " -g genome_file(FASTA format)" << endl;
     cout << "\t-r reference_vcf_file" << endl;
     cout << "\t-q query_vcf_file" << endl;
+    cout << "\t-o output_filename_prefix" << endl;
     cout << "\t[-t thread_number]" << endl;
     cout << endl;
 
@@ -110,7 +111,8 @@ int main(int argc, char* argv[])
 	vcf.Compare(args.ref_vcf_filename,
 			args.que_vcf_filename,
 			args.genome_seq_filename,
-			args.direct_search);
+			args.direct_search
+            args.output_filename);
     return 0;
 }
 

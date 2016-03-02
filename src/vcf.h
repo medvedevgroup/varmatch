@@ -126,13 +126,14 @@ private:
 	unsigned int EditDistance(const std::string& s1, const std::string& s2);
 	bool CheckTandemRepeat(string sequence, int unit_threshold);
 
-	void ClusteringSearchInThread(int start, int end);
+	void ClusteringSearchInThread(int start, int end, int thread_index);
 
 	bool MatchSnpLists(vector<SNP> & ref_snp_list,
             vector<SNP> & query_snp_list,
             vector<SNP> & mixed_list,
             const string subsequence,
-            int offset);
+            int offset,
+            int thread_index);
 
 	void ClusteringSnpsOldAlgorithm(int threshold = 400, int lower_bound = 10);
 
@@ -141,6 +142,14 @@ private:
 public:
 	VCF(int thread_num_ = 0);
 	~VCF();
+
+    string chromosome_name;
+
+    string output_stat_filename;
+    string output_simple_filename;
+    string output_complex_filename;
+    string ref_mismatch_filename;
+    string que_mismatch_filename;
 
 	// data structure for direct search
 	SnpHash refpos_2_snp;
@@ -156,7 +165,8 @@ public:
 	vector<SNP> data_list;
 	vector<int> cluster_list;
 	map<int, vector<SNP> > cluster_snps_map;
-	
+
+    vector<vector<string>> complex_match_records;
 
 	void ReadRefVCF(string filename);
 	void ReadQueryVCF(string filename);
@@ -170,6 +180,10 @@ public:
 	int GetRefSnpNumber();
 	int GetQuerySnpNumber();
 
-	void Compare(string ref_vcf, string query_vcf, string genome_seq, bool direct_search);
+	void Compare(string ref_vcf,
+            string query_vcf,
+            string genome_seq,
+            string output_prefix,
+            bool direct_search);
 };
 
