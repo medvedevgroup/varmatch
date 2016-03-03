@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
 	vcf.Compare(args.ref_vcf_filename,
 			args.que_vcf_filename,
 			args.genome_seq_filename,
-			args.direct_search
+			args.direct_search,
             args.output_filename);
     return 0;
 }

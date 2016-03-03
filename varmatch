@@ -18,13 +18,13 @@ import os
 citation = 'Please cite our paper'
 
 parser = argparse.ArgumentParser(epilog = citation)
-parser.add_argument('-r', nargs=1, metavar='reference.vcf', help='reference vcf file path')
-parser.add_argument('-q', nargs=1, metavar='query.vcf', help='query vcf file path')
-parser.add_argument('-g', nargs=1, metavar='genome.fa', help='genome sequence file path, FASTA file format')
+parser.add_argument('-r', metavar='reference.vcf', help='reference vcf file path')
+parser.add_argument('-q', metavar='query.vcf', help='query vcf file path')
+parser.add_argument('-g', metavar='genome.fa', help='genome sequence file path, FASTA file format')
 parser.add_argument('-t', metavar='N', default='1', help='thread number for parallel')
 parser.add_argument('-n', '--no_normalize', action='store_true', help='if activate, program will not normalize reference vcf and query vcf file before comparing.')
 parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
-parser.add_argument('--multi_genome', nargs=1, metavar='genome_list.txt', help='genome list file contain chromosome name and FASTA file absolute path')
+parser.add_argument('--multi_genome', metavar='genome_list.txt', help='genome list file contain chromosome name and FASTA file absolute path')
 parser.add_argument('--multi_vcf', nargs='+', metavar='file.vcf ...', help='vcf files (usually more than two) that need to compare')
 parser.add_argument('-o', '--output', metavar='output/', help='output directory, default is the current directory')
 parser.add_argument('-v', '--visualize', help='visualize results')
@@ -91,7 +91,7 @@ def normalize(input_file, output_file, genome_file):
     normalize_command = normalize_tool + ' ' + input_file + ' -r ' + genome_file + ' -o ' + output_file
     shell_run(normalize_command, True)
 
-def pairwise_compare(reference_file, query_file, genome_file):
+def pairwise_compare(reference_file, query_file, genome_file, output_prefix):
     global check_compare_command
     if not check_compare_command and not check_command(compare_tool):
         print ('Error: can not find program: '+ compare_tool)
@@ -99,10 +99,10 @@ def pairwise_compare(reference_file, query_file, genome_file):
         exit()
     else:
         check_compare_command = True
-    compare_command = compare_tool + ' -r ' + reference_file + ' -q ' + query_file + ' -g ' + genome_file
+    compare_command = compare_tool + ' -r ' + reference_file + ' -q ' + query_file + ' -g ' + genome_file + ' -o ' + output_prefix
 
-    if args.thread is not None and int(args.thread) > 1:
-        compare_command += ' -t ' + args.thread
+    if args.t is not None and int(args.t) > 1:
+        compare_command += ' -t ' + args.t
     shell_run(compare_command)
 
 def varmatch_pairwise(reference_file, query_file, genome_file):
@@ -127,7 +127,9 @@ def varmatch_pairwise(reference_file, query_file, genome_file):
         ref_purify_norm_file = ref_purify_file
         que_purify_norm_file = que_purify_file
 
-    pairwise_compare(ref_purify_norm_file, que_purify_norm_file, genome_file)
+    output_prefix = output_dir + '/' + ref_basename + '_' + que_basename
+
+    pairwise_compare(ref_purify_norm_file, que_purify_norm_file, genome_file, output_prefix)
     
 
 def detect_multi_genome(genome_list_file, chr_list):
@@ -195,6 +197,29 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
         varmatch_pairwise(ref_vcf_dict[c], que_vcf_dict[c], genome_dict[c])
 
     #[todo] summarize running results
+    chr_stat_dict = {}
+    total_stat = []
+    if args.direct_search:
+        total_stat = [0,0,0,0,0,0]
+    else:
+        total_stat = [0,0,0,0,0,0,0,0]
+    for c in detected_chr_list:
+        stat_file = output_dir + '/' + os.path.basename(ref_vcf_dict[c]) + '_' + os.path.basename(que_vcf_dict[c]) + '.stat'
+        chr_stat_dict[c] = stat_file
+        with open(stat_file) as f:
+            lines = f.readlines()
+            for i in range(len(total_stat)):
+                total_stat[i] += int(lines[i].strip())
+
+    total_stat_filename = output_dir + '/' + os.path.basename(reference_file) + '_' + os.path.bashename(query_file) + '.stat'
+    with open(total_stat_filename, 'w') as f:
+        for s in total_stat[i]:
+            f.write(s)
+            f.write('\n')
+
+
+
+
     
 def varmatch_multi_vcf(vcf_list, genome_file):
 
@@ -270,6 +295,8 @@ def main():
 
     if not os.path.exists(temp_dir):
         os.mkdir(temp_dir)
+    
+    #print args.r, args.q
 
     if args.multi_genome is not None and args.multi_genome != '':
         varmatch_multi_genome(args.r, args.q, args.multi_genome)

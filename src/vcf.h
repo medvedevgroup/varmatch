@@ -183,7 +183,7 @@ public:
 	void Compare(string ref_vcf,
             string query_vcf,
             string genome_seq,
-            string output_prefix,
-            bool direct_search);
+            bool direct_search,
+            string output_prefix);
 };
 

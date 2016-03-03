@@ -1009,19 +1009,20 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                 int chop_left = 0;
                 int chop_right = 0;
                 for(int i = 0; i < min_parsimonious_len; i++){
-                    if(parsimonious_ref[i] == parsimonious_alt[i]){
+                    if(toupper(parsimonious_ref[i]) == toupper(parsimonious_alt[i])){
                         chop_left ++;
                     }else{
                         break;
                     }
                 }
-                for(int i = min_parsimonious_len; i >= 0; i--){
-                    if(parsimonious_ref[i] == parsimonious_alt[i]){
+                for(int i = min_parsimonious_len-1; i >= 0; i--){
+                    if(toupper(parsimonious_ref[i]) == toupper(parsimonious_alt[i])){
                         chop_right ++;
                     }else{
                         break;
                     }
                 }
+                matching_result += "\t" + to_string(chop_left + offset);
 
                 parsimonious_ref = parsimonious_ref.substr(chop_left, parsimonious_ref.length() - chop_left - chop_right);
                 parsimonious_alt = parsimonious_alt.substr(chop_left, parsimonious_alt.length() - chop_left - chop_right);
@@ -1050,7 +1051,7 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                             m_snp.alt == r_snp.alt &&
                             m_snp.flag == r_snp.flag)
                         {
-                            ref_matching_variants += to_string(m_snp.pos) + "," + m_snp.ref + "," + m_snp.alt + ";"
+                            ref_matching_variants += to_string(m_snp.pos) + "," + m_snp.ref + "," + m_snp.alt + ";";
 							ref_snp_list.erase(n);
                             break;
                         }
@@ -1082,14 +1083,14 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                             m_snp.alt == q_snp.alt &&
                             m_snp.flag == q_snp.flag)
                         {
-                            que_matching_variants += to_string(m_snp.pos) + "," + m_snp.ref + "," + m_snp.alt + ";"
+                            que_matching_variants += to_string(m_snp.pos) + "," + m_snp.ref + "," + m_snp.alt + ";";
 							query_snp_list.erase(n);
                             break;
                         }
                     }
 				}
                 matching_result += "\t" + que_matching_variants + "\n";
-                complex_match_records[thread_index].append(matching_result);
+                complex_match_records[thread_index].push_back(matching_result);
                 //dout << endl;
 				//[todo] maybe multi-matching are in one cluster, should check left variants
 				//dout << "matched" << endl;
@@ -1172,7 +1173,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                                 //dout << "=========================================" << endl;    
                                 while(cluster_ref_snps.size() > 0 &&
                                         cluster_que_snps.size() > 0 &&
-                                        MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos));
+                                        MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos, thread_index));
                                 //}
                                 //dout << "find breaking" << endl;
                                 cluster_ref_snps.clear();
@@ -1337,7 +1338,7 @@ void VCF::ClusteringSearchMultiThread() {
 	for (; i < thread_num - 1; i++) {
 		//threads.push_back(thread(f));
 		//dout << "create new thread" << endl;
-        complex_match_records.append(thread_result);
+        complex_match_records.push_back(thread_result);
 		threads.push_back(thread(&VCF::ClusteringSearchInThread, this, start, end, i));
 		start = end;
 		end = start + cluster_step;
@@ -1351,7 +1352,7 @@ void VCF::ClusteringSearchMultiThread() {
 		dout << "[Error] index out of map range" << endl;
 	}
 	else {
-        complex_match_records.append(thread_result);
+        complex_match_records.push_back(thread_result);
 		ClusteringSearchInThread(start, end, i);
 	}
 
@@ -1410,8 +1411,8 @@ int VCF::GetQuerySnpNumber() {
 void VCF::Compare(string ref_vcf,
         string query_vcf,
         string genome_seq,
-        string output_prefix,
-        bool direct_search) {
+        bool direct_search,
+        string output_prefix){
 
 	output_stat_filename = output_prefix + ".stat";
     output_simple_filename = output_prefix + ".simple";
@@ -1456,6 +1457,15 @@ void VCF::Compare(string ref_vcf,
 	if (direct_search){
 	    dout << " referece vcf entry mismatch number: " << ref_direct_left_num << endl;
 	    dout << " query vcf entry mismatch number: " << que_direct_left_num  << endl;
+        ofstream output_stat_file;
+        output_stat_file.open(output_stat_filename);
+        output_stat_file << ref_total_num << endl;
+        output_stat_file << que_total_num << endl;
+        output_stat_file << ref_direct_match_num << endl;
+        output_stat_file << que_direct_match_num << endl;
+        output_stat_file << ref_direct_left_num << endl;
+        output_stat_file << que_direct_left_num << endl;
+        output_stat_file.close();
 
         return;
     }
@@ -1479,6 +1489,19 @@ void VCF::Compare(string ref_vcf,
 	dsptime();
 	dout << " Clustering search ... " << endl;
 	ClusteringSearchMultiThread();
+
+    ofstream output_complex_file;
+    output_complex_file.open(output_complex_filename);
+    output_complex_file << "## VCF1: " << ref_vcf << endl;
+    output_complex_file << "## VCF2: " << query_vcf << endl;
+    output_complex_file << "# CHR\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
+    for(int i = 0; i < complex_match_records.size(); i++){
+        for (int j = 0; j < complex_match_records[i].size(); j++){
+            output_complex_file << complex_match_records[i][j];
+        }
+    }
+    output_complex_file.close();
+
 	dsptime();
 	dout << " Finish clustering search." << endl;
 	int ref_cluster_left_num = GetRefSnpNumber();
@@ -1492,5 +1515,18 @@ void VCF::Compare(string ref_vcf,
 	dout << " referece vcf entry mismatch number: " << ref_cluster_left_num << endl;
 	dout << " query vcf entry mismatch number: " << que_cluster_left_num  << endl;
     
+    //write stat file
+    ofstream output_stat_file;
+    output_stat_file.open(output_stat_filename);
+    output_stat_file << ref_total_num << endl;
+    output_stat_file << que_total_num << endl;
+    output_stat_file << ref_direct_match_num << endl;
+    output_stat_file << que_direct_match_num << endl;
+    output_stat_file << ref_cluster_match_num << endl;
+    output_stat_file << que_cluster_match_num << endl;
+    output_stat_file << ref_cluster_left_num << endl;
+    output_stat_file << que_cluster_left_num << endl;
+    output_stat_file.close();
+
     return;
 }
