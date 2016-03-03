@@ -105,7 +105,7 @@ def pairwise_compare(reference_file, query_file, genome_file, output_prefix):
         compare_command += ' -t ' + args.t
     shell_run(compare_command)
 
-def varmatch_pairwise(reference_file, query_file, genome_file):
+def varmatch_pairwise(reference_file, query_file, genome_file, output_directory):
     ref_basename = os.path.basename(reference_file)
     que_basename = os.path.basename(query_file)
 
@@ -127,7 +127,7 @@ def varmatch_pairwise(reference_file, query_file, genome_file):
         ref_purify_norm_file = ref_purify_file
         que_purify_norm_file = que_purify_file
 
-    output_prefix = output_dir + '/' + ref_basename + '_' + que_basename
+    output_prefix = output_directory + '/' + ref_basename + '_' + que_basename
 
     pairwise_compare(ref_purify_norm_file, que_purify_norm_file, genome_file, output_prefix)
     
@@ -195,7 +195,7 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
 
     for c in detected_chr_list:
         print('Matching chromosome ' + c + '...')
-        varmatch_pairwise(ref_vcf_dict[c], que_vcf_dict[c], genome_dict[c])
+        varmatch_pairwise(ref_vcf_dict[c], que_vcf_dict[c], genome_dict[c], temp_dir)
 
     #[todo] summarize running results
     chr_stat_dict = {}
@@ -205,7 +205,7 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
     else:
         total_stat = [0,0,0,0,0,0,0,0]
     for c in detected_chr_list:
-        stat_file = output_dir + '/' + os.path.basename(ref_vcf_dict[c]) + '_' + os.path.basename(que_vcf_dict[c]) + '.stat'
+        stat_file = temp_dir + '/' + os.path.basename(ref_vcf_dict[c]) + '_' + os.path.basename(que_vcf_dict[c]) + '.stat'
         chr_stat_dict[c] = stat_file
         with open(stat_file) as f:
             lines = f.readlines()
@@ -304,7 +304,7 @@ def main():
     elif args.multi_vcf is not None:
         varmatch_multi_vcf(args.multi_vcf, args.g)
     else:
-        varmatch_pairwise(args.r, args.q, args.g)
+        varmatch_pairwise(args.r, args.q, args.g, output_dir)
 
 if __name__ == '__main__':
     main()

@@ -1091,7 +1091,11 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                     }
 				}
                 matching_result += "\t" + que_matching_variants + "\n";
-                complex_match_records[thread_index][matching_index]=matching_result;
+                if(matching_index >= complex_match_records[thread_index].size()){
+                    complex_match_records[thread_index].push_back(matching_result);
+                }else{
+                    complex_match_records[thread_index][matching_index]=matching_result;
+                }
                 matching_index ++;
                 
                 //dout << endl;
@@ -1108,7 +1112,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
     int matching_index = 0;
     for (int cluster_id = start; cluster_id < end; cluster_id++) {
 		if (cluster_snps_map.find(cluster_id) != cluster_snps_map.end()) {
-			
+		    //dout << "cluster " << cluster_id << endl;	
             auto & snp_list = cluster_snps_map[cluster_id];
             vector<SNP> candidate_ref_snps;
 			vector<SNP> candidate_que_snps;
@@ -1346,7 +1350,7 @@ void VCF::ClusteringSearchMultiThread() {
                 variant_number += cluster_snps_map[cluster_id].size();
             }
         }
-        vector<string> thread_result(variant_number+1, ""); 
+        vector<string> thread_result(variant_number+1, string(1000, ' '));
         complex_match_records.push_back(thread_result);
 		threads.push_back(thread(&VCF::ClusteringSearchInThread, this, start, end, i));
 		start = end;
