@@ -133,7 +133,8 @@ private:
             vector<SNP> & mixed_list,
             const string subsequence,
             int offset,
-            int thread_index);
+            int thread_index,
+            int & matching_index);
 
 	void ClusteringSnpsOldAlgorithm(int threshold = 400, int lower_bound = 10);
 

@@ -194,6 +194,7 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
     que_vcf_dict = split_multi_genome(query_file, detected_chr_list)
 
     for c in detected_chr_list:
+        print('Matching chromosome ' + c + '...')
         varmatch_pairwise(ref_vcf_dict[c], que_vcf_dict[c], genome_dict[c])
 
     #[todo] summarize running results
@@ -211,10 +212,10 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
             for i in range(len(total_stat)):
                 total_stat[i] += int(lines[i].strip())
 
-    total_stat_filename = output_dir + '/' + os.path.basename(reference_file) + '_' + os.path.bashename(query_file) + '.stat'
+    total_stat_filename = output_dir + '/' + os.path.basename(reference_file) + '_' + os.path.basename(query_file) + '.stat'
     with open(total_stat_filename, 'w') as f:
-        for s in total_stat[i]:
-            f.write(s)
+        for s in total_stat:
+            f.write(str(s))
             f.write('\n')
 
 
