@@ -48,7 +48,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash& pos_2_vcf_
 		cout << "[Error] VCF::ReadVCF can not open vcf file" << endl;
 		return;
 	}
-
+    string previous_line;
 	while (!vcf_file.eof()) { // alternative way is vcf_file != NULL
 		string line;
 		getline(vcf_file, line, '\n');
@@ -63,7 +63,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash& pos_2_vcf_
 		auto quality = columns[6];
 
 		if (alt.find(",") != string::npos) continue; // can not deal with multi alt yet
-		//todo(Chen) deal with multi alt
+        //todo(Chen) deal with multi alt
 
 		char snp_type = 'S'; 
 		if (ref.length() > alt.length()) {
@@ -82,8 +82,14 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash& pos_2_vcf_
 			}
 		}
 
+		if (pos_2_snp[index].find(pos) != pos_2_snp[index].end()) continue; // can not deal with multi alt yet
 		pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt));
-		pos_2_vcf_entry[pos] = line;
+        //if(pos_2_snp[index][pos].size() > 1){
+        //    dout << previous_line << endl;
+        //    dout << line << endl;
+        //}
+        pos_2_vcf_entry[pos] = line;
+        //previous_line = line;
 	}
 	vcf_file.close();
 	return;
@@ -163,7 +169,11 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 			auto & q_snps = qit->second;
 
 			if (r_snps.size() != 1 || q_snps.size() != 1) {
-				cout << "[Error] snp vector size not right" << endl;
+				//for(int i = 0; i < r_snps.size(); i++)
+                //    dout << "r_snp: " << r_snps[i].alt << endl;
+                //for(int i = 0; i < q_snps.size(); i++)
+                //    dout << "q_snp: " << q_snps[i].alt << endl;
+                //cout << "[Error] snp vector size not right" << endl;
 			}
 
 			vector<vector<SNP>::iterator> r_deleted_snps;
@@ -1092,6 +1102,7 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 				}
                 matching_result += "\t" + que_matching_variants + "\n";
                 if(matching_index >= complex_match_records[thread_index].size()){
+                    dout << "[Warning] dynamic allcate more memory" << endl;
                     complex_match_records[thread_index].push_back(matching_result);
                 }else{
                     complex_match_records[thread_index][matching_index]=matching_result;
@@ -1371,7 +1382,7 @@ void VCF::ClusteringSearchMultiThread() {
                 variant_number += cluster_snps_map[cluster_id].size();
             }
         }
-        vector<string> thread_result(variant_number+1, ""); 
+        vector<string> thread_result(variant_number+1, string(1000, ' ')); 
         complex_match_records.push_back(thread_result);
 		ClusteringSearchInThread(start, end, i);
 	}
@@ -1512,12 +1523,12 @@ void VCF::Compare(string ref_vcf,
 
     ofstream output_complex_file;
     output_complex_file.open(output_complex_filename);
-    output_complex_file << "## VCF1: " << ref_vcf << endl;
-    output_complex_file << "## VCF2: " << query_vcf << endl;
-    output_complex_file << "# CHR\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
+    output_complex_file << "##VCF1:" << ref_vcf << endl;
+    output_complex_file << "##VCF2:" << query_vcf << endl;
+    output_complex_file << "#CHR\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
     for(int i = 0; i < complex_match_records.size(); i++){
         for (int j = 0; j < complex_match_records[i].size(); j++){
-            if(complex_match_records[i][j] != "" || complex_match_records[i][j].size() > 1){
+            if(complex_match_records[i][j].find_first_not_of(' ') != std::string::npos){
                 output_complex_file << complex_match_records[i][j];
             }
         }
