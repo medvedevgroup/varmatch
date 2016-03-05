@@ -234,7 +234,7 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
 
     id_finalname_dict = {}
     finalname_id_dict = {}
-    id_list = list(id_finalname_dict.keys())
+    id_list = list(id_vcf_dict.keys())
     id_list.sort()
 
     for id in id_list:
@@ -255,7 +255,7 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
             normalize(purify_file, purify_norm_file, genome_file)
         else:
             purify_norm_file = purify_file
-        id_finalname[vcf_file_id] = purify_norm_file
+        id_finalname_dict[vcf_file_id] = purify_norm_file
 
     pairwise_prefix_idtuple = {}
     idtuple_pairwise_prefix = {}
@@ -298,9 +298,11 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
                 else:
                     if variantid in variantid_info:
                         variantid_info[variantid].append(columns[-1])
-    
+                    #else:
+                    #    print variantid
+
     integrate_complex_filename = output_prefix+'.complex'
-    integrate_complex_file = open(integrate_complex_filename)
+    integrate_complex_file = open(integrate_complex_filename, 'w')
     for i in range(len(id_list)):
         head_line = '##VCF'+str(i+1)+':'+id_vcf_dict[id]+'\n'
         integrate_complex_file.write(head_line)
@@ -309,14 +311,17 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
     for i in range(len(id_list)):
         head_line += '\tVCF'+str(i+1)
     integrate_complex_file.write(head_line)
-    
+    #print '$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$'
     common_complex_num = 0
-    for variantid in sort(variantid_info):
-        if variantid_info[variantid].size() == id_list.size():
+    for variantid in sorted(variantid_info):
+        if len(variantid_info[variantid]) == len(id_list):
             common_complex_num += 1
             merge_list = variantid_variant[variantid] + variantid_info[variantid]
-            variant_line = '\t'.join(variant)
+            variant_line = '\t'.join(merge_list)
+            variant_line += '\n'
             integrate_complex_file.write(variant_line)
+        #else:
+        #    print variantid
     integrate_complex_file.close()
 
     print(common_complex_num)
@@ -386,7 +391,12 @@ def main():
     elif args.multi_vcf is not None:
         # multi vcf, single chromosome
         output_prefix = output_dir + '/common'
-        varmatch_multi_vcf_single_genome(args.multi_vcf, args.g, output_prefix)
+        id_vcf_dict = {}
+        id = 0
+        for vcf_file in args.multi_vcf:
+            id_vcf_dict[id] = vcf_file
+            id += 1
+        varmatch_multi_vcf_single_genome(id_vcf_dict, args.g, output_prefix)
     else:
         # single chromosome, pairwise compare 
         varmatch_pairwise(args.r, args.q, args.g, output_dir)
