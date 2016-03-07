@@ -36,7 +36,7 @@ VCF::~VCF()
 
 
 
-void VCF::ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash& pos_2_vcf_entry) {
+void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 	if (!boundries_decided) {
 		cout << "[Error] VCF::ReadVCF cannot read vcf file before read genome file" << endl;
 		return;
@@ -88,8 +88,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp, VCFEntryHash& pos_2_vcf_
         //    dout << previous_line << endl;
         //    dout << line << endl;
         //}
-        pos_2_vcf_entry[pos] = line;
-        //previous_line = line;
+
 	}
 	vcf_file.close();
 	return;
@@ -145,15 +144,23 @@ void VCF::DecideBoundries() {
 }
 
 void VCF::ReadRefVCF(string filename) {
-	ReadVCF(filename, refpos_2_snp, refpos_2_vcf_entry);
+	ReadVCF(filename, refpos_2_snp);
 }
 
 void VCF::ReadQueryVCF(string filename) {
-	ReadVCF(filename, querypos_2_snp, querypos_2_vcf_entry);
+	ReadVCF(filename, querypos_2_snp);
 }
 
 bool VCF::CompareSnps(SNP r, SNP q) {
-	if (r.snp_type == q.snp_type && r.alt == q.alt) return true;
+	auto ref_ref = r.ref;
+	transform(ref_ref.begin(), ref_ref.end(), ref_ref.begin(), ::toupper);
+	auto ref_alt = r.alt;
+	transform(ref_alt.begin(), ref_alt.end(), ref_alt.begin(), ::toupper);
+	auto que_ref = q.ref;
+	transform(que_ref.begin(), que_ref.end(), que_ref.begin(), ::toupper);
+	auto que_alt = q.alt;
+	transform(que_alt.begin(), que_alt.end(), que_alt.begin(), ::toupper);
+	if (ref_ref == que_ref && ref_alt == que_alt) return true;
 	return false;
 }
 
@@ -1032,7 +1039,8 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                         break;
                     }
                 }
-                matching_result += "\t" + to_string(chop_left + offset);
+                // 1-based
+                matching_result += "\t" + to_string(chop_left + offset + 1);
 
                 parsimonious_ref = parsimonious_ref.substr(chop_left, parsimonious_ref.length() - chop_left - chop_right);
                 parsimonious_alt = parsimonious_alt.substr(chop_left, parsimonious_alt.length() - chop_left - chop_right);
@@ -1061,7 +1069,8 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                             m_snp.alt == r_snp.alt &&
                             m_snp.flag == r_snp.flag)
                         {
-                            ref_matching_variants += to_string(m_snp.pos) + "," + m_snp.ref + "," + m_snp.alt + ";";
+                        	// 1-based
+                            ref_matching_variants += to_string(m_snp.pos+1) + "," + m_snp.ref + "," + m_snp.alt + ";";
 							ref_snp_list.erase(n);
                             break;
                         }
@@ -1093,7 +1102,8 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                             m_snp.alt == q_snp.alt &&
                             m_snp.flag == q_snp.flag)
                         {
-                            que_matching_variants += to_string(m_snp.pos) + "," + m_snp.ref + "," + m_snp.alt + ";";
+                        	// 1-based
+                            que_matching_variants += to_string(m_snp.pos+1) + "," + m_snp.ref + "," + m_snp.alt + ";";
 							query_snp_list.erase(n);
                             break;
                         }
@@ -1533,6 +1543,7 @@ void VCF::Compare(string ref_vcf,
         }
     }
     output_complex_file.close();
+    complex_match_records.clear();
 
 	dsptime();
 	dout << " Finish clustering search." << endl;

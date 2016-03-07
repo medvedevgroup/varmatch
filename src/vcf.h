@@ -32,20 +32,17 @@ bool operator <(const SNP& x, const SNP& y);
 bool operator ==(const SNP& x, const SNP& y);
 
 typedef vector<unordered_map<int, vector<SNP> > > SnpHash;
-typedef unordered_map<int, string> VCFEntryHash;
-
 typedef vector<map<int, vector<SNP> > > SnpMap;
 
 class VCF
 {
 private:
     int debug_f;
-	vector<int> pos_boundries; // boundries for split multi hash table
-	bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
+
     bool complex_search;
 	bool clustering_search;
 
-	void DecideBoundries();
+    void ReadVCF(string filename, SnpHash & pos_2_snps);
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps,
 							unordered_map<int, vector<SNP> > & query_snps);
 	void ComplexSearchInThread(map<int, vector<SNP> > & ref_snps,
@@ -115,9 +112,8 @@ private:
 
 	// data structure for direct search
 	SnpHash refpos_2_snp;
-	VCFEntryHash refpos_2_vcf_entry;
 	SnpHash querypos_2_snp;
-	VCFEntryHash querypos_2_vcf_entry;
+
 
 	// data structure for complex search
 	SnpMap refpos_snp_map;
@@ -145,14 +141,16 @@ private:
 	//---------------------------above can be public:---------------------------
 
 protected:
+    vector<int> pos_boundries; // boundries for split multi hash table
+    bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
     // for inherit
 	int thread_num;
     string chromosome_name;
 	string genome_sequence; // genome sequence from fasta file
     const static int MAX_REPEAT_LEN = 1000;
 	
-    void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
 	bool CompareSnps(SNP r, SNP q);
+    void DecideBoundries();
 	string ModifySequenceBySnp(const string sequence, SNP s, int offset);
 	string ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset);
 	bool CheckTandemRepeat(string sequence, int unit_threshold);
