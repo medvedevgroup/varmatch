@@ -946,8 +946,7 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                         vector<SNP> & mixed_list,
                         const string subsequence,
                         int offset,
-                        int thread_index,
-                        int & matching_index)
+                        int thread_index)
 {
     //dout << "try match" << endl;
 	map<string, vector<SNP> > ref_choice_snps;
@@ -1101,13 +1100,12 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                     }
 				}
                 matching_result += "\t" + que_matching_variants + "\n";
-                if(matching_index >= complex_match_records[thread_index].size()){
-                    dout << "[Warning] dynamic allcate more memory" << endl;
+                if(thread_num == 1){
+                    std::lock_guard<std::mutex> guard(complex_match_mutex);
                     complex_match_records[thread_index].push_back(matching_result);
                 }else{
-                    complex_match_records[thread_index][matching_index]=matching_result;
+                    complex_match_records[thread_index].push_back(matching_result);
                 }
-                matching_index ++;
                 
                 //dout << endl;
 				//[todo] maybe multi-matching are in one cluster, should check left variants
@@ -1120,7 +1118,6 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 }
 
 void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
-    int matching_index = 0;
     for (int cluster_id = start; cluster_id < end; cluster_id++) {
 		if (cluster_snps_map.find(cluster_id) != cluster_snps_map.end()) {
 		    //dout << "cluster " << cluster_id << endl;	
@@ -1192,7 +1189,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                                 //dout << "=========================================" << endl;    
                                 while(cluster_ref_snps.size() > 0 &&
                                         cluster_que_snps.size() > 0 &&
-                                        MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos, thread_index, matching_index));
+                                        MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos, thread_index));
                                 //}
                                 //dout << "find breaking" << endl;
                                 cluster_ref_snps.clear();
@@ -1318,7 +1315,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
 
                 while(cluster_ref_snps.size() > 0 &&
                         cluster_que_snps.size() > 0 &&
-                        MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos, thread_index, matching_index));
+                        MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos, thread_index));
 
             }
             else
@@ -1326,7 +1323,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
 
                 while(candidate_ref_snps.size() > 0 &&
                         candidate_que_snps.size() > 0 &&
-                        MatchSnpLists(candidate_ref_snps, candidate_que_snps, snp_list, subsequence, min_pos, thread_index, matching_index));
+                        MatchSnpLists(candidate_ref_snps, candidate_que_snps, snp_list, subsequence, min_pos, thread_index));
                 //MatchSnpLists(candidate_ref_snps, candidate_que_snps, snp_list, subsequence, min_pos);
             }
             //dout << "after matching" << snp_list.size() << "," << cluster_snps_map[cluster_id].size() << endl;
@@ -1349,6 +1346,12 @@ void VCF::ClusteringSearchMultiThread() {
 	if (cluster_step * thread_num < cluster_number) cluster_step++;
 	int end = start + cluster_step;
 	
+    //initialize vector size, each allocating will have a lock
+    vector<string> temp_vector;
+    for(int j = 0; j < thread_num; j++){
+        complex_match_records.push_back(temp_vector);
+    }
+
 	vector<thread> threads;
 	//spawn threads
 	unsigned i = 0;
@@ -1361,8 +1364,6 @@ void VCF::ClusteringSearchMultiThread() {
                 variant_number += cluster_snps_map[cluster_id].size();
             }
         }
-        vector<string> thread_result(variant_number+1, string(1000, ' '));
-        complex_match_records.push_back(thread_result);
 		threads.push_back(thread(&VCF::ClusteringSearchInThread, this, start, end, i));
 		start = end;
 		end = start + cluster_step;
@@ -1382,8 +1383,6 @@ void VCF::ClusteringSearchMultiThread() {
                 variant_number += cluster_snps_map[cluster_id].size();
             }
         }
-        vector<string> thread_result(variant_number+1, string(1000, ' ')); 
-        complex_match_records.push_back(thread_result);
 		ClusteringSearchInThread(start, end, i);
 	}
 

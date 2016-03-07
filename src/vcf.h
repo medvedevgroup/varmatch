@@ -9,8 +9,9 @@
 #include <chrono>
 #include <cstdint>
 #include <limits>
+#include <thread>
+#include <mutex>
 #include "util.h"
-#include "threadguard.h"
 using namespace std;
 
 
@@ -39,21 +40,16 @@ class VCF
 {
 private:
     int debug_f;
-	int thread_num;
 	vector<int> pos_boundries; // boundries for split multi hash table
-	string genome_sequence; // genome sequence from fasta file
 	bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
     bool complex_search;
 	bool clustering_search;
-    const static int MAX_REPEAT_LEN = 1000;
 
-	void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
 	void DecideBoundries();
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps,
 							unordered_map<int, vector<SNP> > & query_snps);
 	void ComplexSearchInThread(map<int, vector<SNP> > & ref_snps,
 							map<int, vector<SNP> > & query_snps);
-	bool CompareSnps(SNP r, SNP q);
 	
 	//template function can only be defined in head file
 	template <typename T>
@@ -80,25 +76,6 @@ private:
 		return result;
 	}
 
-	template <typename D>
-	vector<vector<D>> CreateCombinations(vector<D> dict, int k) {
-		vector<vector<D>> result;
-		int n = dict.size();
-		vector<bool> v(n);
-		fill(v.begin(), v.end() - n + k, true);
-		do {
-			vector<D> t;
-			int sum = 0;
-			for (int i = 0; i < n; ++i) {
-				if (v[i]) {
-					t.push_back(dict[i]);
-				}
-			}
-			result.push_back(t);
-		} while (prev_permutation(v.begin(), v.end()));
-		return result;
-	}
-
 	bool ComplexMatch(SNP s, vector<SNP> comb);
 	bool GreedyComplexMatch(SNP r_snp,
 							map<int, vector<SNP> > & query_snps,
@@ -110,8 +87,6 @@ private:
 								vector<SNP> & deleted_ref_snps,
 								vector<SNP> & deleted_que_snps);
 
-	string ModifySequenceBySnp(const string sequence, SNP s, int offset);
-	string ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset);
 	void FindVariantsInRange_NlgN(int start,
 								int end,
 								map<int, vector<SNP> > snp_map,
@@ -124,28 +99,14 @@ private:
 									vector<SNP> & candidate_query_list,
 									vector<int> & candidate_changes);
 	unsigned int EditDistance(const std::string& s1, const std::string& s2);
-	bool CheckTandemRepeat(string sequence, int unit_threshold);
 
-	void ClusteringSearchInThread(int start, int end, int thread_index);
+    void ClusteringSearchInThread(int start, int end, int thread_index);
 
-	bool MatchSnpLists(vector<SNP> & ref_snp_list,
-            vector<SNP> & query_snp_list,
-            vector<SNP> & mixed_list,
-            const string subsequence,
-            int offset,
-            int thread_index,
-            int & matching_index);
 
 	void ClusteringSnpsOldAlgorithm(int threshold = 400, int lower_bound = 10);
-
-	//---------------------------following can be public:---------------------------
-
-public:
-	VCF(int thread_num_ = 0);
-	~VCF();
-
-    string chromosome_name;
-
+    
+    //-------------------------following can be public--------------------------
+    // but for a better OO design, made them private
     string output_stat_filename;
     string output_simple_filename;
     string output_complex_filename;
@@ -167,11 +128,11 @@ public:
 	vector<int> cluster_list;
 	map<int, vector<SNP> > cluster_snps_map;
 
+    std::mutex complex_match_mutex;
     vector<vector<string>> complex_match_records;
 
 	void ReadRefVCF(string filename);
 	void ReadQueryVCF(string filename);
-	void ReadGenomeSequence(string filename);
 	void DirectSearchMultiThread();
 	void ComplexSearchMultiThread();
 	void ClusteringSnps();
@@ -181,6 +142,55 @@ public:
 	int GetRefSnpNumber();
 	int GetQuerySnpNumber();
 
+	//---------------------------above can be public:---------------------------
+
+protected:
+    // for inherit
+	int thread_num;
+    string chromosome_name;
+	string genome_sequence; // genome sequence from fasta file
+    const static int MAX_REPEAT_LEN = 1000;
+	
+    void ReadVCF(string filename, SnpHash & pos_2_snps, VCFEntryHash & pos_2_vcf_entry);
+	bool CompareSnps(SNP r, SNP q);
+	string ModifySequenceBySnp(const string sequence, SNP s, int offset);
+	string ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset);
+	bool CheckTandemRepeat(string sequence, int unit_threshold);
+	void ReadGenomeSequence(string filename);
+	
+    bool MatchSnpLists(vector<SNP> & ref_snp_list,
+            vector<SNP> & query_snp_list,
+            vector<SNP> & mixed_list,
+            const string subsequence,
+            int offset,
+            int thread_index);
+	
+    template <typename D>
+	vector<vector<D>> CreateCombinations(vector<D> dict, int k) {
+		vector<vector<D>> result;
+		int n = dict.size();
+		vector<bool> v(n);
+		fill(v.begin(), v.end() - n + k, true);
+		do {
+			vector<D> t;
+			int sum = 0;
+			for (int i = 0; i < n; ++i) {
+				if (v[i]) {
+					t.push_back(dict[i]);
+				}
+			}
+			result.push_back(t);
+		} while (prev_permutation(v.begin(), v.end()));
+		return result;
+	}
+
+
+
+public:
+	VCF(int thread_num_ = 0);
+	~VCF();
+
+    // for public access
 	void Compare(string ref_vcf,
             string query_vcf,
             string genome_seq,

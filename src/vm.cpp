@@ -4,6 +4,7 @@
 #include <iostream>
 #include <thread>
 #include "vcf.h"
+#include "removeduplicate.h"
 
 using namespace std;
 
