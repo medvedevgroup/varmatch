@@ -19,11 +19,14 @@ typedef struct Args {
 	string chr_name;
 	string stat_filename;
 	int thread_num;
+	bool remove_duplicates;
+	bool single_vcf_filename;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
 	//ez command parsing
 	args.direct_search = false;
+	args.remove_duplicates = false;
     args.thread_num = 1;
 	for (int i = 1; i < argc - 1; i++)
 	{
@@ -66,6 +69,10 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 		else if (!strcmp(argv[i], "-t")) {
 			args.thread_num = atoi(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "-m")) {
+			args.remove_duplicates = true;
+			args.single_vcf_filename = string(argv[++i]);
+		}
 		else {
 			cout << "[Error] Unrecognized parameter: " << argv[i] << endl;
 			return false;
@@ -107,6 +114,14 @@ int main(int argc, char* argv[])
 	//args.que_vcf_filename = "E:\\data\\CHM1.bt2.hc.norm.chr1.vcf";
 	//args.genome_seq_filename = "E:\\data\\chr1.fa";
 	//args.thread_num = 8;
+	if(args.remove_duplicates){
+		RemoveDuplicate rd(args.thread_num);
+		rd.Deduplicate(args.single_vcf_filename,
+			args.genome_seq_filename,
+			args.direct_search,
+			args.output_filename);
+		return 0;
+	}
 
 	VCF vcf(args.thread_num);
 	vcf.Compare(args.ref_vcf_filename,

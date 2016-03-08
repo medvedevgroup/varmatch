@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <vector>
 #include <map>
-#include <iostream>
+#include <list>
 #include <tuple>
 #include <chrono>
 #include <cstdint>
@@ -12,6 +12,8 @@
 #include <thread>
 #include <mutex>
 #include "util.h"
+
+#include <iostream>
 using namespace std;
 
 
@@ -104,9 +106,6 @@ private:
     
     //-------------------------following can be public--------------------------
     // but for a better OO design, made them private
-    string output_stat_filename;
-    string output_simple_filename;
-    string output_complex_filename;
     string ref_mismatch_filename;
     string que_mismatch_filename;
 
@@ -114,24 +113,15 @@ private:
 	SnpHash refpos_2_snp;
 	SnpHash querypos_2_snp;
 
-
 	// data structure for complex search
 	SnpMap refpos_snp_map;
 	SnpMap querypos_snp_map;
-
-	// data structure for clustering search
-	vector<SNP> data_list;
-	vector<int> cluster_list;
-	map<int, vector<SNP> > cluster_snps_map;
-
-    std::mutex complex_match_mutex;
-    vector<vector<string>> complex_match_records;
 
 	void ReadRefVCF(string filename);
 	void ReadQueryVCF(string filename);
 	void DirectSearchMultiThread();
 	void ComplexSearchMultiThread();
-	void ClusteringSnps();
+	virtual void ClusteringSnps();
 	// default value better be in declaration, or definition, but never both
 	void ClusteringSearchMultiThread();
 
@@ -148,6 +138,20 @@ protected:
     string chromosome_name;
 	string genome_sequence; // genome sequence from fasta file
     const static int MAX_REPEAT_LEN = 1000;
+
+    // data structure for clustering search
+    vector<SNP> data_list;
+    vector<int> cluster_list;
+    map<int, vector<SNP> > cluster_snps_map;
+
+    // storing complex match results
+    std::mutex complex_match_mutex;
+    vector<vector<string>> complex_match_records;
+
+    // for output
+    string output_stat_filename;
+    string output_simple_filename;
+    string output_complex_filename;
 	
 	bool CompareSnps(SNP r, SNP q);
     void DecideBoundries();
