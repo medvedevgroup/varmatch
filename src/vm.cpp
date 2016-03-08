@@ -20,7 +20,7 @@ typedef struct Args {
 	string stat_filename;
 	int thread_num;
 	bool remove_duplicates;
-	bool single_vcf_filename;
+	string single_vcf_filename;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {

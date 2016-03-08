@@ -23,9 +23,9 @@ public:
     RemoveDuplicate(int thread_num_);
     ~RemoveDuplicate();
 
-    Deduplicate(string vcf_filename
+    void Deduplicate(string vcf_filename,
             string genome_filename,
             bool direct_search,
             string output_prefix);
 
-}
+};
