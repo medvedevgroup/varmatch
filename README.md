@@ -67,7 +67,7 @@ if vcf file contains variants of multi chromosome, use `--multi_genome` paramete
 
 
 ```
-./varmatch --multi_genome=chromosome_list.txt -r one.vcf -q another.vcf
+./varmatch --multi_genome chromosome_list.txt -r one.vcf -q another.vcf
 ```
 
 - `--multi_genome` chromosome list file contains chromosome name and FASTA file absolute path, separated by `\t`.
