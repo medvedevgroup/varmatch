@@ -185,7 +185,7 @@ protected:
 		} while (prev_permutation(v.begin(), v.end()));
 		return result;
 	}
-
+    bool CheckVariantOverlap(vector<SNP> snp_list);
 
 
 public:

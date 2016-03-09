@@ -17,7 +17,7 @@ private:
     void ClusteringSnps() override;
     void DivisiveHierarchicalClustering(list<vector<SNP>>& snp_clusters);
     void FindMatches(vector<SNP> snp_list, int thread_index);
-    bool FindOneMatch(vector<SNP> snp_list, const string subsequence, int offset, int thread_index);
+    bool FindOneMatch(vector<SNP> & snp_list, const string subsequence, int offset, int thread_index);
 
 public:
     RemoveDuplicate(int thread_num_);

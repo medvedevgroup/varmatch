@@ -28,7 +28,7 @@ int RemoveDuplicate::ReadVCFWithoutDup(string filename){
     while(!vcf_file.eof()){
         string line;
         getline(vcf_file, line, '\n');
-        if (line.length() <= 1) continue;
+        if ((int)line.length() <= 1) continue;
         if (line[0] == '#') continue;
         auto columns = split(line, '\t');
         if(chromosome_name == ".") chromosome_name = columns[0];
@@ -52,15 +52,16 @@ int RemoveDuplicate::ReadVCFWithoutDup(string filename){
         for (auto it = alt_list.begin(); it != alt_list.end(); ++it){
             snp_type = 'S';
             string a = *it;
-            if(ref.length() > alt.length()){
+            if((int)ref.length() > (int)alt.length()){
                 snp_type = 'D';
-            }else if(ref.length() < alt.length()){
+            }else if((int)ref.length() < (int)alt.length()){
                 snp_type = 'I';
             }
             var_num ++;
             string varid = to_string(pos) + "_" + ref + "_" + a;
             transform(varid.begin(), varid.end(), varid.begin(), ::toupper);
-            if(nondup_vcfentry_hash.find(varid) != nondup_vcfentry_hash.end()){
+            //dout << varid << endl;
+            if(nondup_vcfentry_hash.find(varid) == nondup_vcfentry_hash.end()){
                 nodup_var_num ++;
                 nondup_vcfentry_hash[varid] = line;
                 nondup_pos_snp_map[pos].push_back(SNP(pos, snp_type, ref, a));
@@ -74,6 +75,7 @@ int RemoveDuplicate::ReadVCFWithoutDup(string filename){
 
 void RemoveDuplicate::ClusteringSnps() {
     //int num = 0;
+    //dout << nondup_pos_snp_map.size() << endl;
     for (auto it = nondup_pos_snp_map.begin(); it != nondup_pos_snp_map.end(); ++it) {
         auto & v = it->second;
         for (int k = 0; k < v.size(); k++) {
@@ -98,8 +100,8 @@ void RemoveDuplicate::ClusteringSnps() {
             if(c_end-c_start >= 2){
                 string separator = genome_sequence.substr(c_start, c_end - c_start);
                 int max_change = max(ins_total, del_total);
-                if (separator.length() > 2 * max_change &&
-                    (separator.length() > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change))) 
+                if ((int)separator.length() > 2 * max_change &&
+                    ((int)separator.length() > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change))) 
                 {
                     cluster_index++;
                     ins_total = 0;
@@ -109,11 +111,11 @@ void RemoveDuplicate::ClusteringSnps() {
             }
         }
 
-        if(c_start < snp.pos + snp.ref.length()) c_start = snp.pos + snp.ref.length();
+        if(c_start < snp.pos + (int)snp.ref.length()) c_start = snp.pos + (int)snp.ref.length();
         // assign snp to cluster
         cluster_snps_map[cluster_index].push_back(snp);
-        int ref_length = snp.ref.length();
-        int alt_length = snp.alt.length();
+        int ref_length = (int)snp.ref.length();
+        int alt_length = (int)snp.alt.length();
         int diff_length = abs(ref_length - alt_length);
 
         if (snp.snp_type == 'I') {
@@ -130,7 +132,7 @@ void RemoveDuplicate::DivisiveHierarchicalClustering(list<vector<SNP> > & snp_cl
     if(snp_clusters.size() == 0) return;
     bool flag = true;
     list<bool> potential_list;
-    for(int i = 0; i < potential_list.size(); i++){
+    for(int i = 0; i < snp_clusters.size(); i++){
         potential_list.push_back(true);
     }
     while(flag){
@@ -150,7 +152,7 @@ void RemoveDuplicate::DivisiveHierarchicalClustering(list<vector<SNP> > & snp_cl
             int max_start = -1;
             int max_end = -1;
             int max_length = -1;
-            int start = front_cluster[0].pos + front_cluster[0].ref.length();
+            int start = front_cluster[0].pos + (int)front_cluster[0].ref.length();
             // find the largest gap, see if we can separate from that gap
             for(int k = 0; k < front_cluster.size(); k++){
                 auto snp = front_cluster[k];
@@ -176,7 +178,7 @@ void RemoveDuplicate::DivisiveHierarchicalClustering(list<vector<SNP> > & snp_cl
             string separator = genome_sequence.substr(max_start, max_end-max_start);
             for(int k = 0; k < front_cluster.size(); k++){
                 auto snp = front_cluster[k];
-                int snp_diff = abs(snp.ref.length() - snp.alt.length());
+                int snp_diff = abs((int)snp.ref.length() - (int)snp.alt.length());
                 if(snp.pos <= max_start){
                     if(snp.snp_type == 'I'){
                         left_ins += snp_diff;
@@ -205,8 +207,8 @@ void RemoveDuplicate::DivisiveHierarchicalClustering(list<vector<SNP> > & snp_cl
             for(int k = 0; k < change_list.size(); k++){
                 if (max_change < change_list[k]) max_change = change_list[k];
             }
-            if (separator.length() > 2 * max_change &&
-                    (separator.length() > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change)))
+            if ((int)separator.length() > 2 * max_change &&
+                    ((int)separator.length() > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change)))
             {
                 flag = true;
                 snp_clusters.push_back(left_snp_list);
@@ -224,7 +226,7 @@ void RemoveDuplicate::DivisiveHierarchicalClustering(list<vector<SNP> > & snp_cl
     return;
 }
 
-bool RemoveDuplicate::FindOneMatch(vector<SNP> snp_list, 
+bool RemoveDuplicate::FindOneMatch(vector<SNP> & snp_list, 
     const string subsequence,
     int offset,
     int thread_index)
@@ -235,7 +237,9 @@ bool RemoveDuplicate::FindOneMatch(vector<SNP> snp_list,
         vector<vector<SNP> > combinations = CreateCombinations(snp_list, i);
         for(int k = 0; k < combinations.size(); k++){
             vector<SNP> comb = combinations[k];
+            if(CheckVariantOverlap(comb)) continue;
             string alt_sequence = ModifySequenceBySnpList(subsequence, comb, offset);
+            //dout << alt_sequence << endl;
             if(donor_snps.find(alt_sequence) != donor_snps.end()){
                 string matching_result = "";
                 matching_result += chromosome_name;
@@ -264,13 +268,20 @@ bool RemoveDuplicate::FindOneMatch(vector<SNP> snp_list,
                 // 1-based
                 matching_result += "\t" + to_string(chop_left + offset + 1);
 
-                parsimonious_ref = parsimonious_ref.substr(chop_left, parsimonious_ref.length() - chop_left - chop_right);
-                parsimonious_alt = parsimonious_alt.substr(chop_left, parsimonious_alt.length() - chop_left - chop_right);
+                parsimonious_ref = parsimonious_ref.substr(chop_left, (int)parsimonious_ref.length() - chop_left - chop_right);
+                parsimonious_alt = parsimonious_alt.substr(chop_left, (int)parsimonious_alt.length() - chop_left - chop_right);
                 matching_result += "\t" + parsimonious_ref + "\t" + parsimonious_alt;
 
                 string set_matching_string = "";
                 for(int m = 0; m < comb.size(); m++){
                     auto m_snp = comb[m];
+                    for(auto it = snp_list.begin(); it != snp_list.end(); ++it){
+                        auto del_snp = *it;
+                        if(m_snp.snp_type == del_snp.snp_type && m_snp.pos == del_snp.pos && m_snp.ref == del_snp.ref && m_snp.alt == del_snp.alt){
+                            snp_list.erase(it);
+                            break;
+                        }
+                    }
                     set_matching_string += to_string(m_snp.pos+1) + "," + m_snp.ref + "," + m_snp.alt + ";";
                 }
                 matching_result += "\t"+set_matching_string;
@@ -278,6 +289,13 @@ bool RemoveDuplicate::FindOneMatch(vector<SNP> snp_list,
                 set_matching_string = "";
                 for(int m = 0; m < donor_snps[alt_sequence].size(); m++){
                     auto m_snp = donor_snps[alt_sequence][m];
+                    for(auto it = snp_list.begin(); it != snp_list.end(); ++it){
+                        auto del_snp = *it;
+                        if(m_snp.snp_type == del_snp.snp_type && m_snp.pos == del_snp.pos && m_snp.ref == del_snp.ref && m_snp.alt == del_snp.alt){
+                            snp_list.erase(it);
+                            break;
+                        }
+                    }
                     set_matching_string += to_string(m_snp.pos+1) + "," + m_snp.ref + "," + m_snp.alt + ";";
                 }
                 matching_result += "\t"+set_matching_string + "\n";
@@ -290,6 +308,8 @@ bool RemoveDuplicate::FindOneMatch(vector<SNP> snp_list,
                 }
 
                 return true;
+            }else{
+                donor_snps[alt_sequence] = comb;
             }
         }
     }
@@ -303,7 +323,7 @@ void RemoveDuplicate::FindMatches(vector<SNP> snp_list, int thread_index){
     sort(snp_list.begin(), snp_list.end());
     min_pos = snp_list[0].pos;
     for(int i = 0; i < snp_list.size(); i++){
-        int temp_pos = snp_list[i].pos + snp_list[i].ref.length();
+        int temp_pos = snp_list[i].pos + (int)snp_list[i].ref.length();
         if(max_pos < temp_pos) max_pos = temp_pos;
     }
     min_pos = max(0, min_pos - 1);
@@ -316,8 +336,10 @@ void RemoveDuplicate::ClusteringRemoveDuplicateInThread(int start, int end, int 
     for (int cluster_id = start; cluster_id < end; cluster_id++) {
         if (cluster_snps_map.find(cluster_id) == cluster_snps_map.end()) continue;
         auto & snp_list = cluster_snps_map[cluster_id];
+        if(snp_list.size() <= 1) continue;
+        //dout << snp_list.size() << endl;
         if(snp_list.size() > 20){
-            //DivisiveHierarchicalClustering
+            //dout << "DivisiveHierarchicalClustering" << endl;
             list<vector<SNP> > snp_clusters = {snp_list};
             DivisiveHierarchicalClustering(snp_clusters);
             for(auto it=snp_clusters.begin(); it != snp_clusters.end(); it++){
@@ -338,6 +360,8 @@ void RemoveDuplicate::ClusteringRemoveDuplicateMultiThread(){
     int cluster_step = cluster_number / thread_num;
     if (cluster_step * thread_num < cluster_number) cluster_step++;
     int end = start + cluster_step;
+
+    //dout << start << "\t" << end << "\t" << cluster_number << "\t" << cluster_step << endl;
     
     //initialize vector size, each allocating will have a lock
     vector<string> temp_vector;
@@ -360,6 +384,7 @@ void RemoveDuplicate::ClusteringRemoveDuplicateMultiThread(){
         threads.push_back(thread(&RemoveDuplicate::ClusteringRemoveDuplicateInThread, this, start, end, i));
         start = end;
         end = start + cluster_step;
+        //dout << start << "\t" << end << "\t" << cluster_number << "\t" << cluster_step << endl;
     }
     // also you need to do a job in main thread
     // i equals to (thread_num - 1)
@@ -388,6 +413,7 @@ void RemoveDuplicate::Deduplicate(string vcf_filename,
             bool direct_search,
             string output_prefix)
 {
+    //dout << output_prefix << endl;
     output_stat_filename = output_prefix + ".stat";
     output_simple_filename = output_prefix + ".simple";
     output_complex_filename = output_prefix + ".complex";
@@ -418,6 +444,7 @@ void RemoveDuplicate::Deduplicate(string vcf_filename,
     
     ofstream output_complex_file;
     output_complex_file.open(output_complex_filename);
+    //dout << output_complex_filename << endl;
     output_complex_file << "#CHR\tPOS\tREF\tALT\tSet1\tSet2" << endl;
     for(int i = 0; i < complex_match_records.size(); i++){
         for (int j = 0; j < complex_match_records[i].size(); j++){
