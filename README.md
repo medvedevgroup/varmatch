@@ -32,10 +32,10 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output
 ```
-- -r reference vcf file
-- -q query vcf file
-- -g genome fasta file
-- -o output directory, default value is `./output`
+- `-r` reference vcf file
+- `-q` query vcf file
+- `-g` genome fasta file
+- `-o` output directory, default value is `./output`
 
 
 :two: **Find common variants among multiple (more than one) vcf files**
@@ -44,7 +44,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 ./varmatch --multi_vcf 1.vcf 2.vcf 3.vcf -g genome.fa -o ./output
 ```
 
-- --multi_vcf  vcf file list separated by blank spaces
+- `--multi_vcf`  vcf file list separated by blank spaces
 
 
 :three: **Remove duplicates in one vcf file or variant database**
@@ -57,7 +57,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 ./varmatch -g genome.fa --remove_dup database.vcf -o ./output
 ```
 
-- --remove_dup vcf file name
+- `--remove_dup` vcf file name
 
 
 
@@ -70,7 +70,7 @@ if vcf file contains variants of multi chromosome, use `--multi_genome` paramete
 ./varmatch --multi_genome=chromosome_list.txt -r one.vcf -q another.vcf
 ```
 
-- --multi_genome chromosome list file contains chromosome name and FASTA file absolute path, separated by `\t`.
+- `--multi_genome` chromosome list file contains chromosome name and FASTA file absolute path, separated by `\t`.
 
 An example of chromosome list file is as follows:
 
@@ -91,7 +91,7 @@ An example of chromosome list file is as follows:
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
 ```
 
-- -t thread number
+- `-t` thread number
 
 
 
