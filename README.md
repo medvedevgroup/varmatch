@@ -26,38 +26,63 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 
 # Usage
 **Quick Usage:**
+
+*illustrate common parameters for quick usage of VarMatch*
+
 ```
-./varmatch -r one.vcf -q another.vcf -g chr1.fa
+./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output
 ```
 - -r reference vcf file
 - -q query vcf file
 - -g genome fasta file
+- -o output directory, default value is `./output`
 
 **Compare two vcf files with multi chromosomes**
+
+*illustrate how to use --multi_genome parameter*
+
+*This parameter is used if vcf file contains variants of multi chromosome*
+
 ```
 ./varmatch --multi_genome=chromosome_list.txt -r one.vcf -q another.vcf
 ```
 
-- --multi_genome chromosome list file contains chromosome name and FASTA file absolute path, separated by TAB
-A example of chromosome list file is as follows:
+- --multi_genome chromosome list file contains chromosome name and FASTA file absolute path, separated by `\t`.
 
->1   /home/varmatch/human/chr1.fa
+An example of chromosome list file is as follows:
 
->2   /home/varmatch/human/chr2.fa
+>1&nbsp;&nbsp;&nbsp;&nbsp;/home/varmatch/human/chr1.fa
 
->17  /home/varmatch/human/backup/chr17.fa
+>2&nbsp;&nbsp;&nbsp;&nbsp;/home/varmatch/human/chr2.fa
 
->X   /home/varmatch/human/chrxx.fa
+>17&nbsp;&nbsp;&nbsp;/home/varmatch/human/backup/chr17.fa
 
->Y   /home/anotherpath/human/chrY/human.y.fa
+>X&nbsp;&nbsp;&nbsp;&nbsp;/home/varmatch/human/chrxx.fa
+
+>Y&nbsp;&nbsp;&nbsp;&nbsp;/home/anotherpath/human/chrY/human.y.fa
 
 **Remove duplicates in one vcf file**
 
-```
+*illustrate how to use --remove_dup module*
+
+*This function module can be used to remove duplicates in database or single vcf file*
 
 ```
+./varmatch -g genome.fa --remove_dup database.vcf -o ./output
+```
+
+- --remove_dup vcf file name
+
+**Using Multi thread **
+
+```
+./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
+```
+
+- -t thread number
 
 use `-h/--help` for detailed help message.
+
 
 **Detailed Usage:**
 ```
