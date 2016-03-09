@@ -25,7 +25,7 @@ make vm
 And when using VarMatch, use `-n` parameter to indicate that you do not need normalization.
 
 # Usage
-1. **Quick Usage:**
+:one: **Quick Usage:**
 
 *illustrate common parameters for quick usage of VarMatch*
 
@@ -37,7 +37,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - -g genome fasta file
 - -o output directory, default value is `./output`
 
-2. **Compare two vcf files with multi chromosomes**
+:two: **Compare two vcf files with multi chromosomes**
 
 *illustrate how to use --multi_genome parameter*
 
@@ -61,7 +61,7 @@ An example of chromosome list file is as follows:
 
 >Y&nbsp;&nbsp;&nbsp;&nbsp;/home/anotherpath/human/chrY/human.y.fa
 
-3. **Remove duplicates in one vcf file**
+:three: **Remove duplicates in one vcf file**
 
 *illustrate how to use --remove_dup module*
 
@@ -73,7 +73,7 @@ An example of chromosome list file is as follows:
 
 - --remove_dup vcf file name
 
-4. **Using multi thread**
+:four: **Using multi thread**
 
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
@@ -84,7 +84,7 @@ An example of chromosome list file is as follows:
 use `-h/--help` for detailed help message.
 
 
-5. **Detailed Usage:**
+:five: **Detailed Usage:**
 ```
 TBA
 ```
