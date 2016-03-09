@@ -73,7 +73,16 @@ An example of chromosome list file is as follows:
 
 - --remove_dup vcf file name
 
-:four: **Using multi thread**
+:four: **Find common variants among multiple (more than one) vcf files**
+
+```
+./varmatch --multi_vcf 1.vcf 2.vcf 3.vcf -g genome.fa -o ./output
+```
+
+- --multi_vcf  vcf file list separated by blank spaces
+
+
+:five: **Using multi thread**
 
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
@@ -84,7 +93,7 @@ An example of chromosome list file is as follows:
 use `-h/--help` for detailed help message.
 
 
-:five: **Detailed Usage:**
+:six: **Detailed Usage:**
 ```
 TBA
 ```
