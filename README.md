@@ -63,9 +63,8 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 
 :four: **Compare vcf files with multi chromosomes**
 
-*illustrate how to use --multi_genome parameter*
+if vcf file contains variants of multi chromosome, use `--multi_genome` parameter instead of `-g`:
 
-*This parameter is used if vcf file contains variants of multi chromosome*
 
 ```
 ./varmatch --multi_genome=chromosome_list.txt -r one.vcf -q another.vcf
