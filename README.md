@@ -27,7 +27,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 # Usage
 :one: **Quick Usage:**
 
-*illustrate common parameters for quick usage of VarMatch*
+*compare two vcf files to find matches*
 
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output
@@ -37,7 +37,31 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - -g genome fasta file
 - -o output directory, default value is `./output`
 
-:two: **Compare two vcf files with multi chromosomes**
+
+:two: **Find common variants among multiple (more than one) vcf files**
+
+```
+./varmatch --multi_vcf 1.vcf 2.vcf 3.vcf -g genome.fa -o ./output
+```
+
+- --multi_vcf  vcf file list separated by blank spaces
+
+
+:three: **Remove duplicates in one vcf file or variant database**
+
+*illustrate how to use --remove_dup module*
+
+*This function module can be used to remove duplicates in database or single vcf file*
+
+```
+./varmatch -g genome.fa --remove_dup database.vcf -o ./output
+```
+
+- --remove_dup vcf file name
+
+
+
+:four: **Compare vcf files with multi chromosomes**
 
 *illustrate how to use --multi_genome parameter*
 
@@ -61,28 +85,8 @@ An example of chromosome list file is as follows:
 
 >Y&nbsp;&nbsp;&nbsp;&nbsp;/home/anotherpath/human/chrY/human.y.fa
 
-:three: **Remove duplicates in one vcf file**
 
-*illustrate how to use --remove_dup module*
-
-*This function module can be used to remove duplicates in database or single vcf file*
-
-```
-./varmatch -g genome.fa --remove_dup database.vcf -o ./output
-```
-
-- --remove_dup vcf file name
-
-:four: **Find common variants among multiple (more than one) vcf files**
-
-```
-./varmatch --multi_vcf 1.vcf 2.vcf 3.vcf -g genome.fa -o ./output
-```
-
-- --multi_vcf  vcf file list separated by blank spaces
-
-
-:five: **Using multi thread**
+:five: **Using multi threads**
 
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
@@ -90,13 +94,13 @@ An example of chromosome list file is as follows:
 
 - -t thread number
 
-use `-h/--help` for detailed help message.
+
 
 
 :six: **Detailed Usage:**
-```
-TBA
-```
+
+use `-h/--help` for detailed help message.
+
 
 # Output
 **Standard Output:**
