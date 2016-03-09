@@ -33,6 +33,25 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - -q query vcf file
 - -g genome fasta file
 
+**Compare two vcf files with multi chromosomes**
+```
+./varmatch --multi_genome=chromosome_list.txt -r one.vcf -q another.vcf
+```
+
+- --multi_genome chromosome list file contains chromosome name and FASTA file absolute path, separated by TAB
+A example of chromosome list file is as follows:
+
+>1   /home/varmatch/human/chr1.fa
+>2   /home/varmatch/human/chr2.fa
+>17  /home/varmatch/human/backup/chr17.fa
+>X   /home/varmatch/human/chrxx.fa
+>Y   /home/anotherpath/human/chrY/human.y.fa
+
+**Remove duplicates in one vcf file**
+```
+
+```
+
 use `-h/--help` for detailed help message.
 
 **Detailed Usage:**
