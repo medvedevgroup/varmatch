@@ -42,12 +42,17 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 A example of chromosome list file is as follows:
 
 >1   /home/varmatch/human/chr1.fa
+
 >2   /home/varmatch/human/chr2.fa
+
 >17  /home/varmatch/human/backup/chr17.fa
+
 >X   /home/varmatch/human/chrxx.fa
+
 >Y   /home/anotherpath/human/chrY/human.y.fa
 
 **Remove duplicates in one vcf file**
+
 ```
 
 ```
