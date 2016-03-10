@@ -101,10 +101,7 @@ private:
 	unsigned int EditDistance(const std::string& s1, const std::string& s2);
 
     void ClusteringSearchInThread(int start, int end, int thread_index);
-
-
-	void ClusteringSnpsOldAlgorithm(int threshold = 400, int lower_bound = 10);
-    
+  
     //-------------------------following can be public--------------------------
     // but for a better OO design, made them private
     string ref_mismatch_filename;

@@ -176,17 +176,7 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 		auto & r_snps = rit->second;
 		auto qit = query_snps.find(r_pos);
 		if (qit != query_snps.end()) {
-			
 			auto & q_snps = qit->second;
-
-			if (r_snps.size() != 1 || q_snps.size() != 1) {
-				//for(int i = 0; i < r_snps.size(); i++)
-                //    dout << "r_snp: " << r_snps[i].alt << endl;
-                //for(int i = 0; i < q_snps.size(); i++)
-                //    dout << "q_snp: " << q_snps[i].alt << endl;
-                //cout << "[Error] snp vector size not right" << endl;
-			}
-
 			vector<vector<SNP>::iterator> r_deleted_snps;
 			vector<vector<SNP>::iterator> q_deleted_snps;
 			for (auto r_snp_it = r_snps.begin(); r_snp_it != r_snps.end(); ++r_snp_it) {
@@ -194,6 +184,9 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 					if (CompareSnps(*r_snp_it, *q_snp_it)) {
 						r_deleted_snps.push_back(r_snp_it);
 						q_deleted_snps.push_back(q_snp_it);
+                        // here find a match
+                        string matching_result = chromosome_name + '\t' + str(*r_snp_it.pos+1) + "\t" + *r_snp_it.ref + "\t" + *r_snp_it.que;
+                        direct_match_records[thread_index]->push_back(matching_result);
 					}
 				}
 			}
@@ -243,6 +236,20 @@ void VCF::DirectSearchMultiThread() {
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
 
     threads.clear();
+
+    ofstream output_simple_file;
+    output_simple_file.open(output_simple_filename);
+    output_simple_file << "##VCF1:" << ref_vcf_filename << endl;
+    output_simple_file << "##VCF2:" << que_vcf_filename << endl;
+    output_simple_file << "#CHR\tPOS\tREF\tALT" << endl;
+    for(int i = 0; i < thread_num; i++){
+        for (int j = 0; j < direct_match_records[i]->size(); j++){
+            //if(direct_match_records[i]->at(j).find_first_not_of(' ') != std::string::npos){
+            output_simple_file << direct_match_records[i]->at(j) << endl;
+            //}
+        }
+    }
+    output_complex_file.close();
     
     for(int j = 0; j < thread_num; j++){
         delete direct_match_records[j];
@@ -252,17 +259,12 @@ void VCF::DirectSearchMultiThread() {
 }
 
 string VCF::ModifySequenceBySnp(const string sequence, SNP s, int offset) {
-	// [todo] unit test
 	string result = "";
 	int snp_pos = s.pos - offset;
 	int snp_end = snp_pos + (int)s.ref.length();
 	if(snp_end > (int)sequence.length()){
         dout << "[Error] snp end greater than sequence length" << endl;
     }
-    //if(snp_end > sequence.length()){
-    //    cout << "snp end greater than sequence length" << endl;
-    //    cout << snp_end << "\t" << sequence.length() << endl;
-    //}
 	result += sequence.substr(0, snp_pos);
 	result += s.alt;
 	result += sequence.substr(snp_end, sequence.length() - snp_end);
@@ -277,29 +279,18 @@ string VCF::ModifySequenceBySnpList(const string sequence, vector<SNP> s, int of
         return ModifySequenceBySnp(sequence, s[0], offset);
     }
     sort(s.begin(), s.end());
-    //dout << sequence << endl;
 	for (int i = s.size()-1; i >= 0; i--) {
 		int snp_pos = s[i].pos - offset;
 		int snp_end = snp_pos + (int)s[i].ref.length();
 		string snp_alt = s[i].alt;
-		//result += sequence.substr(start_pos, snp_pos - start_pos);
-		//result += snp_alt;
-		//start_pos = snp_end;
         int result_length = (int)result.length();
         if(snp_pos > result_length || snp_end > result_length){
-        //    dout << "[Warning] overlapping variants detected" << endl;
-        //    dout << "=============================" << endl;
-	    //    dout << result << endl;
-        //    dout << snp_pos << "," << snp_end << "," << s[i].ref << "," << s[i].alt << endl;
             result = sequence;
             transform(result.begin(), result.end(), result.begin(), ::toupper);
             return result;
         }
         result = result.substr(0, snp_pos) + s[i].alt + result.substr(snp_end, result_length-snp_end);
     }
-	//if (start_pos < sequence.length()) {
-	//	result += sequence.substr(start_pos, sequence.length() - start_pos);
-	//}
 	transform(result.begin(), result.end(), result.begin(), ::toupper);
 	return result;
 }
@@ -357,17 +348,6 @@ bool VCF::ExponentialComplexMatch(SNP r_snp,
 							query_snps,
 							candidate_query_list,
 							candidate_changes);
-
-	//[todo] unit test function FindVariantsInRange_Linear, time and accuracy
-
-	//FindVariantsInRange_Linear(ref_start_pos,
-	//						ref_end_pos,
-	//						query_snps,
-	//						qit_start,
-	//						candidate_query_list,
-	//						candidate_changes);
-
-
 	int candidate_size = candidate_query_list.size();
 	if (candidate_size == 0) return false;
 	//check all combinations, from largest, one single match is enough
@@ -456,15 +436,11 @@ bool VCF::GreedyComplexMatch(SNP r_snp,
 		for (int i = 0; i < v.size(); i++) {
 			int snp_start = v[i].pos;
 			int snp_end = snp_start + (int)(v[i].ref.length());
-			//if(ref_start_pos <= snp_start && ref_end_pos >= snp_start){
             if (min(ref_end_pos, snp_end) - max(ref_start_pos, snp_start) > 0) {
 				comb.push_back(v[i]);
                 if (que_left > snp_start ) que_left = snp_start;
                 if (que_right < snp_end) que_right = snp_end;
                 flag = true;
-                //dout << "candidates:" << ref_start_pos << "," << ref_end_pos << ": ";
-                //dout << snp_start << "," << snp_end << endl;
-                //dout << v[i].pos << "\t" << v[i].ref << "\t" << v[i].alt << endl;
 			}
 		}
         if(flag){
@@ -479,9 +455,6 @@ bool VCF::GreedyComplexMatch(SNP r_snp,
 	int ref_right = ref_left + (int)(r_snp.ref.length());
 
 	int comb_size = comb.size();
-	//int que_left = comb[0].pos;
-	//int que_right = comb[comb_size - 1].pos + comb[comb_size - 1].ref.length();
-
 	int genome_left = min(ref_left, que_left);
 	int genome_right = max(ref_right, que_right);
 
@@ -496,9 +469,6 @@ bool VCF::GreedyComplexMatch(SNP r_snp,
 	int que_offset = genome_left;
 
 	vector<SNP> deleted_snps;
-    //dout << "genome sequence:" << que_subseq << endl;
-    //dout << r_snp.pos << "\t" << r_snp.ref << "\t" << r_snp.alt << endl;
-    //dout << "ref:" << ref_subseq << endl;
 	for (auto it = candidate_query_map.begin(); it != candidate_query_map.end(); ++it) {
 		auto v = it->second;
 		SNP min_s;
@@ -507,8 +477,6 @@ bool VCF::GreedyComplexMatch(SNP r_snp,
 		string min_subseq;
 		for (int i = 0; i < v.size(); i++) {
 			auto s = v[i];
-            //dout << que_subseq << "\t" << s.pos << "\t" << que_offset << endl;
-            //dout << s.pos << "\t" << s.ref << "\t" << s.alt << endl;
 			auto subseq = ModifySequenceBySnp(que_subseq, s, que_offset);
 			int distance = EditDistance(ref_subseq, subseq);
             int len_dis = abs((int)(ref_subseq.size()- subseq.size()));
@@ -520,7 +488,6 @@ bool VCF::GreedyComplexMatch(SNP r_snp,
 			}
 		}
 		if (min_distance < edit_distance && min_len_distance <= len_distance) {
-			//dout << "distance: " << edit_distance << "," << min_distance << endl;
             edit_distance = min_distance;
 			que_subseq = min_subseq;
 			que_offset += ((int)(min_s.ref.length()) - (int)(min_s.alt.length()));
@@ -550,8 +517,6 @@ void VCF::FindVariantsInRange_NlgN(int start,
 {
 	auto itlow = snp_map.lower_bound(start);
 	auto itup = snp_map.upper_bound(end);
-	// theoretically, since all snps are independent, we do not need the following two if-statement
-	// but this is engineering
 	if (itlow != snp_map.begin()) {
 		itlow--;
 	}
@@ -565,7 +530,6 @@ void VCF::FindVariantsInRange_NlgN(int start,
 			int snp_start = v[i].pos;
 			int snp_end = snp_start + (int)(v[i].ref.length());
             int change = (int)(v[i].alt.length()) - (int)(v[i].ref.length());
-			//if(end > snp_start && start >= snp_start){
             if (min(end, snp_end) - max(start, snp_start) > 0) {
 				candidate_query_list.push_back(v[i]);
                 candidate_changes.push_back(change);
@@ -581,18 +545,15 @@ void VCF::FindVariantsInRange_Linear(int start,
 	vector<SNP> & candidate_query_list,
 	vector<int> & candidate_changes)
 {
-	//[todo] unit test
 	for (auto qit = qit_start; qit != snp_map.end(); ++qit) {
 		int que_start_pos = qit->first;
 		auto que_snp_list = qit->second;
-		//[todo] double check the boundry condition
 		if (que_start_pos >= start && que_start_pos < end) {
 			for (int j = 0; j < que_snp_list.size(); j++) {
 				candidate_query_list.push_back(que_snp_list[j]);
 				int change = (int)(que_snp_list[j].alt.length()) - (int)(que_snp_list[j].ref.length());
 				candidate_changes.push_back(change);
 			}
-			//qit_start = qit;
 		}
 		else if (que_start_pos < start) {
 			qit_start = qit;
@@ -607,30 +568,20 @@ void VCF::ComplexSearchInThread(map<int, vector<SNP> > & ref_snps, map<int, vect
 	// linear algorithm
 	vector<SNP> deleted_ref_snps;
 	vector<SNP> deleted_que_snps;
-	// for each position in ref, i.e. a vector
-	//dout << ref_snps.size() << endl;
-    //dout << query_snps.size() << endl;
-    //int i = 0;
 	auto qit_start = query_snps.begin();
 	// iterator all snps in ref_snps using two for-loops
     for (auto rit = ref_snps.begin(); rit != ref_snps.end(); ++rit) {
-        //i ++;
-        //dout << i << endl;
 		int ref_start_pos = rit->first;
 		auto ref_snp_list = rit->second;
 		// for each snp in the vector
 		for (int i = 0; i < ref_snp_list.size(); i++) {
 			auto ref_snp = ref_snp_list[i];
-
-			//ExponentialComplexMatch(ref_snp_list[i], query_snps, qit_start, deleted_ref_snps, deleted_que_snps);
-
 			GreedyComplexMatch(ref_snp_list[i], query_snps, deleted_ref_snps, deleted_que_snps);
 		}
 	}
 
 	// delete all snps, first check position, then delete by value matching
 	// [todo] this actually should be one separated function
-
 	for (auto it = deleted_ref_snps.begin(); it != deleted_ref_snps.end(); ++it) {
 		auto snp = *it;
 		auto pos = snp.pos;
@@ -678,12 +629,10 @@ void f(){
 void VCF::ComplexSearchMultiThread() {
 	if (GetRefSnpNumber() == 0 || GetQuerySnpNumber() == 0) return;
     complex_search = true;
-
 	// transfer data from hash to map
 	for (int i = 0; i < refpos_2_snp.size(); i++) {
 		auto & pos_snp_hash = refpos_2_snp[i];
 		for (auto rit = pos_snp_hash.begin(); rit != pos_snp_hash.end(); ++rit) {
-			//refpos_snp_map[i][rit->first] = rit->second;
             auto p = rit->first;
             auto v = rit->second;
             for(int j  = 0; j < v.size(); j++){
@@ -717,8 +666,6 @@ void VCF::ComplexSearchMultiThread() {
         if(refpos_snp_map[i].size() == 0 || querypos_snp_map[i].size() == 0){
             continue;
         }
-		//threads.push_back(thread(f));
-        //dout << "create new thread" << endl;
         threads.push_back(thread(&VCF::ComplexSearchInThread, this, ref(refpos_snp_map[i]), ref(querypos_snp_map[i])));
 	}
 	// also you need to do a job in main thread
@@ -748,13 +695,9 @@ void VCF::ComplexSearchMultiThread() {
         if(refpos_snp_map[i].size() == 0 || querypos_snp_map[i].size() == 0){
             continue;
         }
-		//threads.push_back(thread(f));
-        //dout << "create new thread" << endl;
         threads.push_back(thread(&VCF::ComplexSearchInThread, this, ref(querypos_snp_map[i]),
                     ref(refpos_snp_map[i])));
 	}
-	// also you need to do a job in main thread
-	// i equals to (thread_num - 1)
 	if (i != thread_num - 1) {
 		dout << "[Error] thread number not match" << endl;
 	}
@@ -763,8 +706,6 @@ void VCF::ComplexSearchMultiThread() {
     }else if(refpos_snp_map[i].size() != 0 && querypos_snp_map[i].size() != 0){
 	    ComplexSearchInThread(querypos_snp_map[i], refpos_snp_map[i]);
     }
-
-	// call join() on each thread in turn before this function?
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
     //[todo] check boundries
     //-----------------------------------------------------------------------------
@@ -774,9 +715,6 @@ void VCF::ComplexSearchMultiThread() {
 bool VCF::CheckTandemRepeat(string sequence, int unit_threshold) {
 	int sequence_length = (int)sequence.length();
     if(sequence_length == 1) return true;
-    //if(sequence_length > MAX_REPEAT_LEN) return false;
-	
-    // transform to upper before checking tandem repeat
 	transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
     int end_index = sequence_length / 2 + 1;
 	bool final_checking = false;
@@ -798,10 +736,6 @@ bool VCF::CheckTandemRepeat(string sequence, int unit_threshold) {
             repeat_time ++;
 		}
 		if (is_tandem_repeat && repeat_time > 1) {
-            //if(debug_f == -1){
-            //    dout << sequence << endl;
-			//    dout << repeat_region << endl;
-            //}
             final_checking = true;
 			break;
 		}
@@ -815,7 +749,6 @@ bool VCF::CheckTandemRepeat(string sequence, int unit_threshold) {
 	algorithm description, please refer to paper method
 */
 void VCF::ClusteringSnps() {
-	//int num = 0;
 	for (int i = 0; i < refpos_2_snp.size(); i++) {
 		auto & m = refpos_2_snp[i];
 		for (auto it = m.begin(); it != m.end(); ++it) {
@@ -825,13 +758,9 @@ void VCF::ClusteringSnps() {
 					v[k].flag = 1;
 				}
 				data_list.push_back(v[k]);
-				//num ++;
 			}
 		}
 	}
-	//dout << "ref num: " << num << endl;
-
-	//num = 0;
 	for (int i = 0; i < querypos_2_snp.size(); i++) {
 		auto & m = querypos_2_snp[i];
 		for (auto it = m.begin(); it != m.end(); ++it) {
@@ -839,12 +768,9 @@ void VCF::ClusteringSnps() {
 			for (int k = 0; k < v.size(); k++) {
 				v[k].flag = -1;
 				data_list.push_back(v[k]);
-				//num ++;
 			}
 		}
 	}
-
-	//dout << "que num: " << num << endl;
 
 	if (data_list.size() == 0)
 		return;
@@ -864,12 +790,9 @@ void VCF::ClusteringSnps() {
 		// check if need to separator clusters
         if (i > 0) {
 			c_end = snp.pos;
-            //dout << snp.flag << "\t" << snp.pos << "\t" << snp.ref << "\t" << snp.alt << endl;
-            //dout << c_end << "," << c_start << endl;
             if(c_end-c_start >= 2){
                 string separator = genome_sequence.substr(c_start, c_end - c_start);
                 int max_change = max(ins_ref + del_que, ins_que + del_ref);
-                //dout << "@" << separator.length() << "\t" << 2* max_change << "\t" << MAX_REPEAT_LEN << endl;
                 if ((int)(separator.length()) > 2 * max_change &&
                     ((int)(separator.length()) > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change))) 
                 {
@@ -882,19 +805,10 @@ void VCF::ClusteringSnps() {
                 }
             }
 		}
-        //if(snp.pos == 167582762 || snp.pos == 167582766){
-        //if(cluster_index == 30166){
-        //    dout << snp.flag << "\t" << snp.pos << "\t" << snp.ref << "\t" << snp.alt << endl;
-        //    dout << c_end << "," << c_start << endl;
-        //    dout << cluster_index << endl;
-        //}
-
         if(c_start < snp.pos + (int)(snp.ref.length())) c_start = snp.pos + (int)(snp.ref.length());
 		
         // assign snp to cluster
 		cluster_snps_map[cluster_index].push_back(snp);
-		
-		//dout << i << ":" << cluster_index << endl;
 		int ref_length = (int)(snp.ref.length());
 		int alt_length = (int)(snp.alt.length());
 		int diff_length = abs(ref_length - alt_length);
@@ -915,65 +829,6 @@ void VCF::ClusteringSnps() {
 			}
 		}
 	}
-    //cout << cluster_index << " clusters" << endl;
-}
-
-/* 
-	clustering snps
-	old algorithm, fixed length bound and threshold
-	expected to have almost the same result but maybe worse than new algorithm
-	keep old algorithm for testing
- */
-void VCF::ClusteringSnpsOldAlgorithm(int threshold, int lower_bound) {
-	for (int i = 0; i < refpos_2_snp.size(); i++) {
-		auto & m = refpos_2_snp[i];
-		for (auto it = m.begin(); it != m.end(); ++it) {
-			auto & v = it->second;
-			for (int k = 0; k < v.size(); k++) {
-				if (v[k].flag != 1) {
-					v[k].flag = 1;
-				}
-				data_list.push_back(v[k]);
-			}
-		}
-	}
-	for (int i = 0; i < querypos_2_snp.size(); i++) {
-		auto & m = querypos_2_snp[i];
-		for (auto it = m.begin(); it != m.end(); ++it) {
-			auto & v = it->second;
-			for (int k = 0; k < v.size(); k++) {
-				v[k].flag = -1;
-				data_list.push_back(v[k]);
-			}
-		}
-	}
-	if (data_list.size() == 0)
-		return;
-    sort(data_list.begin(), data_list.end());
-
-	int cluster_index = 0;
-	int previous_data = 0;
-
-	for (int i = 0; i < data_list.size(); i++) {
-		auto snp = data_list[i];
-		int pos = snp.pos;
-		int distance = pos - previous_data;
-		if (distance > threshold) {
-			cluster_index ++;
-		}
-		else {
-			if (distance > lower_bound) {
-				string subsequence = genome_sequence.substr(previous_data, snp.pos - previous_data);
-				if (!CheckTandemRepeat(subsequence,(int)(subsequence.length())))
-					cluster_index++;
-			}
-		}
-		cluster_snps_map[cluster_index].push_back(snp);
-        int current_data = snp.pos + (int)(snp.ref.length());
-		if (previous_data < current_data)
-			previous_data = current_data;
-	}
-    dout << cluster_index << " clusters" << endl;
 }
 
 bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
@@ -983,65 +838,33 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                         int offset,
                         int thread_index)
 {
-    //dout << "try match" << endl;
 	map<string, vector<SNP> > ref_choice_snps;
 	sort(mixed_list.begin(), mixed_list.end());
 
-    //if(debug_f == -1){
-    //    dout << "ref:" << endl;
-    //}
 	for (int i = ref_snp_list.size(); i >= 1; i--) {
 		vector<vector<SNP> > combinations = CreateCombinations(ref_snp_list, i);
-		//dout << ref_snp_list.size() << "\t" << i << "\t" << combinations.size() << endl;
         for (int k = 0; k < combinations.size(); k++) {
 			auto c = combinations[k];
 			if(CheckVariantOverlap(c)) continue;
-            
-            //dout << subsequence << endl;
-            //if(debug_f == -1){
-            //for(int j = 0; j < c.size(); j++){
-            //    dout << c[j].flag << "," << c[j].pos << "," << c[j].ref << "," << c[j].alt << ":";
-            //}
-            //}
-            //dout << offset << endl;
-			
             string ref_sequence = ModifySequenceBySnpList(subsequence, c, offset);
-			//if(debug_f == -1){
-            //    dout << ref_sequence << endl;
-            //}
             ref_choice_snps[ref_sequence] = c;
 		}
 	}
 
-    //dout << "hello world" << endl;
     if(debug_f == -1){
         dout << "que:" << endl;
     }
-    //dout << '@' << query_snp_list.size() << endl;
+
 	for (int i = query_snp_list.size(); i >= 1; i--) {
 		vector<vector<SNP> > combinations = CreateCombinations(query_snp_list, i);
 		for (int k = 0; k < combinations.size(); k++) {
 			auto c = combinations[k];
-		    //dout  << "@" << i << "\t" << combinations.size() << endl;
 			if(CheckVariantOverlap(c)) continue;
             string que_sequence = ModifySequenceBySnpList(subsequence, c, offset);
-            //if(debug_f == -1){
-            //for(int j = 0; j < c.size(); j++){
-            //    dout << c[j].flag << "," << c[j].pos << "," << c[j].ref << "," << c[j].alt << ":";
-            //}
-            //dout << que_sequence << endl;
-            //}
 			if (ref_choice_snps.find(que_sequence) != ref_choice_snps.end()) {
 				// delete all matched
                 auto r = ref_choice_snps[que_sequence];
-				//dout << "$$matched: " << c.size() << "\t" << r.size() << endl;
 				sort(r.begin(), r.end());
-                //if(debug_f == -1){
-                //    dout << "#match" << endl;
-                //}
-                //dout << "ref:";
-
-                //[todo] here we need creating record and insert it into the vector
                 string matching_result = "";
                 matching_result += chromosome_name;
                 
@@ -1086,7 +909,6 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                             m_snp.alt == r_snp.alt &&
                             m_snp.flag == r_snp.flag)
                         {
-                            //dout << m_snp.pos << "," << m_snp.ref << "," << m_snp.alt << "," << m_snp.flag << ":";
 							mixed_list.erase(n);
                             break;
                         }
@@ -1106,8 +928,6 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                     }
 				}
                 matching_result += "\t" + ref_matching_variants;
-                //dout << endl;
-                //dout << "que:";
                 string que_matching_variants = "";
 				sort(c.begin(), c.end());
 				for (int m = 0; m < c.size(); m++) {
@@ -1119,7 +939,6 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                             m_snp.alt == q_snp.alt &&
                             m_snp.flag == q_snp.flag)
                         {
-                            //dout << m_snp.pos << "," << m_snp.ref << "," << m_snp.alt << "," << m_snp.flag << ":";
 							mixed_list.erase(n);
                             break;
                         }
@@ -1140,10 +959,6 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 				}
                 matching_result += "\t" + que_matching_variants + "\n";
                 complex_match_records[thread_index]->push_back(matching_result);
-                
-                //dout << endl;
-				//[todo] maybe multi-matching are in one cluster, should check left variants
-				//dout << "matched" << endl;
                 return true;
 			}
 		}
@@ -1179,18 +994,8 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
             string subsequence = genome_sequence.substr(min_pos, max_pos-min_pos);
 
             if (candidate_ref_snps.size() == 0 || candidate_que_snps.size() == 0) continue;
-			if (candidate_ref_snps.size() <= 1 && candidate_que_snps.size() <= 1) continue;
-			//dout << cluster_id << " before matching: " << snp_list.size() << endl;
-			//dout << candidate_ref_snps.size() << "\t" << candidate_que_snps.size() << endl;
-		    //if(cluster_id == 30166){
-            //    debug_f = -1;
-            //}else{
-            //    debug_f = 1;
-            //} 
-            
+			if (candidate_ref_snps.size() <= 1 && candidate_que_snps.size() <= 1) continue;        
             if(candidate_ref_snps.size() > 10 || candidate_que_snps.size() > 10){
-                //need re-clustering
-                //dout << "re-clustering" << endl;
                 vector<SNP> cluster_ref_snps;
                 vector<SNP> cluster_que_snps;
                 int ins_ref = 0;
@@ -1207,7 +1012,6 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
 
                 for (int i = candidate_snps.size()-1; i >= 0; i--) {
                     auto snp = candidate_snps[i];
-                    //dout << snp.flag << "\t" << snp.pos << "\t" << snp.ref << "\t" << snp.alt << "\t" << cluster_id << endl;
                     // check if need to separator clusters
                     if (i < candidate_snps.size() - 1) {
                         int c_start = snp.pos;
@@ -1215,17 +1019,11 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                         if(c_start < c_end){
                             string separator = genome_sequence.substr(c_start, c_end - c_start);
                             int max_change = max(ins_ref + del_que, ins_que + del_ref);
-                            //dout << "$" << ins_ref << "," << del_que << "," << ins_que << "," << del_ref << endl;
-                            //dout << "@" << separator.length() << "\t" << 2* max_change << "\t" << MAX_REPEAT_LEN << endl;
                             if ((int)separator.length() > 2 * max_change && !CheckTandemRepeat(separator, max_change)) 
-                            {
-                                //if(cluster_ref_snps.size() > 0 && cluster_que_snps.size() > 0){
-                                //dout << "=========================================" << endl;    
+                            { 
                                 while(cluster_ref_snps.size() > 0 &&
                                         cluster_que_snps.size() > 0 &&
                                         MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos, thread_index));
-                                //}
-                                //dout << "find breaking" << endl;
                                 cluster_ref_snps.clear();
                                 cluster_que_snps.clear();
                                 ins_ref = 0;
@@ -1233,9 +1031,6 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                                 ins_que = 0;
                                 del_que = 0;
                             }
-                            //if(separator.length() > 2*max_change && CheckTandemRepeat(separator, max_change)){
-                                //dout << separator << endl;
-                            //}
                         }
                     }
 
@@ -1247,9 +1042,6 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                     }else{
                         cluster_que_snps.push_back(snp);
                     }
-                    //cluster_snps_map[cluster_index].push_back(snp);
-                    
-                    //dout << i << ":" << cluster_index << endl;
                     int ref_length = (int)snp.ref.length();
                     int alt_length = (int)snp.alt.length();
                     int diff_length = abs(ref_length - alt_length);
@@ -1336,14 +1128,6 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                     }
 
                     cout << "[Warning] large cluster found, skip it." << endl;
-                    //dout << "ref snps:" << endl;
-                    //for(int j = 0; j < cluster_ref_snps.size(); j++){
-                    //    dout << cluster_ref_snps[j].flag << "," << cluster_ref_snps[j].pos << "," << cluster_ref_snps[j].ref << "," << cluster_ref_snps[j].alt << endl;
-                    //}
-                    //dout << "alt snps:" << endl;
-                    //for(int j = 0; j < cluster_que_snps.size(); j++){
-                    //    dout << cluster_que_snps[j].flag << "," << cluster_que_snps[j].pos << "," << cluster_que_snps[j].ref << "," << cluster_que_snps[j].alt << endl;
-                    //}
                     continue;
                 }
 
@@ -1360,7 +1144,6 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                         MatchSnpLists(candidate_ref_snps, candidate_que_snps, snp_list, subsequence, min_pos, thread_index));
                 //MatchSnpLists(candidate_ref_snps, candidate_que_snps, snp_list, subsequence, min_pos);
             }
-            //dout << "after matching" << snp_list.size() << "," << cluster_snps_map[cluster_id].size() << endl;
 		}
 		else {
 			break;
@@ -1370,8 +1153,6 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
 
 // match by cluster
 void VCF::ClusteringSearchMultiThread() {
-
-	
 	clustering_search = true;
 	int start = cluster_snps_map.begin()->first;
 	int cluster_number = cluster_snps_map.size();
@@ -1379,7 +1160,6 @@ void VCF::ClusteringSearchMultiThread() {
 	int cluster_step = cluster_number / thread_num;
 	if (cluster_step * thread_num < cluster_number) cluster_step++;
 	int end = start + cluster_step;
-	
     //initialize vector size, each allocating will have a lock
     complex_match_records = new vector<string>* [thread_num];
     for(int j = 0; j < thread_num; j++){
@@ -1390,8 +1170,6 @@ void VCF::ClusteringSearchMultiThread() {
 	//spawn threads
 	unsigned i = 0;
 	for (; i < thread_num - 1; i++) {
-		//threads.push_back(thread(f));
-		//dout << "create new thread" << endl;
         int variant_number = 0;
         for (int cluster_id = start; cluster_id < end; cluster_id++) {
 		    if (cluster_snps_map.find(cluster_id) != cluster_snps_map.end()) {
