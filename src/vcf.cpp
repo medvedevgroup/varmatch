@@ -62,7 +62,10 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 		auto alt = columns[4];
 		auto quality = columns[6];
 
-		if (alt.find(",") != string::npos) continue; // can not deal with multi alt yet
+		if (ref == ".") ref = "";
+        if (alt == ".") alt = "";
+
+        if (alt.find(",") != string::npos) continue; // can not deal with multi alt yet
         //todo(Chen) deal with multi alt
 
 		char snp_type = 'S'; 
@@ -152,7 +155,8 @@ void VCF::ReadQueryVCF(string filename) {
 }
 
 bool VCF::CompareSnps(SNP r, SNP q) {
-	auto ref_ref = r.ref;
+	if(r.pos != q.pos) return false;
+    auto ref_ref = r.ref;
 	transform(ref_ref.begin(), ref_ref.end(), ref_ref.begin(), ::toupper);
 	auto ref_alt = r.alt;
 	transform(ref_alt.begin(), ref_alt.end(), ref_alt.begin(), ::toupper);
@@ -164,7 +168,7 @@ bool VCF::CompareSnps(SNP r, SNP q) {
 	return false;
 }
 
-void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps) {
+void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps, int thread_index) {
 	auto rit = ref_snps.begin();
 	auto rend = ref_snps.end();
 	for (; rit != rend;) {
@@ -216,23 +220,35 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 
 // directly match by position
 void VCF::DirectSearchMultiThread() {
+
+    direct_match_records = new vector<string>* [thread_num];
+    for(int j = 0; j < thread_num; j++){
+        direct_match_records[j] = new vector<string>;
+    }
+
 	vector<thread> threads;
 	//spawn threads
 	unsigned i = 0;
 	for (; i < thread_num - 1; i++) {
-		threads.push_back( thread(&VCF::DirectSearchInThread, this, ref(refpos_2_snp[i]), ref(querypos_2_snp[i])) );
+		threads.push_back( thread(&VCF::DirectSearchInThread, this, ref(refpos_2_snp[i]), ref(querypos_2_snp[i]), i));
 	}
 	// also you need to do a job in main thread
 	// i equals to (thread_num - 1)
 	if (i != thread_num - 1) {
 		dout << "[Error] thread number not match" << endl;
 	}
-	DirectSearchInThread(refpos_2_snp[i], querypos_2_snp[i]);
+	DirectSearchInThread(refpos_2_snp[i], querypos_2_snp[i],i);
 
 	// call join() on each thread in turn before this function?
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
 
     threads.clear();
+    
+    for(int j = 0; j < thread_num; j++){
+        delete direct_match_records[j];
+    }
+    delete [] direct_match_records;
+
 }
 
 string VCF::ModifySequenceBySnp(const string sequence, SNP s, int offset) {
@@ -1052,8 +1068,9 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                     }
                 }
                 // 1-based
+                if ((int)parsimonious_ref.length() - chop_left - chop_right == 0 || (int)parsimonious_alt.length() - chop_left - chop_right == 0)
+                    chop_left --;
                 matching_result += "\t" + to_string(chop_left + offset + 1);
-
                 parsimonious_ref = parsimonious_ref.substr(chop_left, (int)(parsimonious_ref.length()) - chop_left - chop_right);
                 parsimonious_alt = parsimonious_alt.substr(chop_left, (int)(parsimonious_alt.length()) - chop_left - chop_right);
                 matching_result += "\t" + parsimonious_ref + "\t" + parsimonious_alt;
@@ -1122,12 +1139,7 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                     }
 				}
                 matching_result += "\t" + que_matching_variants + "\n";
-                if(thread_num == 1){
-                    std::lock_guard<std::mutex> guard(complex_match_mutex);
-                    complex_match_records[thread_index].push_back(matching_result);
-                }else{
-                    complex_match_records[thread_index].push_back(matching_result);
-                }
+                complex_match_records[thread_index]->push_back(matching_result);
                 
                 //dout << endl;
 				//[todo] maybe multi-matching are in one cluster, should check left variants
@@ -1369,9 +1381,9 @@ void VCF::ClusteringSearchMultiThread() {
 	int end = start + cluster_step;
 	
     //initialize vector size, each allocating will have a lock
-    vector<string> temp_vector;
+    complex_match_records = new vector<string>* [thread_num];
     for(int j = 0; j < thread_num; j++){
-        complex_match_records.push_back(temp_vector);
+        complex_match_records[j] = new vector<string>;
     }
 
 	vector<thread> threads;
@@ -1410,6 +1422,25 @@ void VCF::ClusteringSearchMultiThread() {
 
 	// call join() on each thread in turn before this function?
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+    
+    ofstream output_complex_file;
+    output_complex_file.open(output_complex_filename);
+    output_complex_file << "##VCF1:" << ref_vcf_filename << endl;
+    output_complex_file << "##VCF2:" << que_vcf_filename << endl;
+    output_complex_file << "#CHR\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
+    for(int i = 0; i < thread_num; i++){
+        for (int j = 0; j < complex_match_records[i]->size(); j++){
+            if(complex_match_records[i]->at(j).find_first_not_of(' ') != std::string::npos){
+                output_complex_file << complex_match_records[i]->at(j);
+            }
+        }
+    }
+    output_complex_file.close();
+
+    for(int j = 0; j < thread_num; j++){
+        delete complex_match_records[j];
+    }
+    delete [] complex_match_records;
 }
 
 int VCF::GetRefSnpNumber() {
@@ -1466,6 +1497,8 @@ void VCF::Compare(string ref_vcf,
         bool direct_search,
         string output_prefix){
 
+    ref_vcf_filename = ref_vcf;
+    que_vcf_filename = query_vcf;
 	output_stat_filename = output_prefix + ".stat";
     output_simple_filename = output_prefix + ".simple";
     output_complex_filename = output_prefix + ".complex";
@@ -1542,20 +1575,6 @@ void VCF::Compare(string ref_vcf,
 	dout << " Clustering search ... " << endl;
 	ClusteringSearchMultiThread();
 
-    ofstream output_complex_file;
-    output_complex_file.open(output_complex_filename);
-    output_complex_file << "##VCF1:" << ref_vcf << endl;
-    output_complex_file << "##VCF2:" << query_vcf << endl;
-    output_complex_file << "#CHR\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
-    for(int i = 0; i < complex_match_records.size(); i++){
-        for (int j = 0; j < complex_match_records[i].size(); j++){
-            if(complex_match_records[i][j].find_first_not_of(' ') != std::string::npos){
-                output_complex_file << complex_match_records[i][j];
-            }
-        }
-    }
-    output_complex_file.close();
-    complex_match_records.clear();
 
 	dsptime();
 	dout << " Finish clustering search." << endl;

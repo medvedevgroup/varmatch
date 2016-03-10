@@ -389,6 +389,16 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
     print(common_complex_num)
 
 
+def remove_duplicate(genome_filename, single_vcf_filename, output_prefix):
+    
+    remove_duplicate_command = compare_tool + ' -m ' + single_vcf_filename + ' -g ' + genome_filename + ' -o ' + output_prefix
+    
+    if args.t is not None and int(args.t) > 1:
+        remove_duplicate_command += ' -t ' + args.t
+    shell_run(remove_duplicate_command)
+
+
+
 def main():
    
     if len(sys.argv) < 2:
@@ -439,6 +449,13 @@ def main():
         os.mkdir(temp_dir)
     
     #print args.r, args.q
+    if args.remove_dup is not None and args.remove_dup != '':
+        if not os.path.isfile(args.remove_dup):
+            print ('\tError in remove duplication mode:\n')
+            print ('\tCan not find vcf file: ' + args.remove_dup)
+        basename = os.path.basename(args.remove_dup)
+        output_prefix = output_dir + '/' + basename + '.nodup'
+        remove_duplicate(args.g, args.remove_dup, output_prefix)
 
     if args.multi_genome is not None and args.multi_genome != '':
         if args.multi_vcf is not None:

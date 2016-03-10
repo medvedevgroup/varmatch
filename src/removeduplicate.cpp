@@ -266,6 +266,8 @@ bool RemoveDuplicate::FindOneMatch(vector<SNP> & snp_list,
                     }
                 }
                 // 1-based
+                if ((int)parsimonious_ref.length() - chop_left - chop_right == 0 || (int)parsimonious_alt.length() - chop_left - chop_right == 0)
+                    chop_left --;
                 matching_result += "\t" + to_string(chop_left + offset + 1);
 
                 parsimonious_ref = parsimonious_ref.substr(chop_left, (int)parsimonious_ref.length() - chop_left - chop_right);
@@ -300,12 +302,7 @@ bool RemoveDuplicate::FindOneMatch(vector<SNP> & snp_list,
                 }
                 matching_result += "\t"+set_matching_string + "\n";
 
-                if(thread_num == 1){
-                    std::lock_guard<std::mutex> guard(complex_match_mutex);
-                    complex_match_records[thread_index].push_back(matching_result);
-                }else{
-                    complex_match_records[thread_index].push_back(matching_result);
-                }
+                complex_match_records[thread_index]->push_back(matching_result);
 
                 return true;
             }else{
@@ -364,9 +361,9 @@ void RemoveDuplicate::ClusteringRemoveDuplicateMultiThread(){
     //dout << start << "\t" << end << "\t" << cluster_number << "\t" << cluster_step << endl;
     
     //initialize vector size, each allocating will have a lock
-    vector<string> temp_vector;
+    complex_match_records = new vector<string>* [thread_num];
     for(int j = 0; j < thread_num; j++){
-        complex_match_records.push_back(temp_vector);
+        complex_match_records[j] = new vector<string>;
     }
 
     vector<thread> threads;
@@ -406,6 +403,18 @@ void RemoveDuplicate::ClusteringRemoveDuplicateMultiThread(){
 
     // call join() on each thread in turn before this function?
     std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+    
+    ofstream output_complex_file;
+    output_complex_file.open(output_complex_filename);
+    output_complex_file << "#CHR\tPOS\tREF\tALT\tSet1\tSet2" << endl;
+    for(int i = 0; i < thread_num; i++){
+        for (int j = 0; j < complex_match_records[i]->size(); j++){
+            if(complex_match_records[i]->at(j).find_first_not_of(' ') != std::string::npos){
+                output_complex_file << complex_match_records[i]->at(j);
+            }
+        }
+    }
+    output_complex_file.close();
 }
 
 void RemoveDuplicate::Deduplicate(string vcf_filename,
@@ -442,19 +451,6 @@ void RemoveDuplicate::Deduplicate(string vcf_filename,
     dsptime();
     dout << " Output complex duplications..." << endl;
     
-    ofstream output_complex_file;
-    output_complex_file.open(output_complex_filename);
-    //dout << output_complex_filename << endl;
-    output_complex_file << "#CHR\tPOS\tREF\tALT\tSet1\tSet2" << endl;
-    for(int i = 0; i < complex_match_records.size(); i++){
-        for (int j = 0; j < complex_match_records[i].size(); j++){
-            if(complex_match_records[i][j].find_first_not_of(' ') != std::string::npos){
-                output_complex_file << complex_match_records[i][j];
-            }
-        }
-    }
-    output_complex_file.close();
-    complex_match_records.clear();
     
     return;
 }

@@ -46,7 +46,8 @@ private:
 
     void ReadVCF(string filename, SnpHash & pos_2_snps);
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps,
-							unordered_map<int, vector<SNP> > & query_snps);
+							unordered_map<int, vector<SNP> > & query_snps,
+                            int thread_index);
 	void ComplexSearchInThread(map<int, vector<SNP> > & ref_snps,
 							map<int, vector<SNP> > & query_snps);
 	
@@ -145,10 +146,16 @@ protected:
     map<int, vector<SNP> > cluster_snps_map;
 
     // storing complex match results
-    std::mutex complex_match_mutex;
-    vector<vector<string>> complex_match_records;
+    //std::mutex complex_match_mutex;
+    //vector<vector<string>> complex_match_records;
+
+    //lock free dynamic array of vector pointers for storing.
+    vector<string> ** direct_match_records;
+    vector<string> ** complex_match_records;
 
     // for output
+    string ref_vcf_filename;
+    string que_vcf_filename;
     string output_stat_filename;
     string output_simple_filename;
     string output_complex_filename;
