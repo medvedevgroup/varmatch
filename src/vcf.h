@@ -48,9 +48,7 @@ private:
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps,
 							unordered_map<int, vector<SNP> > & query_snps,
                             int thread_index);
-	void ComplexSearchInThread(map<int, vector<SNP> > & ref_snps,
-							map<int, vector<SNP> > & query_snps);
-	
+
 	//template function can only be defined in head file
 	template <typename T>
 	vector<vector<T>> CreateCombinationsWithTarget(vector<T> dict, int k, vector<int> changes, int target) {
@@ -76,29 +74,6 @@ private:
 		return result;
 	}
 
-	bool ComplexMatch(SNP s, vector<SNP> comb);
-	bool GreedyComplexMatch(SNP r_snp,
-							map<int, vector<SNP> > & query_snps,
-							vector<SNP> & deleted_ref_snps,
-							vector<SNP> & deleted_que_snps);
-	bool ExponentialComplexMatch(SNP r_snp,
-								map<int, vector<SNP> > & query_snps,
-								map<int, vector<SNP> >::iterator & qit_start,
-								vector<SNP> & deleted_ref_snps,
-								vector<SNP> & deleted_que_snps);
-
-	void FindVariantsInRange_NlgN(int start,
-								int end,
-								map<int, vector<SNP> > snp_map,
-								vector<SNP> & candidate_query_list,
-								vector<int> & candidate_changes);
-	void FindVariantsInRange_Linear(int start,
-									int end,
-									map<int, vector<SNP> > snp_map,
-									map<int, vector<SNP> >::iterator & qit_start,
-									vector<SNP> & candidate_query_list,
-									vector<int> & candidate_changes);
-	unsigned int EditDistance(const std::string& s1, const std::string& s2);
 
     void ClusteringSearchInThread(int start, int end, int thread_index);
   
@@ -118,7 +93,6 @@ private:
 	void ReadRefVCF(string filename);
 	void ReadQueryVCF(string filename);
 	void DirectSearchMultiThread();
-	void ComplexSearchMultiThread();
 	virtual void ClusteringSnps();
 	// default value better be in declaration, or definition, but never both
 	void ClusteringSearchMultiThread();
