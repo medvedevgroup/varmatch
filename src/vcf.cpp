@@ -59,23 +59,11 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 		if(chromosome_name == ".") chromosome_name = columns[0];
         auto pos = atoi(columns[1].c_str()) - 1;
 		auto ref = columns[3];
-		auto alt = columns[4];
+		auto alt_line = columns[4];
 		auto quality = columns[6];
 
 		if (ref == ".") ref = "";
-        if (alt == ".") alt = "";
-
-        if (alt.find(",") != string::npos) continue; // can not deal with multi alt yet
-        //todo(Chen) deal with multi alt
-
-		char snp_type = 'S'; 
-		if ((int)ref.length() > (int)alt.length()) {
-			snp_type = 'D';
-		}
-		else if ((int)ref.length() < (int)alt.length()) {
-			snp_type = 'I';
-		}
-
+        if (alt_line == ".") alt_line = "";
 		//decide which thread to use
 		int index = 0;
 		for (int i = 0; i < pos_boundries.size(); i++) {
@@ -85,13 +73,24 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 			}
 		}
 
-		if (pos_2_snp[index].find(pos) != pos_2_snp[index].end()) continue; // can not deal with multi alt yet
-		pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt));
-        //if(pos_2_snp[index][pos].size() > 1){
-        //    dout << previous_line << endl;
-        //    dout << line << endl;
-        //}
+        vector<string> alt_list;
+        if (alt_line.find(",") != string::npos){
+            alt_list = split(alt_line, ',');
+        }else{
+            alt_list.push_back(alt_line);
+        }
+        for(auto alt_it = alt_list.begin(); alt_it != alt_list.end(); ++alt_it){
+            string alt = *alt_it;
+            char snp_type = 'S'; 
+            if ((int)ref.length() > (int)alt.length()) {
+                snp_type = 'D';
+            }
+            else if ((int)ref.length() < (int)alt.length()) {
+                snp_type = 'I';
+            }
 
+            pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt));
+        }
 	}
 	vcf_file.close();
 	return;
@@ -169,7 +168,8 @@ bool VCF::CompareSnps(SNP r, SNP q) {
 }
 
 void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps, int thread_index) {
-	auto rit = ref_snps.begin();
+	// handle heterozygous variants
+    auto rit = ref_snps.begin();
 	auto rend = ref_snps.end();
 	for (; rit != rend;) {
 		auto r_pos = rit->first;
@@ -185,7 +185,8 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 						r_deleted_snps.push_back(r_snp_it);
 						q_deleted_snps.push_back(q_snp_it);
                         // here find a match
-                        string matching_result = chromosome_name + '\t' + str(*r_snp_it.pos+1) + "\t" + *r_snp_it.ref + "\t" + *r_snp_it.que;
+                        auto temp_snp = *r_snp_it;
+                        string matching_result = chromosome_name + '\t' + to_string(temp_snp.pos+1) + "\t" + temp_snp.ref + "\t" + temp_snp.alt;
                         direct_match_records[thread_index]->push_back(matching_result);
 					}
 				}
@@ -244,13 +245,10 @@ void VCF::DirectSearchMultiThread() {
     output_simple_file << "#CHR\tPOS\tREF\tALT" << endl;
     for(int i = 0; i < thread_num; i++){
         for (int j = 0; j < direct_match_records[i]->size(); j++){
-            //if(direct_match_records[i]->at(j).find_first_not_of(' ') != std::string::npos){
             output_simple_file << direct_match_records[i]->at(j) << endl;
-            //}
         }
     }
-    output_complex_file.close();
-    
+    output_simple_file.close();
     for(int j = 0; j < thread_num; j++){
         delete direct_match_records[j];
     }
@@ -272,7 +270,6 @@ string VCF::ModifySequenceBySnp(const string sequence, SNP s, int offset) {
 	return result;
 }
 string VCF::ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset) {
-	// [todo] unit test
 	string result = sequence;
 	int start_pos = 0;
     if(s.size() == 1){
