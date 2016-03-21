@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 			args.que_vcf_filename,
 			args.genome_seq_filename,
 			args.direct_search,
-            args.output_filename);
+            args.output_filename
+            args.match_genotype);
     return 0;
 }
-

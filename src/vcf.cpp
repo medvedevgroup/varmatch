@@ -18,7 +18,8 @@ VCF::VCF(int thread_num_)
 	genome_sequence = "";
 	boundries_decided = false;
 	clustering_search = false;
-    if (thread_num_ == 0) {
+	match_genotype = false;
+    if (thread_num_ <= 0) {
 		thread_num = 1;
 	}
 	else {
@@ -34,24 +35,41 @@ VCF::~VCF()
 
 void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 	if (!boundries_decided) {
-		cout << "[Error] VCF::ReadVCF cannot read vcf file before read genome file" << endl;
+		dout << "[Error] VCF::ReadVCF cannot read vcf file before read genome file" << endl;
 		return;
 	}
 
 	ifstream vcf_file;
 	vcf_file.open(filename.c_str());
 	if (!vcf_file.good()) {
-		cout << "[Error] VCF::ReadVCF can not open vcf file" << endl;
+		cout << "[VarMatch] Error: can not open vcf file" << endl;
 		return;
 	}
     string previous_line;
 	while (!vcf_file.eof()) { // alternative way is vcf_file != NULL
 		string line;
 		getline(vcf_file, line, '\n');
-		//dout << line << endl;
+		// check ineligible lines
 		if ((int)line.length() <= 1) continue;
-		if (line[0] == '#') continue;
+		if (line.find_first_not_of(' ') == std::string::npos) continue;
+
+		if (line[0] == '#'){
+			if(line[1] == '#') continue;
+			auto head_names = split(line, '\t');
+			if(match_genotype && head_names.size() < 10){
+				cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
+				cout << "[VarMatch] \tVCF file name " << filename << endl;
+				cout << "[VarMatch] \tAutomatically turn off genotype matching module." << endl;
+				match_genotype = false;
+			}
+			continue;
+		}
 		auto columns = split(line, '\t');
+		if(match_genotype && columns.size() < 10){
+			cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
+			cout << "[VarMatch] \tskip current variant " << filename << endl;
+			continue;
+		}
 		if(chromosome_name == ".") chromosome_name = columns[0];
         auto pos = atoi(columns[1].c_str()) - 1;
 		auto ref = columns[3];
@@ -69,24 +87,69 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 			}
 		}
 
-        vector<string> alt_list;
-        if (alt_line.find(",") != string::npos){
-            alt_list = split(alt_line, ',');
-        }else{
-            alt_list.push_back(alt_line);
-        }
-        for(auto alt_it = alt_list.begin(); alt_it != alt_list.end(); ++alt_it){
-            string alt = *alt_it;
-            char snp_type = 'S'; 
-            if ((int)ref.length() > (int)alt.length()) {
-                snp_type = 'D';
-            }
-            else if ((int)ref.length() < (int)alt.length()) {
-                snp_type = 'I';
-            }
+		int genotype_index = -1;
+		string genotype == "1/1";
+		if (match_genotype){
+			auto formats = split(columns[8], ':');
+			for(int index = 0; index < formats.size(); index++){
+				if(formats[index] == "GT") genotype_index = index;
+			}
+			if (genotype_index < 0) {
+				cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
+				cout << "[VarMatch] \tskip current variant " << filename << endl;
+				continue;
+			}
+			auto additionals = split(columns[9], ':');
+			genotype = additionals[genotype_index];
+			vector<string> genotype_columns;
+			if(genotype.find("/") != std::string::npos){
+				genotype_columns = split(genotype, '/');
+			}else if(genotype.find("|") != std::string::npos){
+				genotype_columns = split(genotype, '|');
+			}else{
+				cout << "[VarMatch] Error: Unrecognized Genotype: " << genotype << endl;
+				continue;
+			}
+			// normalize format of genotype
+			sort(genotype_columns.begin(), genotype_columns.end());
+			genotype = genotype_columns[0]+"|"+genotype_columns[1];
+		}
 
-            pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt));
-        }
+		vector<string> alt_list;
+		if (alt_line.find(",") != std::string::npos){
+			alt_list = split(alt_line, ',');
+			if(alt_list.size() > 2) cout << "[VarMatch] Warning: too many alleles in current variant: " << alt << endl;
+		}else{
+			alt_list.push_back(alt_line);
+		}
+		if(!match_genotype){
+			for(auto alt_it = alt_list.begin(); alt_it != alt_list.end(); ++alt_it){
+				string alt = *alt_it;
+				char snp_type = 'S';
+				if ((int)ref.length() > (int)alt.length()) {
+					snp_type = 'D';
+				}
+				else if ((int)ref.length() < (int)alt.length()) {
+					snp_type = 'I';
+				}
+				pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt, genotype));
+			}
+		}else{
+			//append variants according to genotype
+			if(genotype == "0|0") continue;
+			if(genotype == "1|1" || genotype == "0|1"){
+				pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[0], genotype));
+			}else if(genotype == "1|2" && alt_list.size() == 2){
+				pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[0], genotype));
+				pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[1], genotype));
+			}else if(genotype == "2|2" || genotype == "0|2"){
+				if(alt_list.size() == 2)
+					pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[1], genotype));
+			}else{
+				cout << "[VarMatch] Unrecognized Genotype: " << genotype << endl;
+				continue;
+			}
+		}
 	}
 	vcf_file.close();
 	return;
@@ -96,7 +159,8 @@ void VCF::ReadGenomeSequence(string filename) {
 	ifstream genome_file;
 	genome_file.open(filename.c_str());
 	if (!genome_file.good()) {
-		cout << "[Error] VCF::ReadGenomeSequence can not open fasta file" << endl;
+		cout << "[VarMatch] can not open FASTA file: ";
+		cout << filename << endl;
 		return;
 	}
 
@@ -151,6 +215,9 @@ void VCF::ReadQueryVCF(string filename) {
 
 bool VCF::CompareSnps(SNP r, SNP q) {
 	if(r.pos != q.pos) return false;
+
+	// directly match genotype
+	if(match_genotype && r.genotype != q.genotype) return false;
     auto ref_ref = r.ref;
 	transform(ref_ref.begin(), ref_ref.end(), ref_ref.begin(), ::toupper);
 	auto ref_alt = r.alt;
@@ -238,7 +305,7 @@ void VCF::DirectSearchMultiThread() {
     output_simple_file.open(output_simple_filename);
     output_simple_file << "##VCF1:" << ref_vcf_filename << endl;
     output_simple_file << "##VCF2:" << que_vcf_filename << endl;
-    output_simple_file << "#CHR\tPOS\tREF\tALT" << endl;
+    output_simple_file << "#CHROM\tPOS\tREF\tALT" << endl;
     for(int i = 0; i < thread_num; i++){
         for (int j = 0; j < direct_match_records[i]->size(); j++){
             output_simple_file << direct_match_records[i]->at(j) << endl;
@@ -377,7 +444,7 @@ void VCF::ClusteringSnps() {
 	int del_que = 0;
 	int c_start = 0;
     int c_end = 0;
-	
+
     for (int i = 0; i < data_list.size(); i++) {
         auto snp = data_list[i];
 		// check if need to separator clusters
@@ -387,7 +454,7 @@ void VCF::ClusteringSnps() {
                 string separator = genome_sequence.substr(c_start, c_end - c_start);
                 int max_change = max(ins_ref + del_que, ins_que + del_ref);
                 if ((int)(separator.length()) > 2 * max_change &&
-                    ((int)(separator.length()) > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change))) 
+                    ((int)(separator.length()) > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change)))
                 {
                     cluster_index++;
                     ins_ref = 0;
@@ -399,7 +466,7 @@ void VCF::ClusteringSnps() {
             }
 		}
         if(c_start < snp.pos + (int)(snp.ref.length())) c_start = snp.pos + (int)(snp.ref.length());
-		
+
         // assign snp to cluster
 		cluster_snps_map[cluster_index].push_back(snp);
 		int ref_length = (int)(snp.ref.length());
@@ -444,11 +511,6 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
             ref_choice_snps[ref_sequence] = c;
 		}
 	}
-
-    if(debug_f == -1){
-        dout << "que:" << endl;
-    }
-
 	for (int i = query_snp_list.size(); i >= 1; i--) {
 		vector<vector<SNP> > combinations = CreateCombinations(query_snp_list, i);
 		for (int k = 0; k < combinations.size(); k++) {
@@ -461,7 +523,7 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 				sort(r.begin(), r.end());
                 string matching_result = "";
                 matching_result += chromosome_name;
-                
+
                 string parsimonious_ref = subsequence;
                 string parsimonious_alt = que_sequence;
                 if(parsimonious_ref == parsimonious_alt){
@@ -587,7 +649,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
             string subsequence = genome_sequence.substr(min_pos, max_pos-min_pos);
 
             if (candidate_ref_snps.size() == 0 || candidate_que_snps.size() == 0) continue;
-			if (candidate_ref_snps.size() <= 1 && candidate_que_snps.size() <= 1) continue;        
+			if (candidate_ref_snps.size() <= 1 && candidate_que_snps.size() <= 1) continue;
             if(candidate_ref_snps.size() > 10 || candidate_que_snps.size() > 10){
                 vector<SNP> cluster_ref_snps;
                 vector<SNP> cluster_que_snps;
@@ -600,7 +662,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                 for(int i = 0; i < candidate_snps.size(); i++){
                     candidate_snps[i].pos += (int)candidate_snps[i].ref.length();
                 }
-                
+
                 sort(candidate_snps.begin(), candidate_snps.end());
 
                 for (int i = candidate_snps.size()-1; i >= 0; i--) {
@@ -611,8 +673,8 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                         if(c_start < c_end){
                             string separator = genome_sequence.substr(c_start, c_end - c_start);
                             int max_change = max(ins_ref + del_que, ins_que + del_ref);
-                            if ((int)separator.length() > 2 * max_change && !CheckTandemRepeat(separator, max_change)) 
-                            { 
+                            if ((int)separator.length() > 2 * max_change && !CheckTandemRepeat(separator, max_change))
+                            {
                                 while(cluster_ref_snps.size() > 0 &&
                                         cluster_que_snps.size() > 0 &&
                                         MatchSnpLists(cluster_ref_snps, cluster_que_snps, snp_list, subsequence, min_pos, thread_index));
@@ -654,7 +716,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                         }
                     }
                 }
-                
+
                 //if separating cluster does not work, try heuristic, if still not work, discard this cluster
                 if(cluster_ref_snps.size() > 20 || cluster_que_snps.size() > 20){
                     // final check by variant length, if not applicable, skip it and give a warning.
@@ -686,7 +748,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                             }
                         }
                         if (skip_flag) continue;
-                    }else{   
+                    }else{
                         int que_sum_del_len = 0;
                         int que_sum_ins_len = 0;
                         for(int j = 0; j < cluster_que_snps.size(); j++){
@@ -713,7 +775,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
                             }
                         }
                         if(skip_flag) continue;
-                    
+
                     }
                     cout << "[Warning] large cluster found, skip it." << endl;
                     continue;
@@ -786,12 +848,12 @@ void VCF::ClusteringSearchMultiThread() {
 
 	// call join() on each thread in turn before this function?
 	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
-    
+
     ofstream output_complex_file;
     output_complex_file.open(output_complex_filename);
     output_complex_file << "##VCF1:" << ref_vcf_filename << endl;
     output_complex_file << "##VCF2:" << que_vcf_filename << endl;
-    output_complex_file << "#CHR\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
+    output_complex_file << "#CHROM\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
     for(int i = 0; i < thread_num; i++){
         for (int j = 0; j < complex_match_records[i]->size(); j++){
             if(complex_match_records[i]->at(j).find_first_not_of(' ') != std::string::npos){
@@ -838,7 +900,7 @@ int VCF::GetQuerySnpNumber() {
 	}else{
 	    for (int i = 0; i < querypos_2_snp.size(); i++) {
 		    result += querypos_2_snp[i].size();
-	    }   
+	    }
     }
 	return result;
 }
@@ -847,10 +909,12 @@ void VCF::Compare(string ref_vcf,
         string query_vcf,
         string genome_seq,
         bool direct_search,
-        string output_prefix){
+        string output_prefix
+        bool match_genotype){
 
     ref_vcf_filename = ref_vcf;
     que_vcf_filename = query_vcf;
+    this->match_genotype = match_genotype;
 	output_stat_filename = output_prefix + ".stat";
     output_simple_filename = output_prefix + ".simple";
     output_complex_filename = output_prefix + ".complex";
@@ -907,27 +971,15 @@ void VCF::Compare(string ref_vcf,
         return;
     }
 
-	//------------complex search
-	//dsptime();
-	//dout << " Complex search ... " << endl;
-	//ComplexSearchMultiThread();
-	//dsptime();
-	//dout << " Finish complex search." << endl;
-	//dout << " referece vcf entry number: " << GetRefSnpNumber() << endl;
-	//dout << " query vcf entry number: " << GetQuerySnpNumber() << endl;
-
 	//-------------clustering search
 	dsptime();
 	dout << " Clustering snps ... " << endl;
 	ClusteringSnps();
-    //ClusteringSnpsOldAlgorithm(400, 10);
 	dsptime();
 	dout << " Finish clustering." << endl;
 	dsptime();
 	dout << " Clustering search ... " << endl;
 	ClusteringSearchMultiThread();
-
-
 	dsptime();
 	dout << " Finish clustering search." << endl;
 	int ref_cluster_left_num = GetRefSnpNumber();
@@ -940,7 +992,7 @@ void VCF::Compare(string ref_vcf,
 
 	dout << " referece vcf entry mismatch number: " << ref_cluster_left_num << endl;
 	dout << " query vcf entry mismatch number: " << que_cluster_left_num  << endl;
-    
+
     //write stat file
     ofstream output_stat_file;
     output_stat_file.open(output_stat_filename);

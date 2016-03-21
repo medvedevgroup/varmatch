@@ -18,14 +18,20 @@ using namespace std;
 
 
 typedef struct SNP {
-    SNP(int pos_ = 0, char snp_type_ = 'S', string ref_ = "", string alt_ = "", int flag_=1) :
-		pos(pos_), snp_type(snp_type_), ref(ref_), alt(alt_), flag(flag_){}
+    SNP(int pos_ = 0,
+        char snp_type_ = 'S',
+        string ref_ = "",
+        string alt_ = "",
+        int flag_=1,
+        string genotype_ = "1/1") :
+		pos(pos_), snp_type(snp_type_), ref(ref_), alt(alt_), flag(flag_), genotype(genotype_){}
 
 	int pos;
 	char snp_type;
 	string ref;
 	string alt;
 	int flag;
+    string genotype;
 }SNP;
 
 // define outside of struct, idiomatic solution for lexicographical compare for structures
@@ -76,7 +82,7 @@ private:
 
 
     void ClusteringSearchInThread(int start, int end, int thread_index);
-  
+
     //-------------------------following can be public--------------------------
     // but for a better OO design, made them private
     string ref_mismatch_filename;
@@ -106,10 +112,13 @@ protected:
     vector<int> pos_boundries; // boundries for split multi hash table
     bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
     // for inherit
+
+    bool match_genotype;
 	int thread_num;
     string chromosome_name;
 	string genome_sequence; // genome sequence from fasta file
     const static int MAX_REPEAT_LEN = 1000;
+    const static int GENOTYPE_COLUMN_NUM = 10;
 
     // data structure for clustering search
     vector<SNP> data_list;
@@ -130,21 +139,21 @@ protected:
     string output_stat_filename;
     string output_simple_filename;
     string output_complex_filename;
-	
+
 	bool CompareSnps(SNP r, SNP q);
     void DecideBoundries();
 	string ModifySequenceBySnp(const string sequence, SNP s, int offset);
 	string ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset);
 	bool CheckTandemRepeat(string sequence, int unit_threshold);
 	void ReadGenomeSequence(string filename);
-	
+
     bool MatchSnpLists(vector<SNP> & ref_snp_list,
             vector<SNP> & query_snp_list,
             vector<SNP> & mixed_list,
             const string subsequence,
             int offset,
             int thread_index);
-	
+
     template <typename D>
 	vector<vector<D>> CreateCombinations(vector<D> dict, int k) {
 		vector<vector<D>> result;
@@ -175,6 +184,6 @@ public:
             string query_vcf,
             string genome_seq,
             bool direct_search,
-            string output_prefix);
+            string output_prefix
+            bool match_genotype);
 };
-

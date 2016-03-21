@@ -51,7 +51,7 @@ def shell_run(command, hide=False):
         else:
             subprocess.call(command, shell=True)
 
-def check_command(command): 
+def check_command(command):
     """
     check if corresponding command available
     """
@@ -136,7 +136,7 @@ def varmatch_pairwise(reference_file, query_file, genome_file, output_directory)
     pairwise_compare(ref_purify_norm_file, que_purify_norm_file, genome_file, output_prefix)
 
     return output_prefix
-    
+
 
 def detect_multi_genome(genome_list_file, chr_list):
     genome_dict = {}
@@ -239,7 +239,7 @@ def varmatch_multi_vcf_multi_genome(multi_vcf_list, genome_list_file):
         if not os.path.isfile(genome_dict[c]):
             print ('[VarMatch:Error:] Can not find genome file ' + genome_dict[c])
             exit()
-   
+
     id_vcf_dict = {}
     for i in range(len(multi_vcf_list)):
         if not os.path.isfile(multi_vcf_list[i]):
@@ -268,7 +268,7 @@ def varmatch_multi_vcf_multi_genome(multi_vcf_list, genome_list_file):
     # merge multi chromosome
     common_filename = output_dir + '/common.complex'
     common_file = open(common_filename, 'w')
-    # write vcf file names 
+    # write vcf file names
     # write title
     for id in vcfid_list:
         common_file.write('##VCF'+str(id+1)+':'+id_vcf_dict[id]+'\n')
@@ -287,9 +287,9 @@ def varmatch_multi_vcf_multi_genome(multi_vcf_list, genome_list_file):
                 common_file.write(line)
     common_file.close()
 
-    
+
 def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
-    
+
     """
     id_vcf_dict key: id, value: vcf file
     """
@@ -327,7 +327,7 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
         id_tuple = (ref_id, que_id)
         ref_filename = id_finalname_dict[ref_id]
         que_filename = id_finalname_dict[que_id]
-        
+
         pairwise_prefix = varmatch_pairwise(ref_filename, que_filename, genome_file, temp_dir)
         pairwise_prefix_idtuple[pairwise_prefix] = id_tuple
         idtuple_pairwise_prefix[id_tuple] = pairwise_prefix
@@ -390,9 +390,9 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
 
 
 def remove_duplicate(genome_filename, single_vcf_filename, output_prefix):
-    
+
     remove_duplicate_command = compare_tool + ' -m ' + single_vcf_filename + ' -g ' + genome_filename + ' -o ' + output_prefix
-    
+
     if args.t is not None and int(args.t) > 1:
         remove_duplicate_command += ' -t ' + args.t
     shell_run(remove_duplicate_command)
@@ -400,7 +400,7 @@ def remove_duplicate(genome_filename, single_vcf_filename, output_prefix):
 
 
 def main():
-   
+
     if len(sys.argv) < 2:
         parser.print_help()
         exit()
@@ -418,7 +418,7 @@ def main():
     global output_dir
     global visual_dir
     global temp_dir
-    
+
     check_purify_command = False
     check_normalize_command = False
     check_compare_command = True
@@ -431,7 +431,7 @@ def main():
     output_dir = ''
     visual_dir = ''
     temp_dir = ''
-    
+
     # create output directory
     if args.output is None or args.output == '':
         output_dir = os.getcwd() + '/output'
@@ -447,7 +447,7 @@ def main():
 
     if not os.path.exists(temp_dir):
         os.mkdir(temp_dir)
-    
+
     #print args.r, args.q
     if args.remove_dup is not None and args.remove_dup != '':
         if not os.path.isfile(args.remove_dup):
@@ -480,10 +480,8 @@ def main():
     elif args.remove_dup is not None:
         pass
     else:
-        # single chromosome, pairwise compare 
+        # single chromosome, pairwise compare
         varmatch_pairwise(args.r, args.q, args.g, output_dir)
 
 if __name__ == '__main__':
     main()
-
-
