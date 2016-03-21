@@ -21,12 +21,14 @@ typedef struct Args {
 	int thread_num;
 	bool remove_duplicates;
 	string single_vcf_filename;
+	bool match_genotype;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
 	//ez command parsing
 	args.direct_search = false;
 	args.remove_duplicates = false;
+	args.match_genotype = false;
     args.thread_num = 1;
 	for (int i = 1; i < argc - 1; i++)
 	{
@@ -73,6 +75,9 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 			args.remove_duplicates = true;
 			args.single_vcf_filename = string(argv[++i]);
 		}
+		else if(!strcmp(argv[i], "-y")) {
+			args.match_genotype = true;
+		}
 		else {
 			cout << "[Error] Unrecognized parameter: " << argv[i] << endl;
 			return false;
@@ -87,11 +92,14 @@ int usage(char* command) {
 	cout << "\tPlease cite our paper if you are using this program in your research." << endl;
     cout << endl;
 	cout << "Usage: " << endl;
-    cout << command << " -g genome_file(FASTA format)" << endl;
-    cout << "\t-r reference_vcf_file" << endl;
-    cout << "\t-q query_vcf_file" << endl;
-    cout << "\t-o output_filename_prefix" << endl;
-    cout << "\t[-t thread_number]" << endl;
+    cout << command << " -g genome file path(FASTA format)" << endl;
+    cout << "\t-r reference VCF file path" << endl;
+    cout << "\t-q query VCF file path" << endl;
+    cout << "\t-o output filename prefix" << endl;
+    cout << "\t[-t thread number]" << endl;
+    cout << "\t[-d only perform direct search]" << endl;
+    cout << "\t[-m single VCF file to remove duplicates]" << endl;
+    cout << "\t[-y considering genotype when match vcf records]" << endl;
     cout << endl;
 
 	return 0;
