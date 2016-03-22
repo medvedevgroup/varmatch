@@ -88,7 +88,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 		}
 
 		int genotype_index = -1;
-		string genotype == "1/1";
+		string genotype = "1/1";
 		if (match_genotype){
 			auto formats = split(columns[8], ':');
 			for(int index = 0; index < formats.size(); index++){
@@ -118,7 +118,6 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 		vector<string> alt_list;
 		if (alt_line.find(",") != std::string::npos){
 			alt_list = split(alt_line, ',');
-			if(alt_list.size() > 2) cout << "[VarMatch] Warning: too many alleles in current variant: " << alt << endl;
 		}else{
 			alt_list.push_back(alt_line);
 		}
@@ -136,15 +135,33 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 			}
 		}else{
 			//append variants according to genotype
-			if(genotype == "0|0") continue;
-			if(genotype == "1|1" || genotype == "0|1"){
+			//[todo] this need to refined
+            if(genotype == "0|0") continue;
+			char snp_type = 'S';
+            char snp_type_x = 'S';
+            if((int)ref.length() > (int)alt_list[0].length()){
+                snp_type = 'D';
+            }else if((int)ref.length() < (int)alt_list[0].length()){
+                snp_type = 'I';
+            }
+
+            // assign snp_type_x
+            if(alt_list.size() == 2){
+                if((int)ref.length() > (int)alt_list[1].length()){
+                    snp_type_x = 'D';
+                }else if((int)ref.length() < (int)alt_list[1].length()){
+                    snp_type_x = 'I';
+                }
+            }
+            
+            if(genotype == "1|1" || genotype == "0|1"){
 				pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[0], genotype));
 			}else if(genotype == "1|2" && alt_list.size() == 2){
 				pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[0], genotype));
-				pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[1], genotype));
+				pos_2_snp[index][pos].push_back(SNP(pos, snp_type_x, ref, alt_list[1], genotype));
 			}else if(genotype == "2|2" || genotype == "0|2"){
 				if(alt_list.size() == 2)
-					pos_2_snp[index][pos].push_back(SNP(pos, snp_type, ref, alt_list[1], genotype));
+					pos_2_snp[index][pos].push_back(SNP(pos, snp_type_x, ref, alt_list[1], genotype));
 			}else{
 				cout << "[VarMatch] Unrecognized Genotype: " << genotype << endl;
 				continue;
@@ -909,7 +926,7 @@ void VCF::Compare(string ref_vcf,
         string query_vcf,
         string genome_seq,
         bool direct_search,
-        string output_prefix
+        string output_prefix,
         bool match_genotype){
 
     ref_vcf_filename = ref_vcf;

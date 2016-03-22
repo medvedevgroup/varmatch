@@ -22,16 +22,21 @@ typedef struct SNP {
         char snp_type_ = 'S',
         string ref_ = "",
         string alt_ = "",
-        int flag_=1,
-        string genotype_ = "1/1") :
-		pos(pos_), snp_type(snp_type_), ref(ref_), alt(alt_), flag(flag_), genotype(genotype_){}
+        string genotype_ = "1/1",
+        int flag_=1) :
+		pos(pos_), 
+        snp_type(snp_type_),
+        ref(ref_), 
+        alt(alt_), 
+        genotype(genotype_), 
+        flag(flag_){}
 
 	int pos;
 	char snp_type;
 	string ref;
 	string alt;
-	int flag;
     string genotype;
+    int flag;
 }SNP;
 
 // define outside of struct, idiomatic solution for lexicographical compare for structures
@@ -184,6 +189,6 @@ public:
             string query_vcf,
             string genome_seq,
             bool direct_search,
-            string output_prefix
+            string output_prefix,
             bool match_genotype);
 };
