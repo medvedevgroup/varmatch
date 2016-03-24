@@ -71,7 +71,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 
 
 
-#### Multi chromosomes mode
+### Multi chromosomes mode
 
 if vcf file contains variants of multi chromosome, use `--multi_genome` parameter instead of `-g`:
 
