@@ -25,7 +25,7 @@ make vm
 And when using VarMatch, use `-n` parameter to indicate that you do not need normalization.
 
 # Usage
-## Quick Usage:
+### Quick Usage:
 
 *compare two vcf files to match variants*
 
@@ -37,7 +37,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - `-g` genome fasta file
 - `-o` output directory, default value is `./output`
 
-## Match Genotypes
+### Match Genotypes
 
 *compare two vcf files to match variants with genotypes*
 
@@ -48,7 +48,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - `--genotype` active genotype matching module
 
 
-## Find common variants among multiple (more than one) vcf files
+### Find matches from multiple (more than one) vcf files
 
 ```
 ./varmatch --multi_vcf 1.vcf 2.vcf 3.vcf -g genome.fa -o ./output
@@ -57,7 +57,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - `--multi_vcf`  vcf file list separated by blank spaces
 
 
-## Remove duplicates in one vcf file or variant database
+### Remove duplicates in one vcf file or variant database
 
 *illustrate how to use --remove_dup module*
 
@@ -71,7 +71,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 
 
 
-## Compare vcf files with multi chromosomes
+### Compare vcf files with multi chromosomes
 
 if vcf file contains variants of multi chromosome, use `--multi_genome` parameter instead of `-g`:
 
@@ -95,7 +95,7 @@ An example of chromosome list file is as follows:
 >Y&nbsp;&nbsp;&nbsp;&nbsp;/home/anotherpath/human/chrY/human.y.fa
 
 
-## Using multi threads
+### Using multi threads
 
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
@@ -106,7 +106,7 @@ An example of chromosome list file is as follows:
 
 
 
-## Detailed Usage:
+### Detailed Usage:
 
 use `-h/--help` for detailed help message.
 
