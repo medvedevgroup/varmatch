@@ -108,8 +108,8 @@ private:
 	// default value better be in declaration, or definition, but never both
 	void ClusteringSearchMultiThread();
 
-	int GetRefSnpNumber();
-	int GetQuerySnpNumber();
+	int GetRefSnpNumber(int & indel_num);
+	int GetQuerySnpNumber(int & indel_num);
 
 	//---------------------------above can be public:---------------------------
 

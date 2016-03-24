@@ -25,9 +25,9 @@ make vm
 And when using VarMatch, use `-n` parameter to indicate that you do not need normalization.
 
 # Usage
-:one: **Quick Usage:**
+## Quick Usage:
 
-*compare two vcf files to find matches*
+*compare two vcf files to match variants*
 
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output
@@ -37,8 +37,18 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - `-g` genome fasta file
 - `-o` output directory, default value is `./output`
 
+## Match Genotypes
 
-:two: **Find common variants among multiple (more than one) vcf files**
+*compare two vcf files to match variants with genotypes*
+
+```
+./varmatch -r one.vcf -q another.vcf -g chr1.fa --genotype
+```
+
+- `--genotype` active genotype matching module
+
+
+## Find common variants among multiple (more than one) vcf files
 
 ```
 ./varmatch --multi_vcf 1.vcf 2.vcf 3.vcf -g genome.fa -o ./output
@@ -47,7 +57,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 - `--multi_vcf`  vcf file list separated by blank spaces
 
 
-:three: **Remove duplicates in one vcf file or variant database**
+## Remove duplicates in one vcf file or variant database
 
 *illustrate how to use --remove_dup module*
 
@@ -61,7 +71,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 
 
 
-:four: **Compare vcf files with multi chromosomes**
+## Compare vcf files with multi chromosomes
 
 if vcf file contains variants of multi chromosome, use `--multi_genome` parameter instead of `-g`:
 
@@ -85,7 +95,7 @@ An example of chromosome list file is as follows:
 >Y&nbsp;&nbsp;&nbsp;&nbsp;/home/anotherpath/human/chrY/human.y.fa
 
 
-:five: **Using multi threads**
+## Using multi threads
 
 ```
 ./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
@@ -96,13 +106,13 @@ An example of chromosome list file is as follows:
 
 
 
-:six: **Detailed Usage:**
+## Detailed Usage:
 
 use `-h/--help` for detailed help message.
 
 
 # Output
-**Standard Output:**
+## Standard Output:
 ```
 ######### Matching Result ################
 

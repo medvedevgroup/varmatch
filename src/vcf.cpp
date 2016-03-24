@@ -155,7 +155,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 				else if ((int)ref.length() < (int)alt.length()) {
 					snp_type = 'I';
 				}
-				snp_type_list[i].push_back(snp_type);
+				snp_type_list.push_back(snp_type);
             }
             
             int genotype_val = atoi(genotype_columns[0].c_str()) - 1;
@@ -232,11 +232,11 @@ void VCF::DecideBoundries() {
 }
 
 void VCF::ReadRefVCF(string filename) {
-	ReadVCF(filename, refpos_2_snp);
+	ReadVCF(filename, this->refpos_2_snp);
 }
 
 void VCF::ReadQueryVCF(string filename) {
-	ReadVCF(filename, querypos_2_snp);
+	ReadVCF(filename, this->querypos_2_snp);
 }
 
 bool VCF::CompareSnps(SNP r, SNP q) {
@@ -895,37 +895,59 @@ void VCF::ClusteringSearchMultiThread() {
     delete [] complex_match_records;
 }
 
-int VCF::GetRefSnpNumber() {
+int VCF::GetRefSnpNumber(int & indel_num) {
 	int result = 0;
+	indel_num = 0;
 	if (clustering_search) {
 		for (auto it = cluster_snps_map.begin(); it != cluster_snps_map.end(); it++) {
 			auto v = it->second;
 			for (int i = 0; i < v.size(); i++) {
-				if (v[i].flag == 1)
+				if (v[i].flag == 1) {
 					result++;
+					if (v[i].ref.length() != v[i].alt.length())
+						indel_num++;
+				}
 			}
 		}
 	}else{
 	    for (int i = 0; i < refpos_2_snp.size(); i++) {
-		    result += refpos_2_snp[i].size();
+			for (auto it = refpos_2_snp[i].begin(); it != refpos_2_snp[i].end(); ++it) {
+				auto v = it->second;
+				result += v.size();
+				for (int k = 0; k < v.size(); k++) {
+					if (v[k].ref.length() != v[k].alt.length())
+						indel_num++;
+				}
+			}
 	    }
     }
 	return result;
 }
 
-int VCF::GetQuerySnpNumber() {
+int VCF::GetQuerySnpNumber(int & indel_num) {
 	int result = 0;
+	indel_num = 0;
 	if (clustering_search) {
 		for (auto it = cluster_snps_map.begin(); it != cluster_snps_map.end(); it++) {
 			auto v = it->second;
 			for (int i = 0; i < v.size(); i++) {
-				if (v[i].flag == -1)
+				if (v[i].flag == -1) {
 					result++;
+					if (v[i].ref.length() != v[i].alt.length())
+						indel_num++;
+				}
 			}
 		}
 	}else{
 	    for (int i = 0; i < querypos_2_snp.size(); i++) {
-		    result += querypos_2_snp[i].size();
+			for (auto it = querypos_2_snp[i].begin(); it != querypos_2_snp[i].end(); ++it) {
+				auto v = it->second;
+				result += v.size();
+				for (int k = 0; k < v.size(); k++) {
+					if (v[k].ref.length() != v[k].alt.length())
+						indel_num++;
+				}
+			}
 	    }
     }
 	return result;
@@ -962,10 +984,11 @@ void VCF::Compare(string ref_vcf,
 	dout << " Finish reading all vcf file." << endl;
 
 	//------------check vcf entry number before matching
-	int ref_total_num = GetRefSnpNumber();
-    int que_total_num = GetQuerySnpNumber();
-    dout << " referece vcf entry number: " << ref_total_num << endl;
-	dout << " query vcf entry number: " << que_total_num << endl;
+    int ref_total_indel_num, que_total_indel_num;
+	int ref_total_num = GetRefSnpNumber(ref_total_indel_num);
+    int que_total_num = GetQuerySnpNumber(que_total_indel_num);
+    dout << " referece vcf entry number [total, indel]: " << ref_total_num << "," << ref_total_indel_num << endl;
+	dout << " query vcf entry number: [total, indel] " << que_total_num << "," << que_total_indel_num << endl;
 
 
 	//------------direct search
@@ -974,16 +997,19 @@ void VCF::Compare(string ref_vcf,
 	DirectSearchMultiThread();
 	dsptime();
 	dout << " Finish direct search." << endl;
-    int ref_direct_left_num = GetRefSnpNumber();
-    int que_direct_left_num = GetQuerySnpNumber();
+    int ref_direct_left_indel_num, que_direct_left_indel_num;
+    int ref_direct_left_num = GetRefSnpNumber(ref_direct_left_indel_num);
+    int que_direct_left_num = GetQuerySnpNumber(que_direct_left_indel_num);
     int ref_direct_match_num = ref_total_num - ref_direct_left_num;
     int que_direct_match_num = que_total_num - que_direct_left_num;
-	dout << " referece vcf entry direct match number: " << ref_direct_match_num << endl;
-	dout << " query vcf entry direct match number: " << que_direct_match_num  << endl;
+    int ref_direct_match_indel_num = ref_total_indel_num - ref_direct_left_indel_num;
+    int que_direct_match_indel_num = que_total_indel_num - que_direct_left_indel_num;
+	dout << " referece vcf entry direct match number [total, indel]: " << ref_direct_match_num << "," << ref_direct_match_indel_num << endl;
+	dout << " query vcf entry direct match number [total, indel]: " << que_direct_match_num  << "," << que_direct_match_indel_num << endl;
 
 	if (direct_search){
-	    dout << " referece vcf entry mismatch number: " << ref_direct_left_num << endl;
-	    dout << " query vcf entry mismatch number: " << que_direct_left_num  << endl;
+	    dout << " referece vcf entry mismatch number [total, indel]: " << ref_direct_left_num << "," << ref_direct_left_indel_num << endl;
+	    dout << " query vcf entry mismatch number [total, indel]: " << que_direct_left_num << "," << que_direct_left_indel_num << endl;
         ofstream output_stat_file;
         output_stat_file.open(output_stat_filename);
         output_stat_file << ref_total_num << endl;
@@ -992,6 +1018,13 @@ void VCF::Compare(string ref_vcf,
         output_stat_file << que_direct_match_num << endl;
         output_stat_file << ref_direct_left_num << endl;
         output_stat_file << que_direct_left_num << endl;
+        //=====================================================
+        output_stat_file << ref_total_indel_num << endl;
+		output_stat_file << que_total_indel_num << endl;
+		output_stat_file << ref_direct_match_indel_num << endl;
+		output_stat_file << que_direct_match_indel_num << endl;
+		output_stat_file << ref_direct_left_indel_num << endl;
+		output_stat_file << que_direct_left_indel_num << endl;
         output_stat_file.close();
 
         return;
@@ -1008,16 +1041,19 @@ void VCF::Compare(string ref_vcf,
 	ClusteringSearchMultiThread();
 	dsptime();
 	dout << " Finish clustering search." << endl;
-	int ref_cluster_left_num = GetRefSnpNumber();
-    int que_cluster_left_num = GetQuerySnpNumber();
+    int ref_cluster_left_indel_num, que_cluster_left_indel_num;
+	int ref_cluster_left_num = GetRefSnpNumber(ref_cluster_left_indel_num);
+    int que_cluster_left_num = GetQuerySnpNumber(que_cluster_left_indel_num);
     int ref_cluster_match_num = ref_direct_left_num - ref_cluster_left_num;
     int que_cluster_match_num = que_direct_left_num - que_cluster_left_num;
+    int ref_cluster_match_indel_num = ref_direct_left_indel_num - ref_cluster_left_indel_num;
+    int que_cluster_match_indel_num = que_direct_left_indel_num - que_cluster_left_indel_num;
 
-    dout << " referece vcf entry cluster match number: " << ref_cluster_match_num << endl;
-	dout << " query vcf entry cluster match number: " << que_cluster_match_num << endl;
+    dout << " referece vcf entry cluster match number [total, indel]: " << ref_cluster_match_num << "," << ref_cluster_match_indel_num << endl;
+	dout << " query vcf entry cluster match number: " << que_cluster_match_num << "," << que_cluster_match_indel_num << endl;
 
-	dout << " referece vcf entry mismatch number: " << ref_cluster_left_num << endl;
-	dout << " query vcf entry mismatch number: " << que_cluster_left_num  << endl;
+	dout << " referece vcf entry mismatch number [total, indel]: " << ref_cluster_left_num << "," << ref_cluster_left_indel_num << endl;
+	dout << " query vcf entry mismatch number [total, indel]: " << que_cluster_left_num  << "," << que_cluster_left_indel_num << endl;
 
     //write stat file
     ofstream output_stat_file;
@@ -1030,6 +1066,15 @@ void VCF::Compare(string ref_vcf,
     output_stat_file << que_cluster_match_num << endl;
     output_stat_file << ref_cluster_left_num << endl;
     output_stat_file << que_cluster_left_num << endl;
+	//=====================================================
+	output_stat_file << ref_total_indel_num << endl;
+	output_stat_file << que_total_indel_num << endl;
+	output_stat_file << ref_direct_match_indel_num << endl;
+	output_stat_file << que_direct_match_indel_num << endl;
+	output_stat_file << ref_cluster_match_indel_num << endl;
+	output_stat_file << que_cluster_match_indel_num << endl;
+	output_stat_file << ref_direct_left_indel_num << endl;
+	output_stat_file << que_direct_left_indel_num << endl;
     output_stat_file.close();
 
     return;
