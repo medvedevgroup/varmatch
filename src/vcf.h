@@ -116,6 +116,7 @@ private:
 protected:
     vector<int> pos_boundries; // boundries for split multi hash table
     bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
+	bool normalization;
     // for inherit
 
     bool match_genotype;
@@ -178,6 +179,7 @@ protected:
 		return result;
 	}
     bool CheckVariantOverlap(vector<SNP> snp_list);
+	bool NormalizeSnp(int pos, string ref, string alt, string & parsimonious_ref, string & parsimonious_alt);
 
 
 public:
@@ -190,5 +192,6 @@ public:
             string genome_seq,
             bool direct_search,
             string output_prefix,
-            bool match_genotype);
+            bool match_genotype,
+			bool normalization);
 };

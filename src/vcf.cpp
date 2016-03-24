@@ -33,6 +33,46 @@ VCF::~VCF()
 {
 }
 
+bool VCF::NormalizeSnp(int pos, string ref, string alt, string & parsimonious_ref, string & parsimonious_alt) {
+	parsimonious_ref = ref;
+	parsimonious_alt = alt;
+	int left_index = pos;
+	if (genome_sequence.size() == 0) return false;
+	//if (parsimonious_ref.size() == 1 || parsimonious_alt.size() == 1) return true;
+	if (toupper(genome_sequence[left_index]) != toupper(parsimonious_ref[0])) {
+		dout << "[Error] genome sequence, subsequence, offset does not match." << endl;
+		return false;
+	}
+	bool change_in_allels = true;
+	while (change_in_allels) {
+		change_in_allels = false;
+		if (toupper(parsimonious_ref.back()) == toupper(parsimonious_alt.back())) {
+			if((parsimonious_ref.size() > 1 && parsimonious_alt.back() > 1) || left_index > 0){
+                parsimonious_ref.pop_back();
+				parsimonious_alt.pop_back();
+				change_in_allels = true;
+			}
+			else {
+				return false;
+			}
+		}
+		if (parsimonious_ref.length() == 0 || parsimonious_alt.length() == 0) {
+			left_index--;
+			char left_char = genome_sequence[left_index];
+			parsimonious_ref = left_char + parsimonious_ref;
+			parsimonious_alt = left_char + parsimonious_alt;
+		}
+	}
+	while (toupper(parsimonious_ref[0]) == toupper(parsimonious_alt[0]) && parsimonious_ref.size() > 1 && parsimonious_alt.size() > 1) {
+		parsimonious_ref.erase(0, 1);
+		parsimonious_alt.erase(0, 1);
+	}
+    //if(parsimonious_ref != ref){
+    //    cout << ref << "," << alt << "," << parsimonious_ref << "," << parsimonious_alt << endl;
+    //}
+	return true;
+}
+
 void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 	if (!boundries_decided) {
 		dout << "[Error] VCF::ReadVCF cannot read vcf file before read genome file" << endl;
@@ -45,6 +85,10 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 		cout << "[VarMatch] Error: can not open vcf file" << endl;
 		return;
 	}
+
+    if(normalization){
+        dout << "normalize while read" << endl;
+    }
     string previous_line;
 	while (!vcf_file.eof()) { // alternative way is vcf_file != NULL
 		string line;
@@ -140,7 +184,14 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 				else if ((int)ref.length() < (int)alt.length()) {
 					snp_type = 'I';
 				}
-				pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type, ref, alt, genotype));
+				if (normalization) {
+					string norm_ref, norm_alt;
+					NormalizeSnp(pos, ref, alt, norm_ref, norm_alt);
+					pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type, norm_ref, norm_alt, genotype));
+				}
+				else {
+					pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type, ref, alt, genotype));
+				}
 			}
 		}else{
 			//append variants according to genotype
@@ -163,7 +214,14 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
             	cout << "[VarMatch] Warning: Unrecognized Genotype." << endl;
             }
             if(genotype_val >= 0){ // if genotype == -1, it is reference which does not need to be added
-            	pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type_list[genotype_val], ref, alt_list[genotype_val], genotype));
+				if (normalization) {
+					string norm_ref, norm_alt;
+					NormalizeSnp(pos, ref, alt_list[genotype_val], norm_ref, norm_alt);
+					pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type_list[genotype_val], norm_ref, norm_alt, genotype));
+				}
+				else {
+					pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type_list[genotype_val], ref, alt_list[genotype_val], genotype));
+				}
             }
             if(genotype_columns[0] != genotype_columns[1]){
             	// add another alt, one genotype corresponding to one alt
@@ -172,7 +230,14 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
             		cout << "[VarMatch] Warning: Unrecognized Genotype." << endl;
             	}
             	if(genotype_val >= 0){
-            		pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type_list[genotype_val], ref, alt_list[genotype_val], genotype));
+					if (normalization) {
+						string norm_ref, norm_alt;
+						NormalizeSnp(pos, ref, alt_list[genotype_val], norm_ref, norm_alt);
+						pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type_list[genotype_val], norm_ref, norm_alt, genotype));
+					}
+					else {
+						pos_2_snp[thread_index][pos].push_back(SNP(pos, snp_type_list[genotype_val], ref, alt_list[genotype_val], genotype));
+					}
             	}
             }
 		}
@@ -266,31 +331,34 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 		auto qit = query_snps.find(r_pos);
 		if (qit != query_snps.end()) {
 			auto & q_snps = qit->second;
-			vector<vector<SNP>::iterator> r_deleted_snps;
-			vector<vector<SNP>::iterator> q_deleted_snps;
-			for (auto r_snp_it = r_snps.begin(); r_snp_it != r_snps.end(); ++r_snp_it) {
-				for (auto q_snp_it = q_snps.begin(); q_snp_it != q_snps.end(); ++q_snp_it) {
+
+			for (auto r_snp_it = r_snps.begin(); r_snp_it != r_snps.end(); ) {
+				bool matched_r_snp = false;
+				for (auto q_snp_it = q_snps.begin(); q_snp_it != q_snps.end(); ) {
 					if (CompareSnps(*r_snp_it, *q_snp_it)) {
-						r_deleted_snps.push_back(r_snp_it);
-						q_deleted_snps.push_back(q_snp_it);
-                        // here find a match
                         auto temp_snp = *r_snp_it;
                         string matching_result = chromosome_name + '\t' + to_string(temp_snp.pos+1) + "\t" + temp_snp.ref + "\t" + temp_snp.alt;
                         direct_match_records[thread_index]->push_back(matching_result);
+						matched_r_snp = true;
+						q_snps.erase(q_snp_it);
+						break;
+					}
+					else {
+						++q_snp_it;
 					}
 				}
-			}
-			for (int i = 0; i < r_deleted_snps.size(); i++) {
-				r_snps.erase(r_deleted_snps[i]);
+				if (matched_r_snp) {
+					r_snps.erase(r_snp_it);
+				}
+				else {
+					++r_snp_it;
+				}
 			}
 			if (r_snps.size() == 0) {
 				rit = ref_snps.erase(rit);
 			}
 			else {
 				++rit;
-			}
-			for (int i = 0; i < q_deleted_snps.size(); i++) {
-				q_snps.erase(q_deleted_snps[i]);
 			}
 			if (q_snps.size() == 0) {
 				query_snps.erase(qit);
@@ -556,28 +624,36 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                     dout << "[Error] in variant, ref == alt";
                 }
                 int min_parsimonious_len = min(parsimonious_ref.size(), parsimonious_alt.size());
-                int chop_left = 0;
-                int chop_right = 0;
-                for(int i = 0; i < min_parsimonious_len; i++){
-                    if(toupper(parsimonious_ref[i]) == toupper(parsimonious_alt[i])){
-                        chop_left ++;
-                    }else{
-                        break;
-                    }
-                }
-                for(int i = min_parsimonious_len-1; i >= 0; i--){
-                    if(toupper(parsimonious_ref[i]) == toupper(parsimonious_alt[i])){
-                        chop_right ++;
-                    }else{
-                        break;
-                    }
-                }
-                // 1-based
-                if ((int)parsimonious_ref.length() - chop_left - chop_right == 0 || (int)parsimonious_alt.length() - chop_left - chop_right == 0)
-                    chop_left --;
-                matching_result += "\t" + to_string(chop_left + offset + 1);
-                parsimonious_ref = parsimonious_ref.substr(chop_left, (int)(parsimonious_ref.length()) - chop_left - chop_right);
-                parsimonious_alt = parsimonious_alt.substr(chop_left, (int)(parsimonious_alt.length()) - chop_left - chop_right);
+				// normalize
+				int left_index = offset;
+				if (toupper(genome_sequence[left_index]) != toupper(subsequence[0])) {
+					dout << "[Error] genome sequence, subsequence, offset does not match." << endl;
+				}
+				bool change_in_allels = true;
+				while (change_in_allels) {
+					change_in_allels = false;
+					if (toupper(parsimonious_ref.back()) == toupper(parsimonious_alt.back())) {
+						if ((parsimonious_ref.size() > 1 && parsimonious_alt.back() > 1) || left_index > 0) {
+							parsimonious_ref.pop_back();
+							parsimonious_alt.pop_back();
+							change_in_allels = true;
+						}
+						else {
+							return false;
+						}
+					}
+					if (parsimonious_ref.length() == 0 || parsimonious_alt.length() == 0) {
+						left_index--;
+						char left_char = genome_sequence[left_index];
+						parsimonious_ref = left_char + parsimonious_ref;
+						parsimonious_alt = left_char + parsimonious_alt;
+					}
+				}
+				while (toupper(parsimonious_ref[0]) == toupper(parsimonious_alt[0]) && parsimonious_ref.size() > 1 && parsimonious_alt.size() > 1) {
+					parsimonious_ref.erase(0, 1);
+					parsimonious_alt.erase(0, 1);
+				}
+
                 matching_result += "\t" + parsimonious_ref + "\t" + parsimonious_alt;
 
                 string ref_matching_variants = "";
@@ -958,11 +1034,13 @@ void VCF::Compare(string ref_vcf,
         string genome_seq,
         bool direct_search,
         string output_prefix,
-        bool match_genotype){
+        bool match_genotype,
+		bool normalization){
 
     ref_vcf_filename = ref_vcf;
     que_vcf_filename = query_vcf;
     this->match_genotype = match_genotype;
+	this->normalization = normalization;
 	output_stat_filename = output_prefix + ".stat";
     output_simple_filename = output_prefix + ".simple";
     output_complex_filename = output_prefix + ".complex";
@@ -1050,7 +1128,7 @@ void VCF::Compare(string ref_vcf,
     int que_cluster_match_indel_num = que_direct_left_indel_num - que_cluster_left_indel_num;
 
     dout << " referece vcf entry cluster match number [total, indel]: " << ref_cluster_match_num << "," << ref_cluster_match_indel_num << endl;
-	dout << " query vcf entry cluster match number: " << que_cluster_match_num << "," << que_cluster_match_indel_num << endl;
+	dout << " query vcf entry cluster match number [total, indel]: " << que_cluster_match_num << "," << que_cluster_match_indel_num << endl;
 
 	dout << " referece vcf entry mismatch number [total, indel]: " << ref_cluster_left_num << "," << ref_cluster_left_indel_num << endl;
 	dout << " query vcf entry mismatch number [total, indel]: " << que_cluster_left_num  << "," << que_cluster_left_indel_num << endl;

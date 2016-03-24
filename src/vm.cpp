@@ -22,6 +22,7 @@ typedef struct Args {
 	bool remove_duplicates;
 	string single_vcf_filename;
 	bool match_genotype;
+	bool normalization;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
@@ -29,9 +30,11 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 	args.direct_search = false;
 	args.remove_duplicates = false;
 	args.match_genotype = false;
+	args.normalization = false;
     args.thread_num = 1;
 	for (int i = 1; i < argc - 1; i++)
 	{
+		cout << argv[i] << endl;
 		if (!strcmp(argv[i], "-r")) {
 			args.ref_vcf_filename = string(argv[++i]);
 			if (!FileExists(args.ref_vcf_filename)) {
@@ -77,6 +80,9 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 		}
 		else if(!strcmp(argv[i], "-y")) {
 			args.match_genotype = true;
+		}
+		else if (!strcmp(argv[i], "-a")) {
+			args.normalization = true;
 		}
 		else {
 			cout << "[Error] Unrecognized parameter: " << argv[i] << endl;
@@ -132,11 +138,13 @@ int main(int argc, char* argv[])
 	}
 
 	VCF vcf(args.thread_num);
+	cout << args.normalization << endl;
 	vcf.Compare(args.ref_vcf_filename,
 			args.que_vcf_filename,
 			args.genome_seq_filename,
 			args.direct_search,
             args.output_filename,
-            args.match_genotype);
+            args.match_genotype,
+			args.normalization);
     return 0;
 }
