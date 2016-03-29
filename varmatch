@@ -34,6 +34,8 @@ parser.add_argument('-o', '--output', metavar='output/', help='output directory,
 parser.add_argument('-v', '--visualize', help='visualize results')
 parser.add_argument('--no_purify', action='store_true',
                     help='if activate, program will not check if variant matches reference genome sequence.')
+parser.add_argument('--genotype', action='store_true',
+                    help='active genotype match mode.')
 parser.add_argument('--remove_dup', metavar='single.vcf',
                     help='provide single vcf file, remove duplications in this vcf file')
 # strategy for whole genome:
@@ -117,6 +119,9 @@ def pairwise_compare(reference_file, query_file, genome_file, output_prefix):
     else:
         check_compare_command = True
     compare_command = compare_tool + ' -r ' + reference_file + ' -q ' + query_file + ' -g ' + genome_file + ' -o ' + output_prefix
+
+    if args.genotype:
+        compare_command += ' -y '
 
     if args.t is not None and int(args.t) > 1:
         compare_command += ' -t ' + args.t

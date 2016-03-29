@@ -94,6 +94,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 		string line;
 		getline(vcf_file, line, '\n');
 		// check ineligible lines
+        //dout << line << endl;
 		if ((int)line.length() <= 1) continue;
 		if (line.find_first_not_of(' ') == std::string::npos) continue;
 
@@ -162,6 +163,8 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 			// normalize format of genotype: sorted, separated by |
 			if(genotype_columns.size() != 2){
 				cout << "[VarMatch] Warning Unrecognized Genotype: " << genotype << endl;
+                //cout << genotype_columns.size() << endl;
+                //dout << line << endl;
 			}else{
 				sort(genotype_columns.begin(), genotype_columns.end());
 				genotype = genotype_columns[0]+"|"+genotype_columns[1];
@@ -208,12 +211,17 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 				}
 				snp_type_list.push_back(snp_type);
             }
+
+			if (alt_list.size() > 1) {
+				haplotype_matching_check[thread_index][pos] = 0;
+			}
             
             int genotype_val = atoi(genotype_columns[0].c_str()) - 1;
-            if(genotype_val >= alt_list.size()){
-            	cout << "[VarMatch] Warning: Unrecognized Genotype." << endl;
-            }
+
             if(genotype_val >= 0){ // if genotype == -1, it is reference which does not need to be added
+				if (genotype_val >= alt_list.size()) {
+					cout << "[VarMatch] Warning: Unrecognized Genotype. " << genotype_val << endl;
+				}
 				if (normalization) {
 					string norm_ref, norm_alt;
 					NormalizeSnp(pos, ref, alt_list[genotype_val], norm_ref, norm_alt);
@@ -226,10 +234,11 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
             if(genotype_columns[0] != genotype_columns[1]){
             	// add another alt, one genotype corresponding to one alt
             	genotype_val = atoi(genotype_columns[1].c_str()) - 1;
-            	if(genotype_val >= alt_list.size()){
-            		cout << "[VarMatch] Warning: Unrecognized Genotype." << endl;
-            	}
+
             	if(genotype_val >= 0){
+					if (genotype_val >= alt_list.size()) {
+						cout << "[VarMatch] Warning: Unrecognized Genotype[2]. " << genotype_val << endl;
+					}
 					if (normalization) {
 						string norm_ref, norm_alt;
 						NormalizeSnp(pos, ref, alt_list[genotype_val], norm_ref, norm_alt);
@@ -584,6 +593,16 @@ void VCF::ClusteringSnps() {
 		}
 	}
 }
+bool VCF::MatchSnpListsByPathConstruction(vector<SNP> & ref_snp_list,
+	vector<SNP> & query_snp_list,
+	vector<SNP> & mixed_list,
+	const string subsequence,
+	int offset,
+	int thread_index)
+{
+
+}
+
 
 bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                         vector<SNP> & query_snp_list,

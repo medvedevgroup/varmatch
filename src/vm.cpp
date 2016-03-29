@@ -29,12 +29,12 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 	//ez command parsing
 	args.direct_search = false;
 	args.remove_duplicates = false;
-	args.match_genotype = false;
+	args.match_genotype = true;
 	args.normalization = false;
     args.thread_num = 1;
-	for (int i = 1; i < argc - 1; i++)
+	for (int i = 1; i < argc; i++)
 	{
-		cout << argv[i] << endl;
+		//cout << argv[i] << endl;
 		if (!strcmp(argv[i], "-r")) {
 			args.ref_vcf_filename = string(argv[++i]);
 			if (!FileExists(args.ref_vcf_filename)) {
@@ -79,7 +79,7 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 			args.single_vcf_filename = string(argv[++i]);
 		}
 		else if(!strcmp(argv[i], "-y")) {
-			args.match_genotype = true;
+			args.match_genotype = false;
 		}
 		else if (!strcmp(argv[i], "-a")) {
 			args.normalization = true;
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
 	}
 
 	VCF vcf(args.thread_num);
-	cout << args.normalization << endl;
+	//cout << args.normalization << endl;
 	vcf.Compare(args.ref_vcf_filename,
 			args.que_vcf_filename,
 			args.genome_seq_filename,

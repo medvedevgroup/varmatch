@@ -130,6 +130,7 @@ protected:
     vector<SNP> data_list;
     vector<int> cluster_list;
     map<int, vector<SNP> > cluster_snps_map;
+	vector<unordered_map<int, int> > haplotype_matching_check; //vector is for multi-thread, 
 
     // storing complex match results
     //std::mutex complex_match_mutex;
