@@ -34,7 +34,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 ```
 - `-r` reference vcf file
 - `-q` query vcf file
-- `-g` genome fasta file
+- `-g` single genome fasta file
 - `-o` output directory, default value is `./output`
 
 ### Match Genotypes
@@ -71,7 +71,7 @@ And when using VarMatch, use `-n` parameter to indicate that you do not need nor
 
 
 
-### Compare vcf files with multi chromosomes
+### Multi chromosomes mode
 
 if vcf file contains variants of multi chromosome, use `--multi_genome` parameter instead of `-g`:
 
@@ -112,7 +112,7 @@ use `-h/--help` for detailed help message.
 
 
 # Output
-## Standard Output:
+### Standard Output:
 ```
 ######### Matching Result ################
 
