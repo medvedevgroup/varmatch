@@ -33,6 +33,7 @@ VCF::~VCF()
 {
 }
 
+// protected
 bool VCF::NormalizeSnp(int pos, string ref, string alt, string & parsimonious_ref, string & parsimonious_alt) {
 	parsimonious_ref = ref;
 	parsimonious_alt = alt;
@@ -47,7 +48,7 @@ bool VCF::NormalizeSnp(int pos, string ref, string alt, string & parsimonious_re
 	while (change_in_allels) {
 		change_in_allels = false;
 		if (toupper(parsimonious_ref.back()) == toupper(parsimonious_alt.back())) {
-			if((parsimonious_ref.size() > 1 && parsimonious_alt.back() > 1) || left_index > 0){
+			if((parsimonious_ref.size() > 1 && parsimonious_alt.size() > 1) || left_index > 0){
                 parsimonious_ref.pop_back();
 				parsimonious_alt.pop_back();
 				change_in_allels = true;
@@ -73,6 +74,7 @@ bool VCF::NormalizeSnp(int pos, string ref, string alt, string & parsimonious_re
 	return true;
 }
 
+// private
 void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 	if (!boundries_decided) {
 		dout << "[Error] VCF::ReadVCF cannot read vcf file before read genome file" << endl;
@@ -255,6 +257,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 	return;
 }
 
+// protected
 void VCF::ReadGenomeSequence(string filename) {
 	ifstream genome_file;
 	genome_file.open(filename.c_str());
@@ -279,6 +282,7 @@ void VCF::ReadGenomeSequence(string filename) {
 	return;
 }
 
+// protected
 void VCF::DecideBoundries() {
 	int genome_size = genome_sequence.size();
 
@@ -305,14 +309,17 @@ void VCF::DecideBoundries() {
 
 }
 
+// private
 void VCF::ReadRefVCF(string filename) {
 	ReadVCF(filename, this->refpos_2_snp);
 }
 
+// private
 void VCF::ReadQueryVCF(string filename) {
 	ReadVCF(filename, this->querypos_2_snp);
 }
 
+// protected
 bool VCF::CompareSnps(SNP r, SNP q) {
 	if(r.pos != q.pos) return false;
 
@@ -330,6 +337,7 @@ bool VCF::CompareSnps(SNP r, SNP q) {
 	return false;
 }
 
+//private
 void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unordered_map<int, vector<SNP> > & query_snps, int thread_index) {
 	// handle heterozygous variants
     auto rit = ref_snps.begin();
@@ -379,6 +387,7 @@ void VCF::DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps, unor
 }
 
 // directly match by position
+// private
 void VCF::DirectSearchMultiThread() {
 
     direct_match_records = new vector<string>* [thread_num];
@@ -422,6 +431,7 @@ void VCF::DirectSearchMultiThread() {
 
 }
 
+// protected
 string VCF::ModifySequenceBySnp(const string sequence, SNP s, int offset) {
 	string result = "";
 	int snp_pos = s.pos - offset;
@@ -435,6 +445,8 @@ string VCF::ModifySequenceBySnp(const string sequence, SNP s, int offset) {
 	transform(result.begin(), result.end(), result.begin(), ::toupper);
 	return result;
 }
+
+// protected
 string VCF::ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset) {
 	string result = sequence;
 	int start_pos = 0;
@@ -458,6 +470,7 @@ string VCF::ModifySequenceBySnpList(const string sequence, vector<SNP> s, int of
 	return result;
 }
 
+// protected
 bool VCF::CheckVariantOverlap(vector<SNP> snp_list){
     if (snp_list.size() <= 1) return false;
     int previous_ends = -1;
@@ -475,6 +488,7 @@ void f(){
     cout << "Hello World" << endl;
 }
 
+// protected
 bool VCF::CheckTandemRepeat(string sequence, int unit_threshold) {
 	int sequence_length = (int)sequence.length();
     if(sequence_length == 1) return true;
@@ -510,6 +524,7 @@ bool VCF::CheckTandemRepeat(string sequence, int unit_threshold) {
 	clustering snps
 	algorithm description, please refer to paper method
 */
+// protected
 void VCF::ClusteringSnps() {
     // handle heterozygous snps
 	for (int i = 0; i < refpos_2_snp.size(); i++) {
@@ -593,17 +608,47 @@ void VCF::ClusteringSnps() {
 		}
 	}
 }
-bool VCF::MatchSnpListsByPathConstruction(vector<SNP> & ref_snp_list,
+
+// protected
+bool VCF::MatchSnpListsWithWeight(vector<SNP> & ref_snp_list,
 	vector<SNP> & query_snp_list,
 	vector<SNP> & mixed_list,
 	const string subsequence,
 	int offset,
 	int thread_index)
 {
+	// handle heterozygous snps
+	map<string, vector<SNP> > ref_choice_snps;
+	sort(mixed_list.begin(), mixed_list.end());
 
+	for (int i = ref_snp_list.size(); i >= 1; i--) {
+		vector<vector<SNP> > combinations = CreateCombinations(ref_snp_list, i);
+		for (int k = 0; k < combinations.size(); k++) {
+			auto c = combinations[k];
+			if (CheckVariantOverlap(c)) continue;
+			string ref_sequence = ModifySequenceBySnpList(subsequence, c, offset);
+			ref_choice_snps[ref_sequence] = c;
+		}
+	}
+	string best_match;
+	int best_score = 0;
+	vector<SNP> best_ref_variants;
+	vector<SNP> best_alt_variants;
+	for (int i = query_snp_list.size(); i >= 1; i--) {
+		vector<vector<SNP> > combinations = CreateCombinations(query_snp_list, i);
+		for (int k = 0; k < combinations.size(); k++) {
+			auto c = combinations[k];
+			if (CheckVariantOverlap(c)) continue;
+			string que_sequence = ModifySequenceBySnpList(subsequence, c, offset);
+			if (ref_choice_snps.find(que_sequence) != ref_choice_snps.end()) {
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
-
+// protected
 bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
                         vector<SNP> & query_snp_list,
                         vector<SNP> & mixed_list,
@@ -743,6 +788,7 @@ bool VCF::MatchSnpLists(vector<SNP> & ref_snp_list,
 	return false;
 }
 
+// private
 void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
     for (int cluster_id = start; cluster_id < end; cluster_id++) {
 		if (cluster_snps_map.find(cluster_id) != cluster_snps_map.end()) {
@@ -921,6 +967,7 @@ void VCF::ClusteringSearchInThread(int start, int end, int thread_index) {
 }
 
 // match by cluster
+// private
 void VCF::ClusteringSearchMultiThread() {
 	clustering_search = true;
 	int start = cluster_snps_map.begin()->first;
@@ -990,6 +1037,7 @@ void VCF::ClusteringSearchMultiThread() {
     delete [] complex_match_records;
 }
 
+// private
 int VCF::GetRefSnpNumber(int & indel_num) {
 	int result = 0;
 	indel_num = 0;
@@ -1019,6 +1067,7 @@ int VCF::GetRefSnpNumber(int & indel_num) {
 	return result;
 }
 
+// private
 int VCF::GetQuerySnpNumber(int & indel_num) {
 	int result = 0;
 	indel_num = 0;
@@ -1048,6 +1097,7 @@ int VCF::GetQuerySnpNumber(int & indel_num) {
 	return result;
 }
 
+// public
 void VCF::Compare(string ref_vcf,
         string query_vcf,
         string genome_seq,

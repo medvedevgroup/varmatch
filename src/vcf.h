@@ -179,6 +179,12 @@ protected:
 		} while (prev_permutation(v.begin(), v.end()));
 		return result;
 	}
+	bool MatchSnpListsWithWeight(vector<SNP> & ref_snp_list,
+		vector<SNP> & query_snp_list,
+		vector<SNP> & mixed_list,
+		const string subsequence,
+		int offset,
+		int thread_index);
     bool CheckVariantOverlap(vector<SNP> snp_list);
 	bool NormalizeSnp(int pos, string ref, string alt, string & parsimonious_ref, string & parsimonious_alt);
 
