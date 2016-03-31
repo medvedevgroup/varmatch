@@ -4,15 +4,15 @@
 
 typedef struct DiploidVariant {
 	DiploidVariant(int pos_ = 0,
-		char var_type_ = 'S',
+		vector<char> var_types_ = {'S','S'},
 		string ref_ = "",
 		vector<string> alts_ = {"",""},
 		string genotype_ = "0/0",
 		bool heterozygous_ = false,
 		bool multi_alts_ = false
-		int flag_ = 1) :
+		int flag_ = 0) :
 		pos(pos_),
-		var_type(var_type_),
+		var_types(var_types_),
 		ref(ref_),
 		alts(alt_),
 		genotype(genotype_),
@@ -21,7 +21,7 @@ typedef struct DiploidVariant {
 		flag(flag_){}
 
 	int pos;
-	char snp_type;
+	vector<char> var_types;
 	string ref;
 	vector<string> alts;
 	string genotype;
@@ -35,9 +35,33 @@ bool operator <(const DiploidVariant& x, const DiploidVariant& y);
 
 bool operator ==(const DiploidVariant& x, const DiploidVariant& y);
 
+typedef vector<unordered_map<int, DiploidVariant > > VariantHash;
+typedef vector<map<int, DiploidVariant > > VariantMap;
+
 class DiploidVCF : public VCF
 {
 private:
+	// data structure for direct search
+	VariantHash refpos_2_var;
+	VariantHash querypos_2_var;
+	// private
+	void VCF::ReadRefVCF(string filename) {
+		ReadDiploidVCF(filename, this->refpos_2_var);
+	}
+
+	// private
+	void VCF::ReadQueryVCF(string filename) {
+		ReadDiploidVCF(filename, this->querypos_2_var);
+	}
+
+	void DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps, unordered_map<int, DiploidVariant> & query_snps, int thread_index);
+	void DirectSearchMultiThread();
+
+protected:
+	bool ReadDiploidVCF(string filename, VariantHash & pos_2_var);
+	bool NormalizeDiploidVariant(DiploidVariant & var);
+	map<int, vector<DiploidVariant> > cluster_vars_map;
+	bool CompareSequence(string s1, string s2);
 
 public:
 	DiploidVCF(int thread_num_);

@@ -46,6 +46,7 @@ DiploidVCF::~DiploidVCF()
 {
 }
 
+// protected
 bool DiploidVCF::NormalizeDiploidVariant(DiploidVariant & var) {
 	pos = var.pos;
 	parsimonious_ref = var.ref;
@@ -96,8 +97,404 @@ bool DiploidVCF::NormalizeDiploidVariant(DiploidVariant & var) {
 	return true;
 }
 
-bool DiploidVCF::ReadDiploidVCF() {
+// protected
+bool DiploidVCF::ReadDiploidVCF(string filename, VariantHash & pos_2_var) {
+	if (!boundries_decided) {
+		dout << "[VarMatch] DiploidVCF::ReadDiploidVCF cannot read vcf file before read genome file" << endl;
+		return;
+	}
+
+	ifstream vcf_file;
+	vcf_file.open(filename.c_str());
+	if (!vcf_file.good()) {
+		cout << "[VarMatch] Error: can not open vcf file" << endl;
+		return;
+	}
+
+	if (normalization) {
+		dout << "normalize variants while read" << endl;
+	}
+	string previous_line;
+	while (!vcf_file.eof()) { // alternative way is vcf_file != NULL
+		string line;
+		getline(vcf_file, line, '\n');
+		// check ineligible lines
+		//dout << line << endl;
+		if ((int)line.length() <= 1) continue;
+		if (line.find_first_not_of(' ') == std::string::npos) continue;
+
+		if (line[0] == '#') {
+			if (line[1] == '#') continue;
+			auto head_names = split(line, '\t');
+			if (match_genotype && head_names.size() < 10) {
+				cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
+				cout << "[VarMatch] \tVCF file name " << filename << endl;
+				cout << "[VarMatch] \tAutomatically turn off genotype matching module." << endl;
+				match_genotype = false;
+			}
+			continue;
+		}
+		auto columns = split(line, '\t');
+		if (match_genotype && columns.size() < 10) {
+			cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
+			cout << "[VarMatch] \tskip current variant " << filename << endl;
+			continue;
+		}
+		if (chromosome_name == ".") chromosome_name = columns[0];
+		auto pos = atoi(columns[1].c_str()) - 1;
+		auto ref = columns[3];
+		auto alt_line = columns[4];
+		auto quality = columns[6];
+
+		if (ref == ".") ref = "";
+		if (alt_line == ".") alt_line = "";
+		//decide which thread to use
+		int thread_index = 0;
+		for (int i = 0; i < pos_boundries.size(); i++) {
+			if (pos < pos_boundries[i]) {
+				thread_index = i;
+				break;
+			}
+		}
+
+		int genotype_index = -1;
+		string genotype = "0/0";
+		vector<string> genotype_columns;
+
+		bool is_heterozygous_variant = false;
+		bool is_multi_alternatives = false;
+
+		if (columns.size() >= 10) {
+			auto formats = split(columns[8], ':');
+			for (int i = 0; i < formats.size(); i++) {
+				if (formats[i] == "GT") {
+					genotype_index = i;
+					break;
+				}
+			}
+			if (genotype_index < 0) {
+				cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
+				cout << "[VarMatch] \tskip current variant " << filename << endl;
+				continue;
+			}
+			auto additionals = split(columns[9], ':');
+			genotype = additionals[genotype_index];
+
+			if (genotype.find("/") != std::string::npos) {
+				genotype_columns = split(genotype, '/');
+			}
+			else if (genotype.find("|") != std::string::npos) {
+				genotype_columns = split(genotype, '|');
+			}
+			else {
+				cout << "[VarMatch] Error: Unrecognized Genotype: " << genotype << endl;
+				continue;
+			}
+
+			// normalize format of genotype: sorted, separated by |
+			if (genotype_columns.size() != 2) {
+				cout << "[VarMatch] Warning Unrecognized Genotype: " << genotype << endl;
+			}
+			else {
+				sort(genotype_columns.begin(), genotype_columns.end());
+				genotype = genotype_columns[0] + "|" + genotype_columns[1];
+				if (genotype_columns[0] != genotype_columns[1]) {
+					is_heterozygous_variant = true;
+				}
+			}
+		}
+		if (match_genotype && genotype == "0|0") {
+			continue;
+		}
+		vector<string> alt_list;
+		if (alt_line.find(",") != std::string::npos) {
+			alt_list = split(alt_line, ',');
+			is_multi_alternatives = true;
+		}
+		else {
+			alt_list.push_back(alt_line);
+		}
+		
+		vector<char> var_types;
+		for (auto alt_it = alt_list.begin(); alt_it != alt_list.end(); ++alt_it) {
+			string alt = *alt_it;
+			char snp_type = 'S';
+			if ((int)ref.length() > (int)alt.length()) {
+				snp_type = 'D';
+			}
+			else if ((int)ref.length() < (int)alt.length()) {
+				snp_type = 'I';
+			}
+			var_types.push_back(snp_type);
+		}
+
+		DiploidVariant dv(pos, var_types, ref, alt_list, genotype, is_heterozygous_variant, is_multi_alternatives);
+		if (normalization) {
+			NormalizeDiploidVariant(dv);
+		}
+
+		if (pos_2_var[thread_index].find(pos) != pos_2_var[thread_index].end()) {
+			dout << "[VarMatch] Warning: overlap variants detected in " << filename << endl;
+		}
+		pos_2_var[thread_index][pos] = dv;
+	}
+	vcf_file.close();
+	return;
+}
+
+//private
+void DiploidVCF::DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps, unordered_map<int, DiploidVariant> & query_snps, int thread_index) {
+	// handle heterozygous variants
+	auto rit = ref_snps.begin();
+	auto rend = ref_snps.end();
+	for (; rit != rend;) {
+		auto r_pos = rit->first;
+		DiploidVariant r_var = rit->second;
+		auto qit = query_snps.find(r_pos);
+		if (qit != query_snps.end()) {
+			DiploidVariant q_var = qit->second;
+			if (r_var == q_var) {
+				string matching_result = chromosome_name + '\t' + to_string(r_var.pos + 1) + "\t" + r_var.ref + "\t";
+				auto alt_string = r_var.alts[0];
+				if (r_var.multi_alts)
+					alt_string += "," + r_var.alts[1];
+				matching_result += alt_string;
+				direct_match_records[thread_index]->push_back(matching_result);
+				rit = ref_snps.erase(rit);
+				query_snps.erase(qit);
+			}
+			else {
+				++rit;
+			}
+		}
+		else {
+			++rit;
+		}
+	}
+}
+
+// directly match by position
+// private
+void DiploidVCF::DirectSearchMultiThread() {
+
+	direct_match_records = new vector<string>*[thread_num];
+	for (int j = 0; j < thread_num; j++) {
+		direct_match_records[j] = new vector<string>;
+	}
+
+	vector<thread> threads;
+	//spawn threads
+	unsigned i = 0;
+	for (; i < thread_num - 1; i++) {
+		threads.push_back(thread(&DiploidVCF::DirectSearchInThread, this, ref(refpos_2_var[i]), ref(querypos_2_var[i]), i));
+	}
+	// also you need to do a job in main thread
+	// i equals to (thread_num - 1)
+	if (i != thread_num - 1) {
+		dout << "[Error] thread number not match" << endl;
+	}
+	DirectSearchInThread(refpos_2_var[i], querypos_2_var[i], i);
+
+	// call join() on each thread in turn before this function?
+	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+
+	threads.clear();
+
+	ofstream output_simple_file;
+	output_simple_file.open(output_simple_filename);
+	output_simple_file << "##VCF1:" << ref_vcf_filename << endl;
+	output_simple_file << "##VCF2:" << que_vcf_filename << endl;
+	output_simple_file << "#CHROM\tPOS\tREF\tALT" << endl;
+	for (int i = 0; i < thread_num; i++) {
+		for (int j = 0; j < direct_match_records[i]->size(); j++) {
+			output_simple_file << direct_match_records[i]->at(j) << endl;
+		}
+	}
+	output_simple_file.close();
+	for (int j = 0; j < thread_num; j++) {
+		delete direct_match_records[j];
+	}
+	delete[] direct_match_records;
+}
+
+bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
+	sort(variant_list.begin(), variant_list.end());
+	map<int, DiploidVariant> separate_pos_var[2];
+	bool separate_contians_indel[2];
+	// separate into ref and que
+	int min_pos = -1;
+	int max_pos = genome_sequence + 1;
+	for (int i = 0; i < variant_list.size(); i++) {
+		int flag = variant_list[i].flag; // flag indicate if the variant is from ref set or query set
+		int pos = variant_list[i].pos;
+		separate_pos_var[flag][pos] = variant_list[i];
+		auto ref_sequence = variant_list[i].ref;
+		auto alt_sequences = variant_list[i].alts;
+		if (ref_sequence.length() != alt_sequences[0].length())
+			separate_contians_indel[flag] = true;
+		if (variant_list[i].multi_alts) {
+			if (ref_sequence.length() != alt_sequences[1].length()) {
+				separate_contians_indel[flag] = true;
+			}
+		}
+	}
+
+	if (separate_contians_indel[0] && separate_contians_indel[1]) {
+		// There is no way that there will be a match
+		return false;
+	}
+
+	//[todo] calculate subsequence and offset
+	string subsequence;
+	int offset;
+	// 0 for ref, 1 for query, same as flag
+	map<int, int> choices[4];
+	int pos_boundries[4] = { -1 };
+	map<int, int> max_matches[4];
+	int max_score = 0;
+	MatchWithIndel(variant_list,
+		subsequence,
+		offset,
+		0,
+		separate_var_list,
+		choices,
+		pos_boundries,
+		max_matches,
+		max_score);
+	if (max_score == 0) {
+		return false;
+	}
+	
+	return true;
+}
+
+void DiploidVCF::MatchWithIndel(vector<DiploidVariant> & variant_list,
+	const string subsequence,
+	const int offset,
+	int index,
+	map<int, DiploidVariant> separate_pos_var [],
+	map<int, int> choices [], // 4 vectors
+	int pos_boundries [],
+	map<int, int> max_matches[],  // 4 vectors
+	int max_score) {
+
+	int prefix_match = CheckPrefix(subsequence, offset, separate_pos_var, choices, pos_boundries);
+	if (prefix_match < 0) return;
+	// if prefix_match == 0, just prefix match
+	if (prefix_match > 0) { // sequence direct match
+		int score = CalculateScore(separate_var_list, choices, pos_boundries);
+		if (max_score < score) {
+			max_score = score; 
+			for (int i = 0; i < 4; i++) {
+				max_matches[i] = choices[i];
+			}
+		}
+	}
+	if (index >= variant_list.size()) return;
+	auto variant = variant_list[index];
+	int flag = variant.flag;
+	int pos = variant.pos;
+	int choice_end = 1;
+	if (variant.multi_alts) choice_end = 2;
+	for (int choice = 0; choice <= choice_end; choice++) {
+		choices[flag * 2][pos] = choice;
+		if (choice == 0) {
+			choices[flag * 2 + 1][pos] = 0;
+		}
+		else if (choice == 1) { // include
+			if (variant.multi_alts) { // if multi_alts, then the other alleles should be included
+				choices[flag * 2 + 1][pos] = 2;
+			}
+			else if (variant.heterozygous) { // if heterozygous but not multi_alts, then reference should be included
+				choices[flag * 2 + 1][pos] = 0;
+			}
+			else { // homozygous one
+				choices[flag * 2 + 1][pos] = 1;
+			}
+		}
+		else {
+			choices[flag * 2 + 1][pos] = 1;
+		}
+
+		MatchWithIndel(variant_list,
+			subsequence,
+			offset,
+			index + 1,
+			separate_pos_var,
+			choices,
+			pos_boundries,
+			max_matches,
+			max_score);
+
+		choices[flag * 2][pos] = 0;
+		choices[flag * 2 + 1][pos] = 0;
+	}
+}
+
+inline bool DiploidVCF::CompareSequence(string s1, string s2) {
+	transform(s1.begin(), s1.end(), s1.begin(), ::toupper);
+	transform(s2.begin(), s2.end(), s2.begin(), ::toupper);
+	return s1 == s2;
+}
+
+// check if prefix match or equal
+int DiploidVCF::CheckPrefix(const string subsequence, const int offset, map<int, DiploidVariant> separate_pos_var[], map<int, int> choices[], int pos_boundries[]) {
+	string paths[4] = { "" }; // 0 and 1 are ref, 2 and 3 are query path
+	// create 4 paths
+	for (int i = 0; i < 2; i++) {
+		// create 
+		for (int j = 0; j < 2; j++) {
+			int index = i*2 + j;
+			map<int, int> pos_choice = choices[index];
+			int pos_boundry = pos_boundries[index];
+			string path = "";
+			int start_pos = 0;
+			for (auto it = pos_choice.begin(); it != pos_choice.end(); ++it) {
+				int pos = it->first;
+				if (pos > pos_boundry) break;
+				int choice = it->second;
+				auto variant = separate_pos_var[i][pos];
+				string ref = variant.ref;
+				auto alts = variant.alts;
+				int offset_pos = pos - offset;
+				if (offset_pos < start_pos) {
+					return -1;
+				}
+				else if (offset_pos > start_pos) {
+					path += subsequence.substr(start_pos, offset_pos - start_pos);
+				}
+				
+				if (choice == 0) {
+					path += ref;
+				}
+				else if (choice == 1) {
+					path += alts[0];
+				}
+				else {
+					path += alts[1];
+				}
+			}
+			paths[index] = path;
+		}
+	}
+
+	// check prefix match
+	int const comb[2][4] = {
+		{1,3,2,4},
+		{1,4,2,3};
+	};
+}
+
+int DiploidVCF::CalculateScore(vector<DiploidVariant> separate_var_list[], map<int, int> choices[], int pos_boundries []) {
 
 }
 
+bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
+	for (int cluster_id = start; cluster_id < end; cluster_id++) {
+		if (cluster_vars_map.find(cluster_id) != cluster_vars_map.end()) {
+			auto & var_list = cluster_vars_map[cluster_id];
+			VariantMatch(var_list);
+		}
+	}
+}
 
