@@ -24,6 +24,7 @@ typedef struct Args {
 	string single_vcf_filename;
 	bool match_genotype;
 	bool normalization;
+	bool score_basepair;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
@@ -32,6 +33,7 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 	args.remove_duplicates = false;
 	args.match_genotype = true;
 	args.normalization = false;
+	args.score_basepair = false;
     args.thread_num = 1;
 	for (int i = 1; i < argc; i++)
 	{
@@ -82,6 +84,9 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 		else if(!strcmp(argv[i], "-y")) {
 			args.match_genotype = false;
 		}
+		else if (!strcmp(argv[i], "-b")) {
+			args.score_basepair = true;
+		}
 		else if (!strcmp(argv[i], "-a")) {
 			args.normalization = true;
 		}
@@ -116,9 +121,7 @@ int main(int argc, char* argv[])
 {
 	dout << "Debug Mode" << endl;
 
-	DiploidVCF dv(1);
-	dv.test();
-    return 0;
+
 
 	if (argc < 2) {
 		usage(argv[0]);
@@ -129,6 +132,18 @@ int main(int argc, char* argv[])
 		usage(argv[0]);
 		return 0;
 	}
+
+	DiploidVCF dv(1);
+	vcf.Compare(args.ref_vcf_filename,
+		args.que_vcf_filename,
+		args.genome_seq_filename,
+		args.direct_search,
+		args.output_filename,
+		args.match_genotype,
+		args.normalization,
+		args.score_basepair);
+
+	return 0;
 
 	//args.ref_vcf_filename = "E:\\data\\CHM1.bt2.fb.norm.chr1.vcf";
 	//args.que_vcf_filename = "E:\\data\\CHM1.bt2.hc.norm.chr1.vcf";

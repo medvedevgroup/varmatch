@@ -432,7 +432,7 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list, int thread_
 			complex_que_match_num[thread_index] ++;
 		}
 	}
-	cout << complex_ref_match_num[thread_index] << "," << complex_que_match_num[thread_index] << endl;
+	//cout << complex_ref_match_num[thread_index] << "," << complex_que_match_num[thread_index] << endl;
     return true;
 }
 
@@ -816,6 +816,15 @@ void DiploidVCF::ClusteringMatchMultiThread() {
 		delete complex_match_records[j];
 	}
 	delete[] complex_match_records;
+
+	int total_ref_complex = 0;
+	int total_que_complex = 0;
+	for (int i = 0; i < complex_ref_match_num.size(); i++)
+		total_ref_complex += complex_ref_match_num[i];
+	for (int i = 0; i < complex_que_match_num.size(); i++)
+		total_que_complex += complex_que_match_num[i];
+
+	cout << "complex match: " << total_ref_complex << "," << total_que_complex << endl;
 }
 
 // for public access
@@ -828,7 +837,128 @@ void DiploidVCF::Compare(string ref_vcf,
 	bool normalization,
 	bool score_basepair) {
 
+	ref_vcf_filename = ref_vcf;
+	que_vcf_filename = query_vcf;
+	this->match_genotype = match_genotype;
+	this->normalization = normalization;
+	this->scoring_basepair = score_basepair;
+	output_stat_filename = output_prefix + ".stat";
+	output_simple_filename = output_prefix + ".simple";
+	output_complex_filename = output_prefix + ".complex";
 
+	//------------read genome sequence and decide boundary according to thread number
+	dsptime();
+	dout << " Read genome sequence file... " << endl;
+	ReadGenomeSequence(genome_seq);
+	dsptime();
+	dout << " Finish reading genome sequence file." << endl;
+	//------------read ref and query vcf file
+	dsptime();
+	dout << " Read reference vcf file... " << endl;
+	ReadRefVCF(ref_vcf);
+	dsptime();
+	dout << " Read query vcf file... " << endl;
+	ReadQueryVCF(query_vcf);
+	dsptime();
+	dout << " Finish reading all vcf file." << endl;
+
+	//------------check vcf entry number before matching
+	//int ref_total_indel_num, que_total_indel_num;
+	int ref_total_num = refpos_2_var[0].size();
+	int que_total_num = querypos_2_var[0].size();
+	dout << "total num: " << ref_total_num << "," << que_total_num << endl;
+	//dout << " referece vcf entry number [total, indel]: " << ref_total_num << "," << ref_total_indel_num << endl;
+	//dout << " query vcf entry number: [total, indel] " << que_total_num << "," << que_total_indel_num << endl;
+
+
+	//------------direct search
+	dsptime();
+	dout << " Direct search ... " << endl;
+	DirectSearchMultiThread();
+	dsptime();
+	dout << " Finish direct search." << endl;
+	//int ref_direct_left_indel_num, que_direct_left_indel_num;
+	int ref_direct_left_num = refpos_2_var[0].size();
+	int que_direct_left_num = querypos_2_var[0].size();
+	int ref_direct_match_num = ref_total_num - ref_direct_left_num;
+	int que_direct_match_num = que_total_num - que_direct_left_num;
+	cout << "direct match: " << ref_direct_match_num << "," << que_direct_match_num << endl;
+	//int ref_direct_match_indel_num = ref_total_indel_num - ref_direct_left_indel_num;
+	//int que_direct_match_indel_num = que_total_indel_num - que_direct_left_indel_num;
+	//dout << " referece vcf entry direct match number [total, indel]: " << ref_direct_match_num << "," << ref_direct_match_indel_num << endl;
+	//dout << " query vcf entry direct match number [total, indel]: " << que_direct_match_num << "," << que_direct_match_indel_num << endl;
+
+	if (direct_search) {
+		//dout << " referece vcf entry mismatch number [total, indel]: " << ref_direct_left_num << "," << ref_direct_left_indel_num << endl;
+		//dout << " query vcf entry mismatch number [total, indel]: " << que_direct_left_num << "," << que_direct_left_indel_num << endl;
+		//ofstream output_stat_file;
+		//output_stat_file.open(output_stat_filename);
+		//output_stat_file << ref_total_num << endl;
+		//output_stat_file << que_total_num << endl;
+		//output_stat_file << ref_direct_match_num << endl;
+		//output_stat_file << que_direct_match_num << endl;
+		//output_stat_file << ref_direct_left_num << endl;
+		//output_stat_file << que_direct_left_num << endl;
+		////=====================================================
+		//output_stat_file << ref_total_indel_num << endl;
+		//output_stat_file << que_total_indel_num << endl;
+		//output_stat_file << ref_direct_match_indel_num << endl;
+		//output_stat_file << que_direct_match_indel_num << endl;
+		//output_stat_file << ref_direct_left_indel_num << endl;
+		//output_stat_file << que_direct_left_indel_num << endl;
+		//output_stat_file.close();
+
+		return;
+	}
+
+	//-------------clustering search
+	dsptime();
+	dout << " Clustering snps ... " << endl;
+	ClusteringVariants();
+	dsptime();
+	dout << " Finish clustering." << endl;
+	dsptime();
+	dout << " Clustering search ... " << endl;
+	ClusteringMatchMultiThread();
+	dsptime();
+	dout << " Finish clustering search." << endl;
+	//int ref_cluster_left_indel_num, que_cluster_left_indel_num;
+	//int ref_cluster_left_num = GetRefSnpNumber(ref_cluster_left_indel_num);
+	//int que_cluster_left_num = GetQuerySnpNumber(que_cluster_left_indel_num);
+	//int ref_cluster_match_num = ref_direct_left_num - ref_cluster_left_num;
+	//int que_cluster_match_num = que_direct_left_num - que_cluster_left_num;
+	//int ref_cluster_match_indel_num = ref_direct_left_indel_num - ref_cluster_left_indel_num;
+	//int que_cluster_match_indel_num = que_direct_left_indel_num - que_cluster_left_indel_num;
+
+	//dout << " referece vcf entry cluster match number [total, indel]: " << ref_cluster_match_num << "," << ref_cluster_match_indel_num << endl;
+	//dout << " query vcf entry cluster match number [total, indel]: " << que_cluster_match_num << "," << que_cluster_match_indel_num << endl;
+
+	//dout << " referece vcf entry mismatch number [total, indel]: " << ref_cluster_left_num << "," << ref_cluster_left_indel_num << endl;
+	//dout << " query vcf entry mismatch number [total, indel]: " << que_cluster_left_num << "," << que_cluster_left_indel_num << endl;
+
+	//write stat file
+	//ofstream output_stat_file;
+	//output_stat_file.open(output_stat_filename);
+	//output_stat_file << ref_total_num << endl;
+	//output_stat_file << que_total_num << endl;
+	//output_stat_file << ref_direct_match_num << endl;
+	//output_stat_file << que_direct_match_num << endl;
+	//output_stat_file << ref_cluster_match_num << endl;
+	//output_stat_file << que_cluster_match_num << endl;
+	//output_stat_file << ref_cluster_left_num << endl;
+	//output_stat_file << que_cluster_left_num << endl;
+	////=====================================================
+	//output_stat_file << ref_total_indel_num << endl;
+	//output_stat_file << que_total_indel_num << endl;
+	//output_stat_file << ref_direct_match_indel_num << endl;
+	//output_stat_file << que_direct_match_indel_num << endl;
+	//output_stat_file << ref_cluster_match_indel_num << endl;
+	//output_stat_file << que_cluster_match_indel_num << endl;
+	//output_stat_file << ref_direct_left_indel_num << endl;
+	//output_stat_file << que_direct_left_indel_num << endl;
+	//output_stat_file.close();
+
+	return;
 
 }
 
