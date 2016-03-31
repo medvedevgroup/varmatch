@@ -53,6 +53,7 @@ private:
 
 	void DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps, unordered_map<int, DiploidVariant> & query_snps, int thread_index);
 	void DirectSearchMultiThread();
+    void ClusteringVariants();
     bool ClusteringMatchInThread(int, int, int);
 	void ClusteringMatchMultiThread();
 

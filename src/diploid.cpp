@@ -407,7 +407,7 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list, int thread_
 	//vector<int> complex_que_match_num;
 	map<int, bool> separate_pos_matched[2];
 	for (int i = 0; i < 2; i++) {
-		for (auto it = separate_pos_var[i].begin(); it != separate_pos_var[i].end; ++it) {
+		for (auto it = separate_pos_var[i].begin(); it != separate_pos_var[i].end(); ++it) {
 			separate_pos_matched[i][it->first] = false;
 		}
 	}
@@ -620,9 +620,12 @@ int DiploidVCF::test() {
 	DiploidVariant d6(1, vector<char> ({'S', 'S'}), "T", vector<string> ({"A", "C"}), "1/2", true, true, 1);
 	DiploidVariant d7(3, vector<char> ({'D', 'S'}), "AG", vector<string> ({"A", ""}), "0/1", true, false, 1);
 	DiploidVariant d8(7, vector<char> ({'I', 'S'}), "G", vector<string> ({"GA", ""}), "0/1", true, false, 1);
+    
+    complex_ref_match_num.push_back(0);
+    complex_que_match_num.push_back(0);
 
 	vector<DiploidVariant> var_list = { d1,d2,d3,d4,d5,d6,d7,d8 };
-	cout << VariantMatch(var_list) << endl;
+	cout << VariantMatch(var_list, 0) << endl;
 	return 0;
 }
 
