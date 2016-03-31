@@ -322,14 +322,18 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 	map<int, DiploidVariant> separate_pos_var[2];
 	bool separate_contians_indel[2];
 	// separate into ref and que
-	int min_pos = -1;
-	int max_pos = genome_sequence + 1;
+	int min_pos = genome_sequence + 1;
+	int max_pos = -1;
 	for (int i = 0; i < variant_list.size(); i++) {
 		int flag = variant_list[i].flag; // flag indicate if the variant is from ref set or query set
 		int pos = variant_list[i].pos;
 		separate_pos_var[flag][pos] = variant_list[i];
 		auto ref_sequence = variant_list[i].ref;
 		auto alt_sequences = variant_list[i].alts;
+
+		min_pos = min(pos, min_pos);
+		max_pos = max(pos + ref_sequence.length(), max_pos);
+
 		if (ref_sequence.length() != alt_sequences[0].length())
 			separate_contians_indel[flag] = true;
 		if (variant_list[i].multi_alts) {
@@ -339,14 +343,16 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 		}
 	}
 
+	min_pos = max(min_pos - 1, 0);
+	max_pos = min(max_pos + 1, genome_sequence.length());
+
 	if (separate_contians_indel[0] && separate_contians_indel[1]) {
 		// There is no way that there will be a match
 		return false;
 	}
 
-	//[todo] calculate subsequence and offset
-	string subsequence;
-	int offset;
+	string subsequence = genome_sequence.substr(min_pos, max_pos-min_pos);
+	int offset = min_pos;
 	// 0 for ref, 1 for query, same as flag
 	map<int, int> choices[4];
 	int pos_boundries[4] = { -1 };
@@ -365,6 +371,7 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 		return false;
 	}
 	
+	// here can construct matching result
 	return true;
 }
 
@@ -375,14 +382,14 @@ void DiploidVCF::MatchWithIndel(vector<DiploidVariant> & variant_list,
 	map<int, DiploidVariant> separate_pos_var [],
 	map<int, int> choices [], // 4 vectors
 	int pos_boundries [],
-	map<int, int> max_matches[],  // 4 vectors
-	int max_score) {
+	map<int, int> & max_matches[],  // 4 vectors
+	int & max_score) {
 
 	int prefix_match = CheckPrefix(subsequence, offset, separate_pos_var, choices, pos_boundries);
 	if (prefix_match < 0) return;
 	// if prefix_match == 0, just prefix match
 	if (prefix_match > 0) { // sequence direct match
-		int score = CalculateScore(separate_var_list, choices, pos_boundries);
+		int score = prefix_match;
 		if (max_score < score) {
 			max_score = score; 
 			for (int i = 0; i < 4; i++) {
@@ -438,7 +445,11 @@ inline bool DiploidVCF::CompareSequence(string s1, string s2) {
 }
 
 // check if prefix match or equal
-int DiploidVCF::CheckPrefix(const string subsequence, const int offset, map<int, DiploidVariant> separate_pos_var[], map<int, int> choices[], int pos_boundries[]) {
+int DiploidVCF::CheckPrefix(const string subsequence,
+	const int offset,
+	map<int, DiploidVariant> separate_pos_var[],
+	map<int, int> choices[],
+	int pos_boundries[]) {
 	string paths[4] = { "" }; // 0 and 1 are ref, 2 and 3 are query path
 	// create 4 paths
 	for (int i = 0; i < 2; i++) {
@@ -481,12 +492,60 @@ int DiploidVCF::CheckPrefix(const string subsequence, const int offset, map<int,
 	// check prefix match
 	int const comb[2][4] = {
 		{1,3,2,4},
-		{1,4,2,3};
+		{1,4,2,3}
 	};
+	
+	bool prefix_match = false;
+	bool direct_match = false;
+	for (int i = 0; i < 2; i++) {
+		bool check_prefix_match[2] = { false };
+		bool check_direct_match[2] = { false };
+		for (int k = 0; k < 2; k++) {
+			string s1 = path[comb[i][k * 2]];
+			string s2 = path[comb[i][k * 2 + 1]];
+			int min_len = min(s1.length(), s2.length());
+			string s1_sub = s1.substr(0, min_len);
+			string s2_sub = s2.substr(0, min_len);
+			check_prefix_match[k] = CompareSequence(s1_sub, s2_sub);
+			check_direct_match[k] = CompareSequence(s1, s2);
+		}
+		if (check_prefix_match[0] && check_prefix_match[1])
+			prefix_match = true;
+		if (check_direct_match[0] && check_direct_match[1])
+			direct_match = true;
+	}
+	if (direct_match) {
+		int score = 0;
+		for (int i = 0; i < 2; i++) {
+			auto pos_var = separate_pos_var[i];
+			for (auto it = pos_var.begin(); it != pos_var.end(); ++it) {
+				if (scoring_basepair) {
+					score += it->second.ref.length();
+				}
+				else {
+					score += 1;
+				}
+			}
+		}
+		return score;
+	}
+	if (prefix_match) return 0;
 }
 
-int DiploidVCF::CalculateScore(vector<DiploidVariant> separate_var_list[], map<int, int> choices[], int pos_boundries []) {
+int DiploidVCF::test() {
+	genome_sequence = "GTCAGCCGG";
+	DiploidVariant d1(1, ['S', 'S'], "T", ["A", "C"], "1/2", true, true, 0);
+	DiploidVariant d2(4, ['S', 'S'], "G", ["C", ""], "0/1", true, false, 0);
+	DiploidVariant d3(5, ['S', 'S'], "C", ["T", ""], "0/1", true, false, 0); // this is false negative
+	DiploidVariant d4(6, ['S', 'S'], "C", ["G", ""], "0/1", true, false, 0);
+	DiploidVariant d5(7, ['S', 'S'], "G", ["A", ""], "0/1", true, false, 0);
+	DiploidVariant d6(1, ['S', 'S'], "T", ["A", "C"], "1/2", true, true, 1);
+	DiploidVariant d7(3, ['S', 'S'], "AG", ["A", ""], "0/1", true, false, 1);
+	DiploidVariant d8(7, ['S', 'S'], "AG", ["A", ""], "0/1", true, false, 1);
 
+	vector<DiploidVariant> var_list = { d1,d2,d3,d4,d5,d6,d7,d8 };
+	cout << VariantMatch(var_list) << endl;
+	return 0;
 }
 
 bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
@@ -496,5 +555,18 @@ bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
 			VariantMatch(var_list);
 		}
 	}
+}
+
+// for public access
+void DiploidVCF::Compare(string ref_vcf,
+	string query_vcf,
+	string genome_seq,
+	bool direct_search,
+	string output_prefix,
+	bool match_genotype,
+	bool normalization) {
+
+	scoring_basepair = false;
+	test();
 }
 

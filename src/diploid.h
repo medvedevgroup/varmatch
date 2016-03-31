@@ -9,7 +9,7 @@ typedef struct DiploidVariant {
 		vector<string> alts_ = {"",""},
 		string genotype_ = "0/0",
 		bool heterozygous_ = false,
-		bool multi_alts_ = false
+		bool multi_alts_ = false,
 		int flag_ = 0) :
 		pos(pos_),
 		var_types(var_types_),
@@ -58,10 +58,28 @@ private:
 	void DirectSearchMultiThread();
 
 protected:
+	bool CompareSequence(string s1, string s2);
+	bool scoring_basepair;
+
 	bool ReadDiploidVCF(string filename, VariantHash & pos_2_var);
 	bool NormalizeDiploidVariant(DiploidVariant & var);
 	map<int, vector<DiploidVariant> > cluster_vars_map;
+	bool VariantMatch(vector<DiploidVariant> & variant_list);
+	void MatchWithIndel(vector<DiploidVariant> & variant_list,
+		const string subsequence,
+		const int offset,
+		int index,
+		map<int, DiploidVariant> separate_pos_var[],
+		map<int, int> choices[], // 4 vectors
+		int pos_boundries[],
+		map<int, int> max_matches[],  // 4 vectors
+		int max_score);
 	bool CompareSequence(string s1, string s2);
+	int CheckPrefix(const string subsequence,
+		const int offset,
+		map<int, DiploidVariant> separate_pos_var[],
+		map<int, int> choices[],
+		int pos_boundries[]);
 
 public:
 	DiploidVCF(int thread_num_);

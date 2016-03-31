@@ -4,7 +4,7 @@ CXXFLAGS2=-I ./include
 
 all: vm
 
-vm: vm.cpp vcf.cpp removeduplicate.cpp util.cpp
+vm: vm.cpp vcf.cpp removeduplicate.cpp diploid.cpp util.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 split: splitvcf.cpp util.cpp
