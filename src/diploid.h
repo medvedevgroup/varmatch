@@ -14,10 +14,10 @@ typedef struct DiploidVariant {
 		pos(pos_),
 		var_types(var_types_),
 		ref(ref_),
-		alts(alt_),
+		alts(alts_),
 		genotype(genotype_),
-		bool heterozygous(heterozygous_),
-		bool multi_alts(multi_alts_),
+	    heterozygous(heterozygous_),
+		multi_alts(multi_alts_),
 		flag(flag_){}
 
 	int pos;
@@ -44,18 +44,12 @@ private:
 	// data structure for direct search
 	VariantHash refpos_2_var;
 	VariantHash querypos_2_var;
-	// private
-	void VCF::ReadRefVCF(string filename) {
-		ReadDiploidVCF(filename, this->refpos_2_var);
-	}
-
-	// private
-	void VCF::ReadQueryVCF(string filename) {
-		ReadDiploidVCF(filename, this->querypos_2_var);
-	}
+    void ReadRefVCF(string filename);
+    void ReadQueryVCF(string filename);
 
 	void DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps, unordered_map<int, DiploidVariant> & query_snps, int thread_index);
 	void DirectSearchMultiThread();
+    bool ClusteringMatchInThread(int, int, int);
 
 protected:
 	bool CompareSequence(string s1, string s2);
@@ -65,27 +59,27 @@ protected:
 	bool NormalizeDiploidVariant(DiploidVariant & var);
 	map<int, vector<DiploidVariant> > cluster_vars_map;
 	bool VariantMatch(vector<DiploidVariant> & variant_list);
-	void MatchWithIndel(vector<DiploidVariant> & variant_list,
+	
+    void MatchWithIndel(vector<DiploidVariant> & variant_list,
 		const string subsequence,
 		const int offset,
 		int index,
 		map<int, DiploidVariant> separate_pos_var[],
 		map<int, int> choices[], // 4 vectors
-		int pos_boundries[],
 		map<int, int> max_matches[],  // 4 vectors
-		int max_score);
-	bool CompareSequence(string s1, string s2);
-	int CheckPrefix(const string subsequence,
+		int & max_score);
+	
+    int CheckPrefix(const string subsequence,
 		const int offset,
 		map<int, DiploidVariant> separate_pos_var[],
-		map<int, int> choices[],
-		int pos_boundries[]);
+		map<int, int> choices[]);
 
 public:
 	DiploidVCF(int thread_num_);
 	~DiploidVCF();
 
-	// for public access
+    int test();
+    // for public access
 	void Compare(string ref_vcf,
 		string query_vcf,
 		string genome_seq,

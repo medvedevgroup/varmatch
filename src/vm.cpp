@@ -117,14 +117,8 @@ int main(int argc, char* argv[])
 	dout << "Debug Mode" << endl;
 
 	DiploidVCF dv(1);
-	dv.Compare(args.ref_vcf_filename,
-		args.que_vcf_filename,
-		args.genome_seq_filename,
-		args.direct_search,
-		args.output_filename,
-		args.match_genotype,
-		args.normalization);
-	return 0;
+	dv.test();
+    return 0;
 
 	if (argc < 2) {
 		usage(argv[0]);

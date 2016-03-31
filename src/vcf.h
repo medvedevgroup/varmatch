@@ -53,7 +53,6 @@ private:
     int debug_f;
 
     bool complex_search;
-	bool clustering_search;
 
     void ReadVCF(string filename, SnpHash & pos_2_snps);
 	void DirectSearchInThread(unordered_map<int, vector<SNP> > & ref_snps,
@@ -119,6 +118,7 @@ protected:
 	bool normalization;
     // for inherit
 
+	bool clustering_search;
     bool match_genotype;
 	int thread_num;
     string chromosome_name;

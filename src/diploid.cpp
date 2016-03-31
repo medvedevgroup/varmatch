@@ -6,7 +6,7 @@ bool operator <(const DiploidVariant& x, const DiploidVariant& y) {
 }
 
 bool operator ==(const DiploidVariant& x, const DiploidVariant& y) {
-	if (x.pos == y.pos && x.var_type == y.var_type && x.heterozygous == y.heterozygous && x.multi_alts == y.multi_alts) {
+	if (x.pos == y.pos && x.heterozygous == y.heterozygous && x.multi_alts == y.multi_alts) {
 		if (x.multi_alts && x.heterozygous) {
 			int match_times = 0;
 			for (int i = 0; i < 2; i++) {
@@ -25,12 +25,13 @@ bool operator ==(const DiploidVariant& x, const DiploidVariant& y) {
 	return false;
 }
 
+
 DiploidVCF::DiploidVCF(int thread_num_)
 {
-    debug_f = 0;
 	genome_sequence = "";
 	boundries_decided = false;
 	clustering_search = false;
+    scoring_basepair = false;
 	match_genotype = true;
     if (thread_num_ <= 0) {
 		thread_num = 1;
@@ -46,14 +47,23 @@ DiploidVCF::~DiploidVCF()
 {
 }
 
+// private
+void DiploidVCF::ReadRefVCF(string filename) {
+    ReadDiploidVCF(filename, this->refpos_2_var);
+}
+
+// private
+void DiploidVCF::ReadQueryVCF(string filename) {
+    ReadDiploidVCF(filename, this->querypos_2_var);
+}
 // protected
 bool DiploidVCF::NormalizeDiploidVariant(DiploidVariant & var) {
-	pos = var.pos;
-	parsimonious_ref = var.ref;
-	parsimonious_alt0 = var.alts[0];
-	parsimonious_alt1 = var.alts[0];
+	int pos = var.pos;
+	string parsimonious_ref = var.ref;
+	string parsimonious_alt0 = var.alts[0];
+	string parsimonious_alt1 = var.alts[0];
 	if (var.heterozygous && var.multi_alts)
-		parsimonious_alt1 = var.alts[1]
+		parsimonious_alt1 = var.alts[1];
 
 	int left_index = pos;
 	if (genome_sequence.size() == 0) return false;
@@ -101,14 +111,14 @@ bool DiploidVCF::NormalizeDiploidVariant(DiploidVariant & var) {
 bool DiploidVCF::ReadDiploidVCF(string filename, VariantHash & pos_2_var) {
 	if (!boundries_decided) {
 		dout << "[VarMatch] DiploidVCF::ReadDiploidVCF cannot read vcf file before read genome file" << endl;
-		return;
+		return false;
 	}
 
 	ifstream vcf_file;
 	vcf_file.open(filename.c_str());
 	if (!vcf_file.good()) {
 		cout << "[VarMatch] Error: can not open vcf file" << endl;
-		return;
+		return false;
 	}
 
 	if (normalization) {
@@ -239,7 +249,7 @@ bool DiploidVCF::ReadDiploidVCF(string filename, VariantHash & pos_2_var) {
 		pos_2_var[thread_index][pos] = dv;
 	}
 	vcf_file.close();
-	return;
+	return true;
 }
 
 //private
@@ -322,7 +332,7 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 	map<int, DiploidVariant> separate_pos_var[2];
 	bool separate_contians_indel[2];
 	// separate into ref and que
-	int min_pos = genome_sequence + 1;
+	int min_pos = genome_sequence.length() + 1;
 	int max_pos = -1;
 	for (int i = 0; i < variant_list.size(); i++) {
 		int flag = variant_list[i].flag; // flag indicate if the variant is from ref set or query set
@@ -332,7 +342,7 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 		auto alt_sequences = variant_list[i].alts;
 
 		min_pos = min(pos, min_pos);
-		max_pos = max(pos + ref_sequence.length(), max_pos);
+		max_pos = max((int)(pos + ref_sequence.length()), max_pos);
 
 		if (ref_sequence.length() != alt_sequences[0].length())
 			separate_contians_indel[flag] = true;
@@ -344,9 +354,9 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 	}
 
 	min_pos = max(min_pos - 1, 0);
-	max_pos = min(max_pos + 1, genome_sequence.length());
+	max_pos = min(max_pos + 1, (int)genome_sequence.length());
 
-	if (separate_contians_indel[0] && separate_contians_indel[1]) {
+	if (!separate_contians_indel[0] && !separate_contians_indel[1]) {
 		// There is no way that there will be a match
 		return false;
 	}
@@ -354,17 +364,23 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 	string subsequence = genome_sequence.substr(min_pos, max_pos-min_pos);
 	int offset = min_pos;
 	// 0 for ref, 1 for query, same as flag
-	map<int, int> choices[4];
-	int pos_boundries[4] = { -1 };
+    map<int, int> choices[4];
+	for(int i = 0; i < 2; i++){
+        for(int j = 0; j < 2; j++){
+            for(auto it = separate_pos_var[i].begin(); it != separate_pos_var[i].end(); ++it){
+                auto pos = it->first;
+                choices[i*2+j][pos] = -1;
+            }
+        }
+    }
 	map<int, int> max_matches[4];
 	int max_score = 0;
 	MatchWithIndel(variant_list,
 		subsequence,
 		offset,
 		0,
-		separate_var_list,
+		separate_pos_var,
 		choices,
-		pos_boundries,
 		max_matches,
 		max_score);
 	if (max_score == 0) {
@@ -372,7 +388,21 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 	}
 	
 	// here can construct matching result
-	return true;
+	for(int i = 0; i < 2; i++){
+        for(int j = 0; j < 2; j++){
+            if(i == 0){
+                dout << "ref: " << endl;
+            }else{
+                dout << "alt: " << endl;
+            }
+            auto c = max_matches[i*2+j];
+            for(auto it = c.begin(); it !=c.end(); ++it){
+                dout << it->first << "," << it->second << " ";
+            }
+            dout << endl;
+        }
+    }
+    return true;
 }
 
 void DiploidVCF::MatchWithIndel(vector<DiploidVariant> & variant_list,
@@ -381,17 +411,17 @@ void DiploidVCF::MatchWithIndel(vector<DiploidVariant> & variant_list,
 	int index,
 	map<int, DiploidVariant> separate_pos_var [],
 	map<int, int> choices [], // 4 vectors
-	int pos_boundries [],
-	map<int, int> & max_matches[],  // 4 vectors
+	map<int, int> max_matches[],  // 4 vectors
 	int & max_score) {
 
-	int prefix_match = CheckPrefix(subsequence, offset, separate_pos_var, choices, pos_boundries);
-	if (prefix_match < 0) return;
+    int prefix_match = CheckPrefix(subsequence, offset, separate_pos_var, choices);
+    if (prefix_match < 0) return;
 	// if prefix_match == 0, just prefix match
 	if (prefix_match > 0) { // sequence direct match
 		int score = prefix_match;
 		if (max_score < score) {
-			max_score = score; 
+			//cout << "higher score: " << score << endl;
+            max_score = score; 
 			for (int i = 0; i < 4; i++) {
 				max_matches[i] = choices[i];
 			}
@@ -404,7 +434,10 @@ void DiploidVCF::MatchWithIndel(vector<DiploidVariant> & variant_list,
 	int choice_end = 1;
 	if (variant.multi_alts) choice_end = 2;
 	for (int choice = 0; choice <= choice_end; choice++) {
-		choices[flag * 2][pos] = choice;
+		if(pos == 0){
+            dout << "error pos = 0 " << endl;
+        }
+        choices[flag * 2][pos] = choice;
 		if (choice == 0) {
 			choices[flag * 2 + 1][pos] = 0;
 		}
@@ -429,12 +462,11 @@ void DiploidVCF::MatchWithIndel(vector<DiploidVariant> & variant_list,
 			index + 1,
 			separate_pos_var,
 			choices,
-			pos_boundries,
 			max_matches,
 			max_score);
 
-		choices[flag * 2][pos] = 0;
-		choices[flag * 2 + 1][pos] = 0;
+		choices[flag * 2][pos] = -1;
+		choices[flag * 2 + 1][pos] = -1;
 	}
 }
 
@@ -448,8 +480,8 @@ inline bool DiploidVCF::CompareSequence(string s1, string s2) {
 int DiploidVCF::CheckPrefix(const string subsequence,
 	const int offset,
 	map<int, DiploidVariant> separate_pos_var[],
-	map<int, int> choices[],
-	int pos_boundries[]) {
+	map<int, int> choices[])
+{
 	string paths[4] = { "" }; // 0 and 1 are ref, 2 and 3 are query path
 	// create 4 paths
 	for (int i = 0; i < 2; i++) {
@@ -457,12 +489,11 @@ int DiploidVCF::CheckPrefix(const string subsequence,
 		for (int j = 0; j < 2; j++) {
 			int index = i*2 + j;
 			map<int, int> pos_choice = choices[index];
-			int pos_boundry = pos_boundries[index];
 			string path = "";
 			int start_pos = 0;
-			for (auto it = pos_choice.begin(); it != pos_choice.end(); ++it) {
+			auto it = pos_choice.begin();
+            for (; it != pos_choice.end(); ++it) {
 				int pos = it->first;
-				if (pos > pos_boundry) break;
 				int choice = it->second;
 				auto variant = separate_pos_var[i][pos];
 				string ref = variant.ref;
@@ -474,7 +505,8 @@ int DiploidVCF::CheckPrefix(const string subsequence,
 				else if (offset_pos > start_pos) {
 					path += subsequence.substr(start_pos, offset_pos - start_pos);
 				}
-				
+				if(choice < 0)
+                    break;
 				if (choice == 0) {
 					path += ref;
 				}
@@ -484,11 +516,17 @@ int DiploidVCF::CheckPrefix(const string subsequence,
 				else {
 					path += alts[1];
 				}
+                start_pos = max(start_pos, offset_pos + (int)ref.length());
 			}
+            if(it == pos_choice.end()){
+                if(start_pos < subsequence.length()){
+                    path += subsequence.substr(start_pos, subsequence.length()-start_pos);
+                }
+            }
 			paths[index] = path;
 		}
 	}
-
+    
 	// check prefix match
 	int const comb[2][4] = {
 		{1,3,2,4},
@@ -501,9 +539,9 @@ int DiploidVCF::CheckPrefix(const string subsequence,
 		bool check_prefix_match[2] = { false };
 		bool check_direct_match[2] = { false };
 		for (int k = 0; k < 2; k++) {
-			string s1 = path[comb[i][k * 2]];
-			string s2 = path[comb[i][k * 2 + 1]];
-			int min_len = min(s1.length(), s2.length());
+			string s1 = paths[comb[i][k * 2]-1];
+			string s2 = paths[comb[i][k * 2 + 1]-1];
+            int min_len = min(s1.length(), s2.length());
 			string s1_sub = s1.substr(0, min_len);
 			string s2_sub = s2.substr(0, min_len);
 			check_prefix_match[k] = CompareSequence(s1_sub, s2_sub);
@@ -515,11 +553,19 @@ int DiploidVCF::CheckPrefix(const string subsequence,
 			direct_match = true;
 	}
 	if (direct_match) {
+        //for(int i = 0; i < 4; i++){
+        //    dout << paths[i] << endl;
+        //}
+        //dout << endl;
+
 		int score = 0;
 		for (int i = 0; i < 2; i++) {
 			auto pos_var = separate_pos_var[i];
 			for (auto it = pos_var.begin(); it != pos_var.end(); ++it) {
-				if (scoring_basepair) {
+				if(choices[i*2][it->first] <= 0 && choices[i*2+1][it->first] <= 0){
+                    continue;
+                }
+                if (scoring_basepair) {
 					score += it->second.ref.length();
 				}
 				else {
@@ -530,18 +576,19 @@ int DiploidVCF::CheckPrefix(const string subsequence,
 		return score;
 	}
 	if (prefix_match) return 0;
+    return -1;
 }
 
 int DiploidVCF::test() {
 	genome_sequence = "GTCAGCCGG";
-	DiploidVariant d1(1, ['S', 'S'], "T", ["A", "C"], "1/2", true, true, 0);
-	DiploidVariant d2(4, ['S', 'S'], "G", ["C", ""], "0/1", true, false, 0);
-	DiploidVariant d3(5, ['S', 'S'], "C", ["T", ""], "0/1", true, false, 0); // this is false negative
-	DiploidVariant d4(6, ['S', 'S'], "C", ["G", ""], "0/1", true, false, 0);
-	DiploidVariant d5(7, ['S', 'S'], "G", ["A", ""], "0/1", true, false, 0);
-	DiploidVariant d6(1, ['S', 'S'], "T", ["A", "C"], "1/2", true, true, 1);
-	DiploidVariant d7(3, ['S', 'S'], "AG", ["A", ""], "0/1", true, false, 1);
-	DiploidVariant d8(7, ['S', 'S'], "AG", ["A", ""], "0/1", true, false, 1);
+	DiploidVariant d1(1, vector<char> ({'S', 'S'}), "T", vector<string> ({"A", "C"}), "1/2", true, true, 0);
+	DiploidVariant d2(4, vector<char> ({'S', 'S'}), "G", vector<string> ({"C", ""}), "0/1", true, false, 0);
+	DiploidVariant d3(5, vector<char> ({'S', 'S'}), "C", vector<string> ({"T", ""}), "0/1", true, false, 0); // this is false negative
+	DiploidVariant d4(6, vector<char> ({'S', 'S'}), "C", vector<string> ({"G", ""}), "0/1", true, false, 0);
+	DiploidVariant d5(7, vector<char> ({'S', 'S'}), "G", vector<string> ({"A", ""}), "0/1", true, false, 0);
+	DiploidVariant d6(1, vector<char> ({'S', 'S'}), "T", vector<string> ({"A", "C"}), "1/2", true, true, 1);
+	DiploidVariant d7(3, vector<char> ({'D', 'S'}), "AG", vector<string> ({"A", ""}), "0/1", true, false, 1);
+	DiploidVariant d8(7, vector<char> ({'I', 'S'}), "G", vector<string> ({"GA", ""}), "0/1", true, false, 1);
 
 	vector<DiploidVariant> var_list = { d1,d2,d3,d4,d5,d6,d7,d8 };
 	cout << VariantMatch(var_list) << endl;
