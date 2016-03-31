@@ -27,7 +27,7 @@ typedef struct DiploidVariant {
 	string genotype;
 	bool heterozygous;
 	bool multi_alts;
-	int flag;
+	int flag; //in DiploidVariant, flag = 0 is reference, flag = 1 is query
 }DiploidVariant;
 
 // define outside of struct, idiomatic solution for lexicographical compare for structures
@@ -44,21 +44,28 @@ private:
 	// data structure for direct search
 	VariantHash refpos_2_var;
 	VariantHash querypos_2_var;
+
+	vector<int> complex_ref_match_num;
+	vector<int> complex_que_match_num;
+
     void ReadRefVCF(string filename);
     void ReadQueryVCF(string filename);
 
 	void DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps, unordered_map<int, DiploidVariant> & query_snps, int thread_index);
 	void DirectSearchMultiThread();
     bool ClusteringMatchInThread(int, int, int);
+	void ClusteringMatchMultiThread();
 
 protected:
 	bool CompareSequence(string s1, string s2);
 	bool scoring_basepair;
+	map<int, vector<DiploidVariant> > cluster_vars_map;
+
 
 	bool ReadDiploidVCF(string filename, VariantHash & pos_2_var);
 	bool NormalizeDiploidVariant(DiploidVariant & var);
-	map<int, vector<DiploidVariant> > cluster_vars_map;
-	bool VariantMatch(vector<DiploidVariant> & variant_list);
+
+	bool VariantMatch(vector<DiploidVariant> & variant_list, int thread_index);
 	
     void MatchWithIndel(vector<DiploidVariant> & variant_list,
 		const string subsequence,
@@ -86,6 +93,7 @@ public:
 		bool direct_search,
 		string output_prefix,
 		bool match_genotype,
-		bool normalization);
+		bool normalization,
+		bool scoring_basepair);
 
 };

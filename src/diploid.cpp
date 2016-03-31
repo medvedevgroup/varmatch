@@ -327,7 +327,7 @@ void DiploidVCF::DirectSearchMultiThread() {
 	delete[] direct_match_records;
 }
 
-bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
+bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list, int thread_index) {
 	sort(variant_list.begin(), variant_list.end());
 	map<int, DiploidVariant> separate_pos_var[2];
 	bool separate_contians_indel[2];
@@ -388,20 +388,51 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list) {
 	}
 	
 	// here can construct matching result
+	//for(int i = 0; i < 2; i++){
+    //    for(int j = 0; j < 2; j++){
+    //        if(i == 0){
+    //            dout << "ref: " << endl;
+    //        }else{
+    //            dout << "alt: " << endl;
+    //        }
+    //        auto c = max_matches[i*2+j];
+    //        for(auto it = c.begin(); it !=c.end(); ++it){
+    //            dout << it->first << "," << it->second << " ";
+    //        }
+   //         dout << endl;
+    //    }
+    //}
+
+	//vector<int> complex_ref_match_num;
+	//vector<int> complex_que_match_num;
+	map<int, bool> separate_pos_matched[2];
+	for (int i = 0; i < 2; i++) {
+		for (auto it = separate_pos_var[i].begin(); it != separate_pos_var[i].end; ++it) {
+			separate_pos_matched[i][it->first] = false;
+		}
+	}
 	for(int i = 0; i < 2; i++){
-        for(int j = 0; j < 2; j++){
-            if(i == 0){
-                dout << "ref: " << endl;
-            }else{
-                dout << "alt: " << endl;
-            }
-            auto c = max_matches[i*2+j];
-            for(auto it = c.begin(); it !=c.end(); ++it){
-                dout << it->first << "," << it->second << " ";
-            }
-            dout << endl;
-        }
-    }
+		// i= 0 ref, =1 alt
+	    for(int j = 0; j < 2; j++){
+	        auto c = max_matches[i*2+j];
+	        for(auto it = c.begin(); it !=c.end(); ++it){
+				if (it->second > 0) {
+					separate_pos_matched[i][it->first] = true;
+				}
+	        }
+	    }
+	}
+	for (auto it = separate_pos_matched[0].begin(); it != separate_pos_matched[0].end(); ++it) {
+		if (it->second) {
+			complex_ref_match_num[thread_index] ++;
+		}
+	}
+	for (auto it = separate_pos_matched[1].begin(); it != separate_pos_matched[1].end(); ++it) {
+		if (it->second) {
+			complex_que_match_num[thread_index] ++;
+		}
+	}
+	cout << complex_ref_match_num[thread_index] << "," << complex_que_match_num[thread_index] << endl;
     return true;
 }
 
@@ -595,13 +626,193 @@ int DiploidVCF::test() {
 	return 0;
 }
 
+
+void DiploidVCF::ClusteringVariants() {
+
+	vector<DiploidVariant> variant_list;
+	// in DiploidVariant, flag = 0 is reference, flag = 1 is query
+	for (int i = 0; i < refpos_2_var.size(); i++) {
+		auto & m = refpos_2_var[i];
+		for (auto it = m.begin(); it != m.end(); ++it) {
+			auto v = it->second;
+			if (v.flag != 0) {
+				v.flag = 0;
+			}
+			variant_list.push_back(v);
+		}
+	}
+
+	for (int i = 0; i < querypos_2_var.size(); i++) {
+		auto & m = querypos_2_var[i];
+		for (auto it = m.begin(); it != m.end(); ++it) {
+			auto v = it->second;
+			v.flag = 1;
+			variant_list.push_back(v);
+		}
+	}
+
+	if (variant_list.size() == 0)
+		return;
+
+	sort(variant_list.begin(), variant_list.end());
+
+	int cluster_index = 0;
+	int ins_len[2] = { 0 };
+	int del_len[2] = { 0 };
+	int c_start = 0;
+	int c_end = 0;
+
+	for (int i = 0; i < variant_list.size(); i++) {
+		auto snp = variant_list[i];
+		// check if need to separator clusters
+		if (i > 0) {
+			c_end = snp.pos;
+			if (c_end - c_start >= 2) {
+				string separator = genome_sequence.substr(c_start, c_end - c_start);
+				int max_change = max(ins_len[0] + del_len[1], ins_len[1] + del_len[0]);
+				if ((int)(separator.length()) > 2 * max_change &&
+					((int)(separator.length()) > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change)))
+				{
+					cluster_index++;
+					ins_len[0] = 0;
+					del_len[0] = 0;
+					ins_len[1] = 0;
+					del_len[1] = 0;
+					c_start = 0; // re-assign c_start
+				}
+			}
+		}
+		if (c_start < snp.pos + (int)(snp.ref.length())) c_start = snp.pos + (int)(snp.ref.length());
+
+		// assign snp to cluster
+		cluster_vars_map[cluster_index].push_back(snp);
+		int ref_length = (int)(snp.ref.length());
+
+		int flag = snp.flag;
+		int alt0_length = snp.alts[0].length();
+		int diff0_length = abs(ref_length - alt0_length);
+		if (snp.multi_alts) {
+			int alt1_length = snp.alts[1].length();
+			int diff1_length = abs(ref_length - alt1_length);
+			if (snp.var_types[0] == snp.var_types[1]) {
+				int diff_length = max(diff0_length, diff1_length);
+				if (snp.var_types[0] == 'I') {
+					ins_len[flag] += diff_length;
+				}
+				else if (snp.var_types[0] == 'D') {
+					del_len[flag] += diff_length;
+				}
+			}
+			else {
+				if (snp.var_types[0] == 'I') {
+					ins_len[flag] += diff0_length;
+				}
+				else if (snp.var_types[0] == 'D') {
+					del_len[flag] += diff0_length;
+				}
+				if (snp.var_types[1] == 'I') {
+					ins_len[flag] += diff1_length;
+				}
+				else if (snp.var_types[1] == 'D') {
+					del_len[flag] += diff1_length;
+				}
+			}
+		}
+		else {
+			if (snp.var_types[0] == 'I') {
+				ins_len[flag] += diff0_length;
+			}
+			else if (snp.var_types[0] == 'D') {
+				del_len[flag] += diff0_length;
+			}
+		}
+	}
+}
+
+// private
 bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
 	for (int cluster_id = start; cluster_id < end; cluster_id++) {
 		if (cluster_vars_map.find(cluster_id) != cluster_vars_map.end()) {
 			auto & var_list = cluster_vars_map[cluster_id];
-			VariantMatch(var_list);
+			if (var_list.size() > 20) {
+				cout << "cluster to large" << endl;
+				continue;
+			}
+			VariantMatch(var_list, thread_index);
 		}
 	}
+}
+
+// private
+void DiploidVCF::ClusteringMatchMultiThread() {
+	clustering_search = true;
+	int start = cluster_vars_map.begin()->first;
+	int cluster_number = cluster_vars_map.size();
+	int cluster_end_boundary = start + cluster_number;
+	int cluster_step = cluster_number / thread_num;
+	if (cluster_step * thread_num < cluster_number) cluster_step++;
+	int end = start + cluster_step;
+	//initialize vector size, each allocating will have a lock
+	complex_match_records = new vector<string>*[thread_num];
+	for (int j = 0; j < thread_num; j++) {
+		complex_match_records[j] = new vector<string>;
+		complex_ref_match_num.push_back(0);
+		complex_que_match_num.push_back(0);
+	}
+	
+	vector<thread> threads;
+	//spawn threads
+	unsigned i = 0;
+	for (; i < thread_num - 1; i++) {
+		int variant_number = 0;
+		for (int cluster_id = start; cluster_id < end; cluster_id++) {
+			if (cluster_vars_map.find(cluster_id) != cluster_vars_map.end()) {
+				variant_number += cluster_vars_map[cluster_id].size();
+			}
+		}
+		threads.push_back(thread(&DiploidVCF::ClusteringMatchInThread, this, start, end, i));
+		start = end;
+		end = start + cluster_step;
+	}
+	// also you need to do a job in main thread
+	// i equals to (thread_num - 1)
+	if (i != thread_num - 1) {
+		dout << "[Error] thread number not match" << endl;
+	}
+	if (start >= cluster_vars_map.size()) {
+		dout << "[Error] index out of map range" << endl;
+	}
+	else {
+		int variant_number = 0;
+		for (int cluster_id = start; cluster_id < end; cluster_id++) {
+			if (cluster_vars_map.find(cluster_id) != cluster_vars_map.end()) {
+				variant_number += cluster_vars_map[cluster_id].size();
+			}
+		}
+		ClusteringMatchInThread(start, end, i);
+	}
+
+	// call join() on each thread in turn before this function?
+	std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
+
+	ofstream output_complex_file;
+	output_complex_file.open(output_complex_filename);
+	output_complex_file << "##VCF1:" << ref_vcf_filename << endl;
+	output_complex_file << "##VCF2:" << que_vcf_filename << endl;
+	output_complex_file << "#CHROM\tPOS\tREF\tALT\tVCF1\tVCF2" << endl;
+	for (int i = 0; i < thread_num; i++) {
+		for (int j = 0; j < complex_match_records[i]->size(); j++) {
+			if (complex_match_records[i]->at(j).find_first_not_of(' ') != std::string::npos) {
+				output_complex_file << complex_match_records[i]->at(j);
+			}
+		}
+	}
+	output_complex_file.close();
+
+	for (int j = 0; j < thread_num; j++) {
+		delete complex_match_records[j];
+	}
+	delete[] complex_match_records;
 }
 
 // for public access
@@ -611,9 +822,10 @@ void DiploidVCF::Compare(string ref_vcf,
 	bool direct_search,
 	string output_prefix,
 	bool match_genotype,
-	bool normalization) {
+	bool normalization,
+	bool score_basepair) {
 
-	scoring_basepair = false;
-	test();
+
+
 }
 
