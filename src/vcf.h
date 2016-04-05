@@ -24,11 +24,11 @@ typedef struct SNP {
         string alt_ = "",
         string genotype_ = "1/1",
         int flag_=1) :
-		pos(pos_), 
+		pos(pos_),
         snp_type(snp_type_),
-        ref(ref_), 
-        alt(alt_), 
-        genotype(genotype_), 
+        ref(ref_),
+        alt(alt_),
+        genotype(genotype_),
         flag(flag_){}
 
 	int pos;
@@ -130,7 +130,7 @@ protected:
     vector<SNP> data_list;
     vector<int> cluster_list;
     map<int, vector<SNP> > cluster_snps_map;
-	vector<unordered_map<int, int> > haplotype_matching_check; //vector is for multi-thread, 
+	vector<unordered_map<int, int> > haplotype_matching_check; //vector is for multi-thread,
 
     // storing complex match results
     //std::mutex complex_match_mutex;
@@ -148,7 +148,7 @@ protected:
     string output_complex_filename;
 
 	bool CompareSnps(SNP r, SNP q);
-    void DecideBoundries();
+    virtual void DecideBoundaries();
 	string ModifySequenceBySnp(const string sequence, SNP s, int offset);
 	string ModifySequenceBySnpList(const string sequence, vector<SNP> s, int offset);
 	bool CheckTandemRepeat(string sequence, int unit_threshold);

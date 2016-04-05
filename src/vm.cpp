@@ -120,7 +120,9 @@ int usage(char* command) {
 int main(int argc, char* argv[])
 {
 	dout << "Debug Mode" << endl;
-
+	//DiploidVCF dvs(1);
+	//dvs.test();
+	//return 0;
 
 
 	if (argc < 2) {
@@ -133,8 +135,17 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
+    if(args.remove_duplicates){
+        RemoveDuplicate rd(args.thread_num);
+        rd.Deduplicate(args.single_vcf_filename,
+            args.genome_seq_filename,
+            args.direct_search,
+            args.output_filename);
+        return 0;
+	}
+
 	DiploidVCF dv(1);
-	vcf.Compare(args.ref_vcf_filename,
+    dv.Compare(args.ref_vcf_filename,
 		args.que_vcf_filename,
 		args.genome_seq_filename,
 		args.direct_search,
@@ -142,24 +153,9 @@ int main(int argc, char* argv[])
 		args.match_genotype,
 		args.normalization,
 		args.score_basepair);
-
 	return 0;
 
-	//args.ref_vcf_filename = "E:\\data\\CHM1.bt2.fb.norm.chr1.vcf";
-	//args.que_vcf_filename = "E:\\data\\CHM1.bt2.hc.norm.chr1.vcf";
-	//args.genome_seq_filename = "E:\\data\\chr1.fa";
-	//args.thread_num = 8;
-	if(args.remove_duplicates){
-		RemoveDuplicate rd(args.thread_num);
-		rd.Deduplicate(args.single_vcf_filename,
-			args.genome_seq_filename,
-			args.direct_search,
-			args.output_filename);
-		return 0;
-	}
-
 	VCF vcf(args.thread_num);
-	//cout << args.normalization << endl;
 	vcf.Compare(args.ref_vcf_filename,
 			args.que_vcf_filename,
 			args.genome_seq_filename,

@@ -3,7 +3,7 @@
 #include "vcf.h"
 
 typedef struct DiploidVariant {
-	DiploidVariant(int pos_ = 0,
+	DiploidVariant(int pos_ = -1,
 		vector<char> var_types_ = {'S','S'},
 		string ref_ = "",
 		vector<string> alts_ = {"",""},
@@ -51,36 +51,71 @@ private:
     void ReadRefVCF(string filename);
     void ReadQueryVCF(string filename);
 
-	void DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps, unordered_map<int, DiploidVariant> & query_snps, int thread_index);
+	void DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps,
+                           unordered_map<int, DiploidVariant> & query_snps,
+                           int thread_index);
 	void DirectSearchMultiThread();
     void ClusteringVariants();
     bool ClusteringMatchInThread(int, int, int);
 	void ClusteringMatchMultiThread();
 
 protected:
-	bool CompareSequence(string s1, string s2);
 	bool scoring_basepair;
 	map<int, vector<DiploidVariant> > cluster_vars_map;
 
+	void DecideBoundaries();
 
 	bool ReadDiploidVCF(string filename, VariantHash & pos_2_var);
 	bool NormalizeDiploidVariant(DiploidVariant & var);
 
 	bool VariantMatch(vector<DiploidVariant> & variant_list, int thread_index);
-	
-    void MatchWithIndel(vector<DiploidVariant> & variant_list,
+
+    bool FindBestMatch(vector<DiploidVariant> & variant_list,
+		const string subsequence,
+		const int offset,
+		int index,
+		map<int, DiploidVariant> separate_pos_var[],
+		vector<vector<int>> max_choices[],  // 4 vectors
+		int & max_score,
+		bool & max_heterozygosity,
+		string max_paths[]); //only two
+
+    int CheckPrefix(const string subsequence,
+		const int offset,
+		map<int, DiploidVariant> separate_pos_var[],
+		map<int, int> choices[],
+		string cur_paths[]);
+
+	bool RecurrentVariantMatch(vector<DiploidVariant> & variant_list, int thread_index);
+	void RecurrentMatchWithIndel(vector<DiploidVariant> & variant_list,
 		const string subsequence,
 		const int offset,
 		int index,
 		map<int, DiploidVariant> separate_pos_var[],
 		map<int, int> choices[], // 4 vectors
 		map<int, int> max_matches[],  // 4 vectors
-		int & max_score);
-	
-    int CheckPrefix(const string subsequence,
-		const int offset,
-		map<int, DiploidVariant> separate_pos_var[],
-		map<int, int> choices[]);
+		int & max_score,
+		string max_paths[]);
+
+	vector<vector<vector<int>>> Combine(vector<int> & positions,
+                                     vector<bool> & multi_indicators,
+                                     int k);
+
+	void FindComb(vector<int> & positions,
+		vector<bool> & multi_indicators,
+		int start,
+		int k,
+		vector<vector<int> > & sol,
+		vector<vector<vector<int>>> & all_sol);
+
+    void ModifyRefMultiVar(const string & ref,
+                           int offset,
+                           map<int, DiploidVariant> & pos_var,
+                           vector<vector<int>> pos_choice,
+                           string & donor,
+                           int & score);
+
+    void DivisiveHierarchicalClustering(list<vector<DiploidVariant> > & snp_clusters);
 
 public:
 	DiploidVCF(int thread_num_);

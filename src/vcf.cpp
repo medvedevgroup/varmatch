@@ -153,7 +153,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 			}
 			auto additionals = split(columns[9], ':');
 			genotype = additionals[genotype_index];
-			
+
 			if(genotype.find("/") != std::string::npos){
 				genotype_columns = split(genotype, '/');
 			}else if(genotype.find("|") != std::string::npos){
@@ -217,7 +217,7 @@ void VCF::ReadVCF(string filename, SnpHash & pos_2_snp) {
 			if (alt_list.size() > 1) {
 				haplotype_matching_check[thread_index][pos] = 0;
 			}
-            
+
             int genotype_val = atoi(genotype_columns[0].c_str()) - 1;
 
             if(genotype_val >= 0){ // if genotype == -1, it is reference which does not need to be added
@@ -278,12 +278,12 @@ void VCF::ReadGenomeSequence(string filename) {
 	}
 	genome_file.close();
 	// boundries can get after knowing genome sequence.
-	DecideBoundries();
+	DecideBoundaries();
 	return;
 }
 
 // protected
-void VCF::DecideBoundries() {
+void VCF::DecideBoundaries() {
 	int genome_size = genome_sequence.size();
 
 	int distance = genome_size / thread_num;
