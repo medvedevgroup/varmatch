@@ -9,20 +9,10 @@ matching equivalent genetic variants with different complex representations
 **Quick Install Instruction:**
 You can build VarMatch from source. 
 ```
-git clone --recursive https://github.com/medvedevgroup/varmatch.git
+git clone https://github.com/medvedevgroup/varmatch.git
 cd varmatch
 make all
 ```
-:warning: Use recursive clone(`--recursive`) as VarMatch dependes on submodules.
-
-**Install Without Normalization:**
-VarMatch use `vt normalize` to normalize variants, but normalization is not necessary. If you do not want normalization, use following command to build:
-```
-git clone https://github.com/medvedevgroup/varmatch.git
-cd varmatch
-make vm
-```
-And when using VarMatch, use `-n` parameter to indicate that you do not need normalization.
 
 # Usage
 ### Quick Usage:
