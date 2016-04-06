@@ -3,6 +3,8 @@
 
 // inline function protected
 // code reviewed by Channing
+bool global_match_genotype = true;
+
 inline bool CompareSequence(string s1, string s2) {
 	transform(s1.begin(), s1.end(), s1.begin(), ::toupper);
 	transform(s2.begin(), s2.end(), s2.begin(), ::toupper);
@@ -23,6 +25,7 @@ bool operator ==(const DiploidVariant& x, const DiploidVariant& y) {
 						match_times++;
 				}
 			}
+            if(! global_match_genotype && match_times > 0) return true;
 			if (match_times >= 2)
 				return true;
 		}
@@ -817,6 +820,7 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list, int thread_
 
 	// matched, print out matches
 	bool multiple_match = max_heterozygosity;
+	if(! match_genotype) multiple_match = false;
 
     vector<string> alt_list;
     vector<char> var_types;
@@ -905,6 +909,216 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list, int thread_
 	return true;
 }
 
+//
+bool DiploidVCF::VariantMatchWithOverlap(vector<DiploidVariant> & variant_list, int thread_index) {
+    if(variant_list.size() <= 1) return false;
+	sort(variant_list.begin(), variant_list.end());
+	map<int, DiploidVariant> separate_pos_var[2];
+	bool separate_contians_indel[2];
+	// separate into ref and que
+	int min_pos = genome_sequence.length() + 1;
+	int max_pos = -1;
+	for (int i = 0; i < variant_list.size(); i++) {
+		int flag = variant_list[i].flag; // flag indicate if the variant is from ref set(0) or query set(1)
+		int pos = variant_list[i].pos;
+		separate_pos_var[flag][pos] = variant_list[i];
+		auto ref_sequence = variant_list[i].ref;
+		auto alt_sequences = variant_list[i].alts;
+
+		min_pos = min(pos, min_pos);
+		max_pos = max((int)(pos + ref_sequence.length()), max_pos);
+        //dout << pos << "," << ref_sequence << "," << alt_sequences[0] << "," << flag << endl;
+		if (ref_sequence.length() != alt_sequences[0].length())
+			separate_contians_indel[flag] = true;
+		if (variant_list[i].multi_alts) {
+			if (ref_sequence.length() != alt_sequences[1].length()) {
+				separate_contians_indel[flag] = true;
+			}
+		}
+	}
+
+	min_pos = max(min_pos - 1, 0);
+	max_pos = min(max_pos + 1, (int)genome_sequence.length());
+
+	if (!separate_contians_indel[0] && !separate_contians_indel[1]) {
+		//dout << "[VarMatch] Warning : skip this cluster as no indel detected" << endl;
+		return false;
+	}
+	if (separate_pos_var[0].size() == 0 || separate_pos_var[1].size() == 0) {
+		return false;
+	}
+
+	string subsequence = genome_sequence.substr(min_pos, max_pos - min_pos);
+	int offset = min_pos;
+	set<int> selected_positions[2];
+    FindBestMatchWithOverlap(variant_list,
+                  subsequence,
+                  offset,
+                  0,
+                  separate_pos_var,
+                  selected_positions);
+
+	if (selected_positions[0].size() == 0 || selected_positions[1].size() == 0) {
+		return false;
+	}
+
+    complex_ref_match_num[thread_index] += selected_positions[0].size();
+    complex_que_match_num[thread_index] += selected_positions[1].size();
+	return true;
+}
+
+//
+bool DiploidVCF::FindBestMatchWithOverlap(vector<DiploidVariant> & variant_list,
+	const string subsequence,
+	const int offset,
+	int index,
+	map<int, DiploidVariant> separate_pos_var[],
+	set<int> selected_positions[])
+{
+	vector<int> positions[2]; // 0 from ref, 1 from query
+	vector<bool> indicators[2]; // 0 from ref, 1 from query, indicate if multi_alts(true) or not(false)
+	for (int i = 0; i < 2; i++) {
+		for (auto it = separate_pos_var[i].begin(); it != separate_pos_var[i].end(); ++it) {
+			auto v = it->second;
+			positions[i].push_back(v.pos);
+			indicators[i].push_back(v.multi_alts);
+		}
+	}
+	// construct ref combinations in hash table, key is donor sequence
+    unordered_map<string, vector<vector<int>> > seq_choice_ref;
+    unordered_map<string, int> seq_score_ref; // corresponding score, if same key, store the one with highest score
+	for (int i = 1; i <= positions[0].size(); i++) { // i : how many variants are chosen
+		vector<vector<vector<int>>> ref_choice_list = Combine(positions[0], indicators[0], i);
+
+		for (auto rit = ref_choice_list.begin(); rit != ref_choice_list.end(); ++rit) { // iterate all combinations with i variants
+            // each combination is a vector of pairs(position, alt_index), alt_index is 0 or 1 (if multi_alts)
+            string donor;
+            int score;
+            ModifyRefMultiVar(subsequence, offset, separate_pos_var[0], *rit, donor, score);
+            if(CompareSequence(donor, subsequence)) continue;
+            if(seq_choice_ref.find(donor) != seq_choice_ref.end() && seq_score_ref[donor] > score){
+                continue;
+            }else{
+                // either overwrite or insert new
+                seq_choice_ref[donor] = *rit;
+                seq_score_ref[donor] = score;
+            }
+            //dout << "ref-donor: " << donor << endl;
+		}
+	}
+	// now all combinations are stored in hash table seq_choice_ref
+	// search query
+    for(int i = 1; i <= positions[1].size(); i++){
+            // iterate all combinations with i variants
+        vector<vector<vector<int>>> que_choice_list = Combine(positions[1], indicators[1], i);
+        for (auto qit = que_choice_list.begin(); qit != que_choice_list.end(); ++qit){
+            string donor;
+            int score;
+            ModifyRefMultiVar(subsequence, offset, separate_pos_var[1], *qit, donor, score);
+            if(CompareSequence(donor, subsequence)) continue;
+
+            if(seq_choice_ref.find(donor) != seq_choice_ref.end()){
+                // first check if there is heterozygous alleles
+                int total_score = seq_score_ref[donor] + score;
+
+                // this time we don't find max, but all, and put them in a set
+                //if(total_score <= max_score) continue;
+
+                bool local_heter = false;
+                bool local_multi = false;
+                vector<vector<int>> ref_var_choices = seq_choice_ref[donor];
+                vector<vector<int>> que_var_choices = *qit;
+
+                if(! match_genotype){
+                    for(int k = 0; k < ref_var_choices.size(); k++){
+                        selected_positions[0].insert(ref_var_choices[k][0]);
+                    }
+                    for(int k = 0; k < que_var_choices.size(); k++){
+                        selected_positions[1].insert(que_var_choices[k][0]);
+                    }
+                    continue;
+                }
+
+                vector<vector<int>> ref_other_choices;
+                vector<vector<int>> que_other_choices;
+                // check and construct heterozygous alleles
+                for(int ri = 0; ri < ref_var_choices.size(); ri++){
+                    int ref_pos = ref_var_choices[ri][0];
+                    DiploidVariant ref_variant = separate_pos_var[0][ref_pos];
+                    if (ref_variant.multi_alts){
+                        local_multi = true;
+                        ref_other_choices.push_back(vector<int>({ref_pos, 1 - ref_var_choices[ri][1]}));
+                    }else if(ref_variant.heterozygous){
+                        local_heter = true;
+                        ref_other_choices.push_back(vector<int>({ref_pos,-1}));
+                    }else{
+                        ref_other_choices.push_back(vector<int>({ref_pos, ref_var_choices[ri][1]}));
+                    }
+                }
+                // if not find heter, continue checking
+                for(int qi = 0; qi < que_var_choices.size(); qi++){
+                    int que_pos = que_var_choices[qi][0];
+                    DiploidVariant que_variant = separate_pos_var[1][que_pos];
+                    if(que_variant.multi_alts){
+                        local_multi = true;
+                        que_other_choices.push_back(vector<int>({que_pos, 1- que_var_choices[qi][1]}));
+                    }else if (que_variant.heterozygous){
+                        local_heter = true;
+                        que_other_choices.push_back(vector<int>({que_pos, -1}));
+                    }else{
+                        que_other_choices.push_back(vector<int>({que_pos, que_var_choices[qi][1]}));
+                    }
+                }
+
+
+                if(local_multi){
+                    // also check the other chromosome matches
+                    int temp_score;
+                    string ref_other_donor;
+                    ModifyRefMultiVar(subsequence, offset, separate_pos_var[0], ref_other_choices, ref_other_donor, temp_score);
+                    string que_other_donor;
+                    ModifyRefMultiVar(subsequence, offset, separate_pos_var[1], que_other_choices, que_other_donor, temp_score);
+                    if(CompareSequence(ref_other_donor, que_other_donor)){
+
+                        for(int k = 0; k < ref_var_choices.size(); k++){
+                            selected_positions[0].insert(ref_var_choices[k][0]);
+                        }
+                        for(int k = 0; k < que_var_choices.size(); k++){
+                            selected_positions[1].insert(que_var_choices[k][0]);
+                        }
+                    }
+                }else if(local_heter){
+                    // also check the other chromosome matches
+                    int temp_score;
+                    string ref_other_donor;
+                    ModifyRefMultiVar(subsequence, offset, separate_pos_var[0], ref_other_choices, ref_other_donor, temp_score);
+                    string que_other_donor;
+                    ModifyRefMultiVar(subsequence, offset, separate_pos_var[1], que_other_choices, que_other_donor, temp_score);
+                    if(CompareSequence(ref_other_donor, que_other_donor)){
+
+                        for(int k = 0; k < ref_var_choices.size(); k++){
+                            selected_positions[0].insert(ref_var_choices[k][0]);
+                        }
+                        for(int k = 0; k < que_var_choices.size(); k++){
+                            selected_positions[1].insert(que_var_choices[k][0]);
+                        }
+                    }
+                }else{
+
+                    for(int k = 0; k < ref_var_choices.size(); k++){
+                        selected_positions[0].insert(ref_var_choices[k][0]);
+                    }
+                    for(int k = 0; k < que_var_choices.size(); k++){
+                        selected_positions[1].insert(que_var_choices[k][0]);
+                    }
+                    //delay construct optimal solution at the very end.
+                }
+            }
+        }
+    }
+    return true;
+}
+
 // code reviewed by Chen on 4/3/2016
 bool DiploidVCF::FindBestMatch(vector<DiploidVariant> & variant_list,
 	const string subsequence,
@@ -957,15 +1171,26 @@ bool DiploidVCF::FindBestMatch(vector<DiploidVariant> & variant_list,
             int score;
             ModifyRefMultiVar(subsequence, offset, separate_pos_var[1], *qit, donor, score);
             if(CompareSequence(donor, subsequence)) continue;
-            //dout << "que-donor: " << donor << endl;
+
             if(seq_choice_ref.find(donor) != seq_choice_ref.end()){
                 // first check if there is heterozygous alleles
                 int total_score = seq_score_ref[donor] + score;
                 if(total_score <= max_score) continue;
+
                 bool local_heter = false;
                 bool local_multi = false;
                 vector<vector<int>> ref_var_choices = seq_choice_ref[donor];
                 vector<vector<int>> que_var_choices = *qit;
+
+                if(! match_genotype){
+                    max_choices[0] = ref_var_choices;
+                    max_choices[2] = que_var_choices;
+                    max_paths[0] = donor;
+                    max_score = total_score;
+                    max_heterozygosity = false;
+                    continue;
+                }
+
                 vector<vector<int>> ref_other_choices;
                 vector<vector<int>> que_other_choices;
                 // check and construct heterozygous alleles
@@ -1078,7 +1303,7 @@ void DiploidVCF::ModifyRefMultiVar(const string & genome,
         }
         int donor_length = donor.length();
 		if(offset_pos > donor_length || offset_end > donor_length){
-            dout << "[VarMatch] Warning: overlapping variants detected." << endl; // the most reason is overlapping variants
+            //dout << "[VarMatch] Warning: overlapping variants detected." << endl; // the most reason is overlapping variants
             return;
 		}
 		donor = donor.substr(0, offset_pos) + alt + donor.substr(offset_end, donor_length - offset_end);
@@ -1385,10 +1610,18 @@ bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
                         dout << "[VarMatch] Warning: Large size cluster skipped" << endl;
                         continue;
                     }
-                    VariantMatch(cur_cluster, thread_index);
+                    if(overlap_match){
+                        VariantMatchWithOverlap(cur_cluster, thread_index);
+                    }else{
+                        VariantMatch(cur_cluster, thread_index);
+                    }
 				}
 			}else{
-                VariantMatch(var_list, thread_index);
+			    if(overlap_match){
+                    VariantMatchWithOverlap(var_list, thread_index);
+			    }else{
+                    VariantMatch(var_list, thread_index);
+			    }
 			}
 		}
 	}
@@ -1483,13 +1716,17 @@ void DiploidVCF::Compare(string ref_vcf,
 	string output_prefix,
 	bool match_genotype,
 	bool normalization,
-	bool score_basepair) {
+	bool score_basepair,
+	bool overlap_match) {
+
+	global_match_genotype = match_genotype;
 
 	ref_vcf_filename = ref_vcf;
 	que_vcf_filename = query_vcf;
 	this->match_genotype = match_genotype;
 	this->normalization = normalization;
 	this->scoring_basepair = score_basepair;
+	this->overlap_match = overlap_match;
 	output_stat_filename = output_prefix + ".stat";
 	output_simple_filename = output_prefix + ".simple";
 	output_complex_filename = output_prefix + ".complex";

@@ -25,6 +25,7 @@ typedef struct Args {
 	bool match_genotype;
 	bool normalization;
 	bool score_basepair;
+	bool overlap_match;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
@@ -35,6 +36,7 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 	args.normalization = false;
 	args.score_basepair = false;
     args.thread_num = 1;
+    args.overlap_match = false;
 	for (int i = 1; i < argc; i++)
 	{
 		//cout << argv[i] << endl;
@@ -89,6 +91,8 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 		}
 		else if (!strcmp(argv[i], "-a")) {
 			args.normalization = true;
+		}else if (!strcmp(argv[i], "-v")){
+            args.overlap_match = true;
 		}
 		else {
 			cout << "[Error] Unrecognized parameter: " << argv[i] << endl;
@@ -152,7 +156,8 @@ int main(int argc, char* argv[])
 		args.output_filename,
 		args.match_genotype,
 		args.normalization,
-		args.score_basepair);
+		args.score_basepair,
+		args.overlap_match);
 	return 0;
 
 	VCF vcf(args.thread_num);

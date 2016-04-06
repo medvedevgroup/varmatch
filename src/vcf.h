@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <thread>
-#include <mutex>
+#include <set>
 #include "util.h"
 
 #include <iostream>
@@ -193,6 +193,7 @@ public:
 	VCF(int thread_num_ = 0);
 	~VCF();
 
+    static bool static_match_genotype; //global variable
     // for public access
 	void Compare(string ref_vcf,
             string query_vcf,

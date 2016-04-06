@@ -1,16 +1,12 @@
-all: vm vt
-.PHONY: all vm vt clean
+all: vm
+.PHONY: all vm clean
 
 vm:
 	$(MAKE) -C src all
 	chmod +x varmatch
 	chmod +x purify
 	chmod +x filter
-	
-vt:
-	$(MAKE) -C vt 
 
 clean:
 	$(MAKE) -C src clean
-	$(MAKE) -C vt clean
 

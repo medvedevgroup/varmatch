@@ -1,33 +1,33 @@
 #pragma once
 
 #include "vcf.h"
-
+// data structure for direct search
 typedef struct DiploidVariant {
-	DiploidVariant(int pos_ = -1,
-		vector<char> var_types_ = {'S','S'},
-		string ref_ = "",
-		vector<string> alts_ = {"",""},
-		string genotype_ = "0/0",
-		bool heterozygous_ = false,
-		bool multi_alts_ = false,
-		int flag_ = 0) :
-		pos(pos_),
-		var_types(var_types_),
-		ref(ref_),
-		alts(alts_),
-		genotype(genotype_),
-	    heterozygous(heterozygous_),
-		multi_alts(multi_alts_),
-		flag(flag_){}
+    DiploidVariant(int pos_ = -1,
+        vector<char> var_types_ = {'S','S'},
+        string ref_ = "",
+        vector<string> alts_ = {"",""},
+        string genotype_ = "0/0",
+        bool heterozygous_ = false,
+        bool multi_alts_ = false,
+        int flag_ = 0) :
+        pos(pos_),
+        var_types(var_types_),
+        ref(ref_),
+        alts(alts_),
+        genotype(genotype_),
+        heterozygous(heterozygous_),
+        multi_alts(multi_alts_),
+        flag(flag_){}
 
-	int pos;
-	vector<char> var_types;
-	string ref;
-	vector<string> alts;
-	string genotype;
-	bool heterozygous;
-	bool multi_alts;
-	int flag; //in DiploidVariant, flag = 0 is reference, flag = 1 is query
+    int pos;
+    vector<char> var_types;
+    string ref;
+    vector<string> alts;
+    string genotype;
+    bool heterozygous;
+    bool multi_alts;
+    int flag; //in DiploidVariant, flag = 0 is reference, flag = 1 is query
 }DiploidVariant;
 
 // define outside of struct, idiomatic solution for lexicographical compare for structures
@@ -35,13 +35,13 @@ bool operator <(const DiploidVariant& x, const DiploidVariant& y);
 
 bool operator ==(const DiploidVariant& x, const DiploidVariant& y);
 
-typedef vector<unordered_map<int, DiploidVariant > > VariantHash;
-typedef vector<map<int, DiploidVariant > > VariantMap;
-
 class DiploidVCF : public VCF
 {
 private:
-	// data structure for direct search
+
+    typedef vector<unordered_map<int, DiploidVariant > > VariantHash;
+    typedef vector<map<int, DiploidVariant > > VariantMap;
+
 	VariantHash refpos_2_var;
 	VariantHash querypos_2_var;
 
@@ -61,6 +61,7 @@ private:
 
 protected:
 	bool scoring_basepair;
+	bool overlap_match;
 	map<int, vector<DiploidVariant> > cluster_vars_map;
 
 	void DecideBoundaries();
@@ -117,6 +118,15 @@ protected:
 
     void DivisiveHierarchicalClustering(list<vector<DiploidVariant> > & snp_clusters);
 
+    bool VariantMatchWithOverlap(vector<DiploidVariant> & variant_list, int thread_index);
+
+    bool FindBestMatchWithOverlap(vector<DiploidVariant> & variant_list,
+                                const string subsequence,
+                                const int offset,
+                                int index,
+                                map<int, DiploidVariant> separate_pos_var[],
+                                set<int> selected_positions[]);
+
 public:
 	DiploidVCF(int thread_num_);
 	~DiploidVCF();
@@ -130,6 +140,7 @@ public:
 		string output_prefix,
 		bool match_genotype,
 		bool normalization,
-		bool scoring_basepair);
+		bool scoring_basepair,
+		bool overlap_match);
 
 };
