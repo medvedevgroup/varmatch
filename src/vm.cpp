@@ -26,6 +26,8 @@ typedef struct Args {
 	bool normalization;
 	bool score_basepair;
 	bool overlap_match;
+	bool variant_check;
+	bool single_match;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
@@ -37,6 +39,8 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 	args.score_basepair = false;
     args.thread_num = 1;
     args.overlap_match = false;
+    args.variant_check = false;
+    args.single_match = false;
 	for (int i = 1; i < argc; i++)
 	{
 		//cout << argv[i] << endl;
@@ -74,7 +78,7 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 			args.direct_search = true;
 		}
 		else if (!strcmp(argv[i], "-s")) {
-			args.stat_filename = string(argv[++i]);
+			args.single_match = true;
 		}
 		else if (!strcmp(argv[i], "-t")) {
 			args.thread_num = atoi(argv[++i]);
@@ -91,8 +95,10 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 		}
 		else if (!strcmp(argv[i], "-a")) {
 			args.normalization = true;
-		}else if (!strcmp(argv[i], "-v")){
+		}else if (!strcmp(argv[i], "-x")){
             args.overlap_match = true;
+		}else if(! strcmp(argv[i], "-c")){
+            args.variant_check = true;
 		}
 		else {
 			cout << "[Error] Unrecognized parameter: " << argv[i] << endl;
@@ -124,9 +130,9 @@ int usage(char* command) {
 int main(int argc, char* argv[])
 {
 	dout << "Debug Mode" << endl;
-	//DiploidVCF dvs(1);
-	//dvs.test();
-	//return 0;
+//	DiploidVCF dvs(1);
+//	dvs.test();
+//	return 0;
 
 
 	if (argc < 2) {
@@ -148,7 +154,7 @@ int main(int argc, char* argv[])
         return 0;
 	}
 
-	DiploidVCF dv(1);
+	DiploidVCF dv(args.thread_num);
     dv.Compare(args.ref_vcf_filename,
 		args.que_vcf_filename,
 		args.genome_seq_filename,
@@ -157,7 +163,8 @@ int main(int argc, char* argv[])
 		args.match_genotype,
 		args.normalization,
 		args.score_basepair,
-		args.overlap_match);
+		args.overlap_match,
+		args.variant_check);
 	return 0;
 
 	VCF vcf(args.thread_num);

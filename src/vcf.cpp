@@ -491,6 +491,7 @@ void f(){
 // protected
 bool VCF::CheckTandemRepeat(string sequence, int unit_threshold) {
 	int sequence_length = (int)sequence.length();
+	//cout << sequence_length << "," << unit_threshold << endl;
     if(sequence_length == 1) return true;
 	transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
     int end_index = sequence_length / 2 + 1;

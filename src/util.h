@@ -30,8 +30,8 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
 std::vector<std::string> split(const std::string &s, char delim);
 
 inline bool FileExists (const std::string& name) {
-  struct stat buffer;   
-  return (stat (name.c_str(), &buffer) == 0); 
+  struct stat buffer;
+  return (stat (name.c_str(), &buffer) == 0);
 }
 
 template <typename T>
@@ -44,8 +44,9 @@ string ToString(const T & number){
 inline void dsptime()
 {
  time_t nowtime;
- nowtime = time(NULL); //get int time number
- struct tm * ptm=localtime(&nowtime);  //get system time
+ //nowtime = time(NULL); //get int time number
+ time(&nowtime); // get current time
+ struct tm * ptm=localtime(&nowtime);  //convert time to local time
  cout << ptm->tm_mon+1 << "/" << ptm->tm_mday << "/"<< ptm->tm_year+1900 << "," ;
  cout << ptm->tm_hour << ":" << ptm->tm_min << ":" << ptm->tm_sec <<" ";
 }
