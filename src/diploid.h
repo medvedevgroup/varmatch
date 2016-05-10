@@ -6,24 +6,27 @@ typedef struct DiploidVariant {
     DiploidVariant(int pos_ = -1,
         string ref_ = "",
         vector<string> alts_ = {"",""},
-        string genotype_ = "0/0",
         bool heterozygous_ = false,
         bool multi_alts_ = false,
+        int mdl_ = 0,
+        int mil_ = 0,
         int flag_ = 0) :
         pos(pos_),
         ref(ref_),
         alts(alts_),
-        genotype(genotype_),
         heterozygous(heterozygous_),
         multi_alts(multi_alts_),
+        mdl(mdl_),
+        mil(mil_),
         flag(flag_){}
 
     int pos;
     string ref;
     vector<string> alts;
-    string genotype;
     bool heterozygous;
     bool multi_alts;
+    int mdl;
+    int mil;
     int flag; //in DiploidVariant, flag = 0 is reference, flag = 1 is query
 }DiploidVariant;
 
@@ -39,24 +42,35 @@ public:
     int separate_score[2];
     int min_genome_pos; // min(donor_sequence[0], donor_sequence[2])
     bool haplotypes_consistent;
-    int genome_position[2]; // current reference position that has been covered
+    int genome_position[2]; // genome position that has been considered, exclusive
     int donor_length[2];
+    string donor_sequences[4];
     vector<int> pos_vectors[2]; // selected variants, not necessary now
     vector<int> phasing_vectors[2]; // phasing vector for corresponding variant, for D_0
     int cur_var;
+    bool overlap_detected;
 
     VariantSelection(){
         score = 0;
         cur_var = -1;
         min_genome_pos = -1;
         haplotypes_consistent = false;
+        overlap_detected = false;
         for(int i = 0; i < 2; i++){
             separate_score[i] = 0;
-            genome_position[i] = -1;
+            genome_position[i] = 0;
             donor_length[i] = 0;
             pos_vectors[i] = vector<int>();
             phasing_vectors[i] = vector<int>();
+            donor_sequences[i] = "";
         }
+        donor_sequences[2] = "";
+        donor_sequences[3] = "";
+    }
+
+    bool operator< (const VariantSelection& rhs) const // sort by min_genome_position
+    {
+        return min_genome_pos < rhs.min_genome_pos;
     }
 };
 
@@ -80,8 +94,8 @@ private:
 	vector<DiploidVariant> ref_variant_list;
 	vector<DiploidVariant> que_variant_list;
 
-    void ReadRefVCF(string filename);
-    void ReadQueryVCF(string filename);
+    int ReadRefVCF(string filename);
+    int ReadQueryVCF(string filename);
 
 	void DirectSearchInThread(unordered_map<int, DiploidVariant> & ref_snps,
                            unordered_map<int, DiploidVariant> & query_snps,
@@ -94,15 +108,17 @@ private:
 	ofstream offf;
 	const time_t ctt = time(0);
 
+
 protected:
 	bool scoring_basepair;
 	bool overlap_match;
 	bool variant_check;
 	map<int, vector<DiploidVariant> > cluster_vars_map;
 
+
 	void DecideBoundaries();
 
-	bool ReadDiploidVCF(string filename, vector<DiploidVariant> & x_variant_list, int flag);
+	int ReadDiploidVCF(string filename, vector<DiploidVariant> & x_variant_list, int flag);
 	bool NormalizeDiploidVariant(DiploidVariant & var);
 
 	bool VariantMatch(vector<DiploidVariant> & variant_list, int thread_index);
@@ -187,7 +203,7 @@ protected:
                                 map<int, int> selected_positions[]);
 
     bool VariantMatchPathCreation(vector<DiploidVariant> & variant_list, int thread_index, int cluster_id);
-    bool CollapseSelections(VariantSelection & selection,
+    bool CollapseSelections(VariantSelection selection,
                             list<VariantSelection> & variant_selections);
 
     int CheckDonorSequences(vector<DiploidVariant> separate_var_list[],
@@ -208,6 +224,31 @@ protected:
     void SortVariantList();
     void ReadGenome(string filename);
     void LinearClusteringVariants();
+
+    int NormalizeVariantSequence(int pos,
+                                 string & parsimonious_ref,
+                                 string & parsimonious_alt0,
+                                 string & parsimonious_alt1);
+
+    int ExtendingDonorSequences(vector<DiploidVariant> separate_var_list[],
+                                      VariantSelection & selection,
+                                      const string & subsequence,
+                                      int offset,
+                                      int flag);
+
+    bool CollapsePrefixMatchSelection(VariantSelection selection,
+                                    list<VariantSelection> & variant_selections);
+
+    void ReverseLinearClusteringVariants();
+    bool AcceleratedVariantMatchPathCreation(vector<DiploidVariant> & variant_list, int thread_index, int cluster_id);
+    bool VariantMatchPathCreationByDonor(vector<DiploidVariant> & variant_list, int thread_index, int cluster_id);
+
+    int CheckDonorSequencesWithOverlap(vector<DiploidVariant> separate_var_list[],
+                                      VariantSelection & selection,
+                                      const string & subsequence,
+                                      int offset,
+                                      string donor_sequences[]);
+
 public:
 	DiploidVCF(int thread_num_);
 	~DiploidVCF();

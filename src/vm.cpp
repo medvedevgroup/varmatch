@@ -13,8 +13,6 @@ typedef struct Args {
 	string ref_vcf_filename;
 	string que_vcf_filename;
 	string genome_seq_filename;
-	string fp_filename;
-	string fn_filename;
 	string output_filename;
 	bool direct_search;
 	string chr_name;
@@ -26,8 +24,7 @@ typedef struct Args {
 	bool normalization;
 	bool score_basepair;
 	bool overlap_match;
-	bool variant_check;
-	bool single_match;
+	bool variant_check; // check if variant matches
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
@@ -40,7 +37,7 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
     args.thread_num = 1;
     args.overlap_match = false;
     args.variant_check = false;
-    args.single_match = false;
+    args.output_filename = "out";
 	for (int i = 1; i < argc; i++)
 	{
 		//cout << argv[i] << endl;
@@ -65,20 +62,11 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 				return false;
 			}
 		}
-		else if (!strcmp(argv[i], "-p")) {
-			args.fp_filename = string(argv[++i]);
-		}
-		else if (!strcmp(argv[i], "-n")) {
-			args.fn_filename = string(argv[++i]);
-		}
 		else if (!strcmp(argv[i], "-o")) {
 			args.output_filename = string(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "-d")) {
 			args.direct_search = true;
-		}
-		else if (!strcmp(argv[i], "-s")) {
-			args.single_match = true;
 		}
 		else if (!strcmp(argv[i], "-t")) {
 			args.thread_num = atoi(argv[++i]);
@@ -87,13 +75,13 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
 			args.remove_duplicates = true;
 			args.single_vcf_filename = string(argv[++i]);
 		}
-		else if(!strcmp(argv[i], "-y")) {
+		else if(!strcmp(argv[i], "-G")) {
 			args.match_genotype = false;
 		}
 		else if (!strcmp(argv[i], "-b")) {
 			args.score_basepair = true;
 		}
-		else if (!strcmp(argv[i], "-a")) {
+		else if (!strcmp(argv[i], "-n")) {
 			args.normalization = true;
 		}else if (!strcmp(argv[i], "-x")){
             args.overlap_match = true;
@@ -117,11 +105,11 @@ int usage(char* command) {
     cout << command << " -g genome file path(FASTA format)" << endl;
     cout << "\t-r reference VCF file path" << endl;
     cout << "\t-q query VCF file path" << endl;
-    cout << "\t-o output filename prefix" << endl;
+    cout << "\t-o output file prefix" << endl;
     cout << "\t[-t thread number]" << endl;
-    cout << "\t[-d only perform direct search]" << endl;
+    cout << "\t[-n normalize VCF entries before comparing]" << endl;
     cout << "\t[-m single VCF file to remove duplicates]" << endl;
-    cout << "\t[-y considering genotype when match vcf records]" << endl;
+    cout << "\t[-G do not match genotype when match vcf records]" << endl;
     cout << endl;
 
 	return 0;

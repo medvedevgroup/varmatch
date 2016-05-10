@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-std=c++11 -pthread
+CXXFLAGS=-std=c++11 -pthread -g
 CXXFLAGS2=-I ./include
 
 all: vm

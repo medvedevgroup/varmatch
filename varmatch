@@ -7,14 +7,12 @@ import os
 import time
 
 RUN = True
-
 author_email = 'chensun@cse.psu.edu'
 versionError = 'You are using an old version of python, please upgrade to python 2.7+\n'
 
 if sys.hexversion < 0x02070000:
     print (versionError)
     exit()
-
 
 citation = 'Please cite our paper'
 
@@ -23,21 +21,22 @@ parser.add_argument('-r', metavar='reference.vcf', help='reference vcf file path
 parser.add_argument('-q', metavar='query.vcf', help='query vcf file path')
 parser.add_argument('-g', metavar='genome.fa', help='genome sequence file path, FASTA file format')
 parser.add_argument('-t', metavar='N', default='1', help='thread number for parallel')
-parser.add_argument('-n', '--no_normalize', action='store_true',
-                    help='if activate, program will not normalize reference vcf and query vcf file before comparing.')
-parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
+parser.add_argument('-n', '--normalize', action='store_true',
+                    help='if activate, VarMatch will normalize reference vcf and query vcf file before comparing.')
+#parser.add_argument('-d', '--direct_search', action='store_true', help='if activate, only perform direct matching')
 parser.add_argument('--multi_genome', metavar='genome_list.txt',
                     help='genome list file contain chromosome name and FASTA file absolute path')
 parser.add_argument('--multi_vcf', nargs='+', metavar='file.vcf ...',
                     help='vcf files (usually more than two) that need to compare')
 parser.add_argument('-o', '--output', metavar='output/', help='output directory, default is the current directory')
-parser.add_argument('-v', '--visualize', help='visualize results')
-parser.add_argument('--no_purify', action='store_true',
-                    help='if activate, program will not check if variant matches reference genome sequence.')
-parser.add_argument('--genotype', action='store_true',
-                    help='active genotype match mode.')
-parser.add_argument('--remove_dup', metavar='single.vcf',
-                    help='provide single vcf file, remove duplications in this vcf file')
+#parser.add_argument('-v', '--visualize', help='visualize results')
+parser.add_argument('--purify', action='store_true',
+                    help='if activate, VarMatch will check if variant matches reference genome sequence.')
+parser.add_argument('-H', action='store_true',
+                    help='if active, VarMatch will not match haplotype')
+#parser.add_argument('--remove_dup', metavar='single.vcf',
+#                    help='provide single vcf file, remove duplications in this vcf file')
+
 # strategy for whole genome:
 #   since current version of vt-normalize can not handle whole genome sequence data
 #   vcfcompare split whole genome data according to chromosome detected in --whole-genome directory
@@ -91,25 +90,6 @@ def purify(input_file, output_file, genome_file):
     shell_run(purify_command)
 
 
-def normalize(input_file, output_file, genome_file):
-    global check_normalize_command
-    global normalize_tool
-    # check if vt normalize exist
-    if not check_normalize_command and not check_command(vt_tool):
-        if check_command('vt normalize'):
-            normalize_tool = 'vt normalize'
-            check_normalize_command = True
-        else:
-            print ('Error: can not find program: ' + normalize_tool)
-            print ('\t Try "make" command before execute, or contact author for support: ' + author_email)
-            exit()
-    else:
-        check_normalize_command = True
-
-    normalize_command = normalize_tool + ' ' + input_file + ' -r ' + genome_file + ' -o ' + output_file
-    shell_run(normalize_command, True)
-
-
 def pairwise_compare(reference_file, query_file, genome_file, output_prefix):
     global check_compare_command
     if not check_compare_command and not check_command(compare_tool):
@@ -120,8 +100,11 @@ def pairwise_compare(reference_file, query_file, genome_file, output_prefix):
         check_compare_command = True
     compare_command = compare_tool + ' -r ' + reference_file + ' -q ' + query_file + ' -g ' + genome_file + ' -o ' + output_prefix
 
-    if args.genotype:
-        compare_command += ' -y '
+    if args.H:
+        compare_command += ' -G '
+
+    if args.normalize:
+        compare_command += ' -n '
 
     if args.t is not None and int(args.t) > 1:
         compare_command += ' -t ' + args.t
@@ -134,26 +117,14 @@ def varmatch_pairwise(reference_file, query_file, genome_file, output_directory)
 
     ref_purify_file = temp_dir + '/' + ref_basename + '.purify.vcf'
     que_purify_file = temp_dir + '/' + que_basename + '.purify.vcf'
-    if not args.no_purify:
+    if args.purify:
         purify(reference_file, ref_purify_file, genome_file)
         purify(query_file, que_purify_file, genome_file)
     else:
         ref_purify_file = reference_file
         que_purify_file = query_file
-
-    ref_purify_norm_file = temp_dir + '/' + ref_basename + '.norm.vcf'
-    que_purify_norm_file = temp_dir + '/' + que_basename + '.norm.vcf'
-    if not args.no_normalize:
-        normalize(ref_purify_file, ref_purify_norm_file, genome_file)
-        normalize(que_purify_file, que_purify_norm_file, genome_file)
-    else:
-        ref_purify_norm_file = ref_purify_file
-        que_purify_norm_file = que_purify_file
-
     output_prefix = output_directory + '/' + ref_basename + '_' + que_basename
-
-    pairwise_compare(ref_purify_norm_file, que_purify_norm_file, genome_file, output_prefix)
-
+    pairwise_compare(ref_purify_file, que_purify_file, genome_file, output_prefix)
     return output_prefix
 
 
@@ -223,10 +194,8 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
         varmatch_pairwise(ref_vcf_dict[c], que_vcf_dict[c], genome_dict[c], temp_dir)
 
     chr_stat_dict = {}
-    if args.direct_search:
-        total_stat = [0] * 12
-    else:
-        total_stat = [0] * 16
+    total_stat = [0] * 6 # total_ref, total_que, matched_ref, matched_que, mismatch_ref, mismatch_que
+
     for c in detected_chr_list:
         stat_file = temp_dir + '/' + os.path.basename(ref_vcf_dict[c]) + '_' + os.path.basename(
             que_vcf_dict[c]) + '.stat'
@@ -244,33 +213,15 @@ def varmatch_multi_genome(reference_file, query_file, genome_list_file):
             f.write(str(s))
             f.write('\n')
 
-    # combine matched variants in each chromosome
-    total_simple_filename = output_dir + '/' + os.path.basename(reference_file) + '_' + os.path.basename(
-        query_file) + '.simple'
-    total_simple_file = open(total_simple_filename, 'w')
-    total_simple_file.write('##VCF1:'+reference_file+'\n')
-    total_simple_file.write('##VCF2:'+query_file+'\n')
-    total_simple_file.write('#CHROM\tPOS\tREF\tALT\n')
-    for c in detected_chr_list:
-        chr_simple_file = temp_dir + '/' + os.path.basename(ref_vcf_dict[c]) + '_' + os.path.basename(
-            que_vcf_dict[c]) + '.simple'
-        with open(chr_simple_file) as simple_f:
-            chr_content = simple_f.readlines()
-            for line in chr_content:
-                if line.startswith('#'):
-                    continue
-                total_simple_file.write(line)
-    total_simple_file.close()
-
     total_complex_filename = output_dir + '/' + os.path.basename(reference_file) + '_' + os.path.basename(
-        query_file) + '.complex'
+        query_file) + '.match'
     total_complex_file = open(total_complex_filename, 'w')
     total_complex_file.write('##VCF1:'+reference_file+'\n')
     total_complex_file.write('##VCF2:'+query_file+'\n')
     total_complex_file.write('#CHROM\tPOS\tREF\tALT\tVCF1\tVCF2\n')
     for c in detected_chr_list:
         chr_complex_file = temp_dir + '/' + os.path.basename(ref_vcf_dict[c]) + '_' + os.path.basename(
-            que_vcf_dict[c]) + '.complex'
+            que_vcf_dict[c]) + '.match'
         with open(chr_complex_file) as complex_f:
             chr_content = complex_f.readlines()
             for line in chr_content:
@@ -299,7 +250,7 @@ def varmatch_multi_vcf_multi_genome(multi_vcf_list, genome_list_file):
     id_vcf_dict = {}
     for i in range(len(multi_vcf_list)):
         if not os.path.isfile(multi_vcf_list[i]):
-            print ('[VarMatch:Error:] Can not file vcf file ' + multi_vcf_list[i])
+            print ('[VarMatch:Error:] Can not find vcf file ' + multi_vcf_list[i])
             exit()
         id_vcf_dict[i] = multi_vcf_list[i]
     vcfid_list = list(id_vcf_dict.keys())
@@ -322,7 +273,7 @@ def varmatch_multi_vcf_multi_genome(multi_vcf_list, genome_list_file):
         varmatch_multi_vcf_single_genome(id_singlechrvcf_dict, genome_dict[c], output_prefix)
 
     # merge multi chromosome
-    common_filename = output_dir + '/common.complex'
+    common_filename = output_dir + '/common.match'
     common_file = open(common_filename, 'w')
     # write vcf file names
     # write title
@@ -336,7 +287,7 @@ def varmatch_multi_vcf_multi_genome(multi_vcf_list, genome_list_file):
     common_file.write(head_line)
 
     for c in chr_prefix_dict:
-        with open(chr_prefix_dict[c] + '.complex') as f:
+        with open(chr_prefix_dict[c] + '.match') as f:
             for line in f.readlines():
                 if line.startswith('#'):
                     continue
@@ -362,17 +313,12 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
         basename = os.path.basename(vcf_file)
 
         purify_file = temp_dir + '/' + basename + '.purify.vcf'
-        if not args.no_purify:
+        if args.purify:
             purify(vcf_file, purify_file, genome_file)
         else:
             purify_file = vcf_file
 
-        purify_norm_file = temp_dir + '/' + basename + '.norm.vcf'
-        if not args.no_normalize:
-            normalize(purify_file, purify_norm_file, genome_file)
-        else:
-            purify_norm_file = purify_file
-        id_finalname_dict[vcf_file_id] = purify_norm_file
+        id_finalname_dict[vcf_file_id] = purify_file
 
     pairwise_prefix_idtuple = {}
     idtuple_pairwise_prefix = {}
@@ -399,9 +345,9 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
         que_id = id_list[i + 1]
         id_tuple = (ref_id, que_id)
         pairwise_prefix = idtuple_pairwise_prefix[id_tuple]
-        complex_match_file = pairwise_prefix + '.complex'
+        complex_match_file = pairwise_prefix + '.match'
         if not os.path.isfile(complex_match_file):
-            print('Error: Can not open complex match result ' + complex_match_file)
+            print('Error: Can not open match result ' + complex_match_file)
         with open(complex_match_file) as f:
             for line in f.readlines():
                 if line.startswith('#'):
@@ -418,7 +364,7 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
                         # else:
                         #    print variantid
 
-    integrate_complex_filename = output_prefix + '.complex'
+    integrate_complex_filename = output_prefix + '.match'
     integrate_complex_file = open(integrate_complex_filename, 'w')
     for i in range(len(id_list)):
         head_line = '##VCF' + str(i + 1) + ':' + id_vcf_dict[i] + '\n'
@@ -445,6 +391,8 @@ def varmatch_multi_vcf_single_genome(id_vcf_dict, genome_file, output_prefix):
 
 
 def remove_duplicate(genome_filename, single_vcf_filename, output_prefix):
+    print ("current version does not support remvoe duplicate")
+    exit()
     remove_duplicate_command = compare_tool + ' -m ' + single_vcf_filename + ' -g ' + genome_filename + ' -o ' + output_prefix
 
     if args.t is not None and int(args.t) > 1:
@@ -464,8 +412,6 @@ def main():
 
     global script_path
     global purify_tool
-    global normalize_tool
-    global vt_tool
     global compare_tool
     global output_dir
     global visual_dir
@@ -477,9 +423,7 @@ def main():
 
     script_path = sys.path[0]
     purify_tool = script_path + '/purify'
-    vt_tool = script_path + '/vt/vt'
-    normalize_tool = script_path + '/vt/vt normalize'
-    compare_tool = script_path + '/src/vm'
+    compare_tool = script_path + '/vm'
     output_dir = ''
     visual_dir = ''
     temp_dir = ''

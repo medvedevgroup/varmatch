@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include <splitvcf.h>
 
 SplitVcf::SplitVcf(int argc, char* argv) {

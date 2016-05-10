@@ -397,7 +397,7 @@ void VCF::DirectSearchMultiThread() {
 
 	vector<thread> threads;
 	//spawn threads
-	unsigned i = 0;
+	int i = 0;
 	for (; i < thread_num - 1; i++) {
 		threads.push_back( thread(&VCF::DirectSearchInThread, this, ref(refpos_2_snp[i]), ref(querypos_2_snp[i]), i));
 	}

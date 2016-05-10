@@ -1,5 +1,4 @@
 // code
-
 // author: Chen Sun, chensun@cse.psu.edu
 #include "diploid.h"
 
@@ -29,21 +28,22 @@ bool operator <(const DiploidVariant& x, const DiploidVariant& y) {
 	return x.pos < y.pos;
 }
 
+// this is based on the assumption that all sequence are in upper case
 bool operator ==(const DiploidVariant& x, const DiploidVariant& y) {
-	if (x.pos == y.pos && CompareSequence(x.ref, y.ref)) {
+	if (x.pos == y.pos && x.ref == y.ref) {
         if(!global_match_genotype){
             if (x.multi_alts && x.heterozygous && y.multi_alts && y.heterozygous) {
                 int match_times = 0;
                 for (int i = 0; i < 2; i++) {
                     for (int j = 0; j < 2; j++) {
-                        if (CompareSequence(x.alts[i], y.alts[j]))
+                        if (x.alts[i] == y.alts[j])
                             match_times++;
                     }
                 }
                 if (match_times > 0)
                     return true;
             }
-            else if(CompareSequence(x.alts[0], y.alts[0])){
+            else if(x.alts[0] == y.alts[0]){
                 return true;
             }
         }else if(x.heterozygous == y.heterozygous && x.multi_alts == y.multi_alts){
@@ -51,14 +51,14 @@ bool operator ==(const DiploidVariant& x, const DiploidVariant& y) {
                 int match_times = 0;
                 for (int i = 0; i < 2; i++) {
                     for (int j = 0; j < 2; j++) {
-                        if (CompareSequence(x.alts[i], y.alts[j]))
+                        if (x.alts[i] == y.alts[j])
                             match_times++;
                     }
                 }
                 if (match_times >= 2)
                     return true;
             }
-            else if(CompareSequence(x.alts[0], y.alts[0])){
+            else if(x.alts[0] == y.alts[0]){
                 return true;
             }
         }
@@ -89,13 +89,13 @@ DiploidVCF::~DiploidVCF()
 }
 
 // private
-void DiploidVCF::ReadRefVCF(string filename) {
-    ReadDiploidVCF(filename, ref_variant_list, 0);
+int DiploidVCF::ReadRefVCF(string filename) {
+    return ReadDiploidVCF(filename, ref_variant_list, 0);
 }
 
 // private
-void DiploidVCF::ReadQueryVCF(string filename) {
-    ReadDiploidVCF(filename, que_variant_list, 1);
+int DiploidVCF::ReadQueryVCF(string filename) {
+    return ReadDiploidVCF(filename, que_variant_list, 1);
 }
 // protected
 // [todo] unit test normalization
@@ -130,7 +130,7 @@ bool DiploidVCF::NormalizeDiploidVariant(DiploidVariant & var) {
 		}
 		if (parsimonious_ref.length() == 0 || parsimonious_alt0.length() == 0 || parsimonious_alt1.length() == 0) {
 			left_index--;
-			char left_char = genome_sequence[left_index];
+			char left_char = toupper(genome_sequence[left_index]);
 			parsimonious_ref = left_char + parsimonious_ref;
 			parsimonious_alt0 = left_char + parsimonious_alt0;
 			parsimonious_alt1 = left_char + parsimonious_alt1;
@@ -155,6 +155,46 @@ bool DiploidVCF::NormalizeDiploidVariant(DiploidVariant & var) {
 	return true;
 }
 
+int DiploidVCF::NormalizeVariantSequence(int pos, string & parsimonious_ref, string & parsimonious_alt0, string & parsimonious_alt1) {
+
+	int left_index = pos;
+	if (genome_sequence.size() == 0) return -1;
+	if (parsimonious_ref.size() == 1 && parsimonious_alt0.size() == 1 && parsimonious_alt1.size() == 1) return true;
+
+	bool change_in_allels = true;
+	while (change_in_allels) {
+		change_in_allels = false;
+		if (parsimonious_ref.back() == parsimonious_alt0.back() && parsimonious_ref.back() == parsimonious_alt1.back() ) {
+			if ((parsimonious_ref.size() > 1 && parsimonious_alt0.size() > 1 && parsimonious_alt1.size() > 1) || left_index > 0) { // when left_index == 0, can not make further changes
+				parsimonious_ref.pop_back();
+				parsimonious_alt0.pop_back();
+				parsimonious_alt1.pop_back();
+				change_in_allels = true;
+			}
+            // else do not make further changes
+		}
+		if (parsimonious_ref.length() == 0 || parsimonious_alt0.length() == 0 || parsimonious_alt1.length() == 0) {
+			left_index--;
+			char left_char = toupper(genome_sequence[left_index]);
+			parsimonious_ref = left_char + parsimonious_ref;
+			parsimonious_alt0 = left_char + parsimonious_alt0;
+			parsimonious_alt1 = left_char + parsimonious_alt1;
+		}
+	}
+	while (parsimonious_ref[0] == parsimonious_alt0[0] &&
+            parsimonious_ref[0] == parsimonious_alt1[0] &&
+            parsimonious_ref.size() > 1 &&
+            parsimonious_alt0.size() > 1 &&
+            parsimonious_alt1.size() > 1)
+    {
+		parsimonious_ref.erase(0, 1);
+		parsimonious_alt0.erase(0, 1);
+		parsimonious_alt1.erase(0, 1);
+        left_index ++; // left_index indicates variant position, if truncate the leftmost, then
+	}
+	return left_index;
+}
+
 void DiploidVCF::ReadGenome(string filename) {
 	ifstream genome_file;
 	genome_file.open(filename.c_str());
@@ -177,15 +217,17 @@ void DiploidVCF::ReadGenome(string filename) {
 
 // protected
 // code reviewed by Channing and Succulent on 4/2/2016
-bool DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_variant_list, int flag) {
-
+int DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_variant_list, int flag) {
+    // read and change all sequence to upper case
+    int total_num = 0;
 	ifstream vcf_file;
 	vcf_file.open(filename.c_str());
 	if (!vcf_file.good()) {
 		cout << "[VarMatch] Error: can not open vcf file" << endl;
-		return false;
+		return -1;
 	}
-	string previous_line;
+	int genotype_index = -1;
+	char genotype_separator = '/';
 	//int genome_sequence_length = genome_sequence.length();
 	while (!vcf_file.eof()) { // alternative way is vcf_file != NULL
 		string line;
@@ -196,101 +238,84 @@ bool DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_vari
 		//if (line.find_first_not_of(' ') == std::string::npos) continue;
 
 		if (line[0] == '#') {
-			if (line[1] == '#') continue;
-			auto head_names = split(line, '\t');
-			if (head_names.size() < 10 && match_genotype) {
-				cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
-				cout << "[VarMatch] \tVCF file name " << filename << endl;
-				cout << "[VarMatch] \tAutomatically turn off genotype matching module." << endl;
-				match_genotype = false;
-			}
+//			if (line[1] == '#') continue;
+//			auto head_names = split(line, '\t');
+//			if (head_names.size() < 10 && match_genotype) {
+//				cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
+//				cout << "[VarMatch] \tVCF file name " << filename << endl;
+//				cout << "[VarMatch] \tAutomatically turn off genotype matching module." << endl;
+//				match_genotype = false;
+//			}
 			continue;
 		}
 		auto columns = split(line, '\t');
 		if (columns.size() < 10) {
 			if(match_genotype){
                 cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
-                cout << "[VarMatch] \tskip current variant " << filename << endl;
+                cout << "[VarMatch] \tAutomatically turn off genotype matching module " << filename << endl;
+                match_genotype = false;
                 continue;
             }
             if(columns.size() < 6){
                 cout << "[VarMatch] Warning: not enough information in VCF file for variant matching." << endl;
+                cout << "[VarMatch] skip current variant: " << line << endl;
                 continue;
             }
 		}
 		if (chromosome_name == ".") chromosome_name = columns[0];
 		auto pos = atoi(columns[1].c_str()) - 1; // 0-based coordinate
-//		if(pos > genome_sequence_length){
-//            cout << "[VarMatch] Warning: variant position larger than genome sequence length." << endl;
-//            cout << "\t\t Please check if variant file matches genome sequence file." << endl;
-//            continue;
-//		}
+
+//        if(pos == 79240316){
+//            cout << "find snp from: " << flag << endl;
+//        }
 		auto ref = columns[3];
-//		if(variant_check){
-//            string genome_subsequence = genome_sequence.substr(pos, ref.length());
-//            if(! CompareSequence(ref, genome_subsequence)){
-//                cout << "[VarMatch] Warning: variant ref sequence does not match genome sequence." << endl;
-//                cout << "\t\t Please check if variant file matches genome sequence file." << endl;
-//                continue;
-//            }
-//		}
 		auto alt_line = columns[4];
 		auto quality = columns[5];
 
-		if (ref == ".") ref = "";
-		if (alt_line == ".") alt_line = "";
-
-		int genotype_index = -1;
-		string genotype = "0/0";
-		vector<string> genotype_columns;
+		ToUpper(ref);
+		ToUpper(alt_line);
 
 		bool is_heterozygous_variant = false;
 		bool is_multi_alternatives = false;
 
 		if (columns.size() >= 10) {
-			auto formats = split(columns[8], ':');
-			for (int i = 0; i < formats.size(); i++) {
-				if (formats[i] == "GT") {
-					genotype_index = i;
-					break;
-				}
-			}
 			if (genotype_index < 0) {
-				cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
-				cout << "[VarMatch] \tskip current variant " << filename << endl;
-				continue;
+                auto formats = split(columns[8], ':');
+                for (int i = 0; i < formats.size(); i++) {
+                    if (formats[i] == "GT") {
+                        genotype_index = i;
+                        break;
+                    }
+                }
+                if(genotype_index < 0){
+                    cout << "[VarMatch] VCF entry does not contain genotype information" << endl;
+                    continue;
+                }
 			}
 			auto additionals = split(columns[9], ':');
-			genotype = additionals[genotype_index];
+            vector<string> genotype_columns = split(additionals[genotype_index], genotype_separator);
 
-            string genotype_separator = "/";
-			if (genotype.find("/") != std::string::npos) {
-				genotype_columns = split(genotype, '/');
-			}
-			else if (genotype.find("|") != std::string::npos) {
-				genotype_columns = split(genotype, '|');
-				genotype_separator = "|";
-			}
-			else {
-				cout << "[VarMatch] Error: Unrecognized Genotype: " << genotype << endl;
-				continue;
-			}
+            if(genotype_columns.size() != 2){
+                genotype_separator = '|';
+                genotype_columns = split(additionals[genotype_index], genotype_separator);
+            }
 
 			// normalize format of genotype: sorted, separated by |
 			if (genotype_columns.size() != 2) {
-				cout << "[VarMatch] Warning Unrecognized Genotype: " << genotype << endl;
+				cout << "[VarMatch] Warning Unrecognized Genotype: " << additionals[genotype_index] << endl;
+				continue;
 			}
 			else {
-				sort(genotype_columns.begin(), genotype_columns.end());
-				genotype = genotype_columns[0] + genotype_separator + genotype_columns[1];
 				if (genotype_columns[0] != genotype_columns[1]) {
 					is_heterozygous_variant = true;
 				}
 			}
+
+            if (genotype_columns[1] == "0" && genotype_columns[0] == "0" && match_genotype) {
+                continue;
+            }
 		}
-		if (genotype_columns[1] == "0" && genotype_columns[0] == "0" && match_genotype) {
-			continue;
-		}
+
 		vector<string> alt_list;
 		if (alt_line.find(",") != std::string::npos) {
 			alt_list = split(alt_line, ',');
@@ -300,15 +325,23 @@ bool DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_vari
 			alt_list.push_back(alt_line);
 		}
 
-		DiploidVariant dv(pos, ref, alt_list, genotype, is_heterozygous_variant, is_multi_alternatives);
+        int snp_ins = max(0, (int)alt_list[0].length() - (int)ref.length());
+        int snp_del = max(0, (int)ref.length() - (int)alt_list[0].length());
+        if(is_multi_alternatives){
+            snp_ins = max(snp_ins, (int)alt_list[1].length() - (int)ref.length());
+            snp_del = max(snp_del, (int)ref.length() - (int)alt_list[1].length());
+        }
+
+		DiploidVariant dv(pos, ref, alt_list, is_heterozygous_variant, is_multi_alternatives, snp_del, snp_ins, flag);
 		if (normalization) {
 			NormalizeDiploidVariant(dv);
 		}
-        dv.flag = flag;
         x_variant_list.push_back(dv);
+
+        total_num++;
 	}
 	vcf_file.close();
-	return true;
+	return total_num;
 }
 
 // protected override
@@ -850,11 +883,10 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list, int thread_
 	if(! match_genotype) multiple_match = false;
 
     vector<string> alt_list;
-    string temp_gt = "1/1";
     alt_list.push_back(max_paths[0]);
     if(multiple_match)
         alt_list.push_back(max_paths[1]);
-	DiploidVariant dv(offset, subsequence, alt_list, temp_gt, true, multiple_match);
+	DiploidVariant dv(offset, subsequence, alt_list, true, multiple_match);
 	//NormalizeDiploidVariant(dv);
 
 	string alt_record = dv.alts[0];
@@ -912,19 +944,24 @@ bool DiploidVCF::VariantMatch(vector<DiploidVariant> & variant_list, int thread_
 
 void PrintSelection(VariantSelection selection){
     cout << "$ Selection: $" << endl;
+    cout << "\t genome position:" << selection.genome_position[0] << "," << selection.genome_position[1] << endl;
     for(int i = 0; i < 2; i++){
         for(int k =0; k < selection.pos_vectors[i].size(); k++){
             cout << "\t" << selection.pos_vectors[i][k] << ":" << selection.phasing_vectors[i][k] << "," ;
         }
         cout << endl;
     }
+    for(int i = 0; i < 4; i++){
+        cout << selection.donor_sequences[i] << "," ;
+    }
+    cout << endl;
 }
 
 void PrintVariant(DiploidVariant var){
     cout << "-Variant:-" << endl;
     cout << var.flag << "," << var.pos << "," << var.ref << "," << var.alts[0];
     if(var.multi_alts) cout << "/" << var.alts[1];
-    cout << "," << var.genotype << endl;
+    cout << endl;
 }
 
 void PrintSelectionsList(list<VariantSelection> variant_selections){
@@ -1035,8 +1072,6 @@ int DiploidVCF::CheckDonorSequences(vector<DiploidVariant> separate_var_list[],
                 }
                 other_alt = temp_var.alts[0];
             }
-            ToUpper(one_alt);
-            ToUpper(other_alt);
             string t_sequence = donor_sequences[i*2];
             string pre_string = t_sequence.substr(0, relative_start);
             string post_string = t_sequence.substr(relative_end, t_sequence.length() - relative_end);
@@ -1082,7 +1117,14 @@ int DiploidVCF::CheckDonorSequences(vector<DiploidVariant> separate_var_list[],
         donor_match = true;
         selection.haplotypes_consistent = true;
     }
+
+    for(int i = 0; i < 2; i++){
+        selection.genome_position[i] = genome_position[i];
+        selection.donor_length[i] = donor_sequences[i].length();
+    }
+
     if(! donor_match){
+        if(variant_num[0] == separate_var_list[0].size() && variant_num[1] == separate_var_list[1].size()) return -1;
         selection.haplotypes_consistent = false;
         bool prefix_match = false;
         if(PrefixMatch(donor_sequences[0], donor_sequences[2]) && PrefixMatch(donor_sequences[1], donor_sequences[3])){
@@ -1096,10 +1138,8 @@ int DiploidVCF::CheckDonorSequences(vector<DiploidVariant> separate_var_list[],
             return -1;
         }
     }
-    for(int i = 0; i < 2; i++){
-        selection.genome_position[i] = genome_position[i];
-        selection.donor_length[i] = donor_sequences[i].length();
-    }
+
+    if(genome_position[0]!=genome_position[1]) return 1;
 
     if(variant_num[0] == separate_var_list[0].size() && variant_num[1] == separate_var_list[1].size()){
         // achieve whole genome
@@ -1108,6 +1148,345 @@ int DiploidVCF::CheckDonorSequences(vector<DiploidVariant> separate_var_list[],
     // cut only when not reach the end
     // set min_donor_length
     // set need_variant = true, because you did not use up all variants
+    return 2;
+}
+
+// code review by Chen on 04/15/2016 and unit test
+// if time consuming, change to the same algorithm as RTG
+int DiploidVCF::CheckDonorSequencesWithOverlap(vector<DiploidVariant> separate_var_list[],
+                                      VariantSelection & selection,
+                                      const string & subsequence,
+                                      int offset,
+                                      string donor_sequences[]){
+    // if score == 0, do not bother to collapse
+    //if(selection.score == 0) return -1;
+
+    // so here the new donor checking algorithm does not make sense
+
+    // haplotype indicates the haplotype used in D_0
+    // the other haplotype need to calculate
+    // haplotype == -1, all add ref
+    // haplotype == 0, D_0 add alts[0], D_1 add alts[1] if multi_alts, add ref if heterozygous, add alts[0] otherwise
+    // haplotype == 1, D_0 add alts[1] if multi_alts, add ref otherwise, D_1 add alts[0]
+
+    // first, decide substr of genome sequence that be applied
+    // genome sequence that is
+    int genome_position[2] = {-1, -1};
+    int cut_length[2] = {-1, -1};
+    int pos_lower_bound[2] = {-1, -1}; // exclusive
+    int pos_upper_bound[2] = {-1, -1}; // exclusive
+
+    int variant_num[2];
+    // do not calculate lower bound
+    for(int i = 0; i < 2; i++){
+        variant_num[i] = (int)selection.phasing_vectors[i].size();
+
+        if(variant_num[i] == 0){
+            pos_lower_bound[i] = -1;
+        }else{
+            DiploidVariant lower_variant = separate_var_list[i][variant_num[i]-1];
+            pos_lower_bound[i] = (lower_variant.pos - offset) + lower_variant.ref.length();
+        }
+
+        if(variant_num[i] < separate_var_list[i].size()){
+            pos_upper_bound[i] = separate_var_list[i][variant_num[i]].pos - offset;
+        }else{
+            if(selection.separate_score[i] == 0){
+                return -1;
+            }
+            pos_upper_bound[i] = (int)subsequence.length();
+        }
+    }
+
+
+
+    // here first decide reference sequence for apply
+    for(int i = 0; i < 2; i++){
+        donor_sequences[i*2] = subsequence;
+        donor_sequences[i*2+1] = subsequence;
+    }
+
+
+    for(int i = 0; i < 2; i++){
+            DiploidVariant pre_var;
+        for(int k = (int)selection.phasing_vectors[i].size() - 1; k >= 0; k--){
+            int temp_phasing = selection.phasing_vectors[i][k];
+            if(temp_phasing == -1){
+                continue;
+            }
+            DiploidVariant temp_var = separate_var_list[i][k];
+            if(temp_var.pos = pre_var.pos && temp_var.ref == pre_var.ref) return -1; // can not change the same sequence twice
+            int temp_pos = temp_var.pos;
+            int temp_end = temp_pos + temp_var.ref.length();
+
+            pos_lower_bound[i] = max(pos_lower_bound[i], temp_end);
+
+            int relative_end = temp_end - offset;
+            int relative_start = temp_pos - offset;
+            if(relative_start < 0 || relative_end > donor_sequences[i*2].length() || relative_end > donor_sequences[i*2+1].length()){
+                //dout << "overlapping variants" << endl;
+                return -1;
+            }
+
+            string one_alt = "";
+            string other_alt = "";
+            string var_ref = temp_var.ref;
+            if(temp_phasing == 0){
+                one_alt = temp_var.alts[0];
+                if(temp_var.multi_alts){
+                    other_alt = temp_var.alts[1];
+                }else if(temp_var.heterozygous){
+                    other_alt = var_ref;
+                }else{
+                    other_alt = one_alt;
+                }
+            }else{
+                if(temp_var.multi_alts){
+                    one_alt = temp_var.alts[1];
+                }else{
+                    one_alt = var_ref;
+                }
+                other_alt = temp_var.alts[0];
+            }
+            string t_sequence = donor_sequences[i*2];
+            string pre_string = t_sequence.substr(0, relative_start);
+            string post_string = t_sequence.substr(relative_end, t_sequence.length() - relative_end);
+            donor_sequences[i*2] = pre_string + one_alt + post_string;
+            t_sequence = donor_sequences[i*2+1];
+            pre_string = t_sequence.substr(0, relative_start);
+            post_string = t_sequence.substr(relative_end, t_sequence.length() - relative_end);
+            donor_sequences[i*2+1] = pre_string + other_alt + post_string;
+            pre_var = temp_var;
+        }
+//        cout << pos_lower_bound[i] << "," << pos_upper_bound[i] << "," ;
+//        cout << genome_position[i] << "," << cut_length[i] << endl;
+    }
+
+    if(min(pos_upper_bound[0], pos_upper_bound[1]) - max(pos_lower_bound[0], pos_lower_bound[1]) >= 0){
+        genome_position[0] = min(pos_upper_bound[0], pos_upper_bound[1]);
+        genome_position[1] = genome_position[0];
+    }else{
+        genome_position[0] = pos_upper_bound[0];
+        genome_position[1] = pos_upper_bound[1];
+    }
+
+    cut_length[0] = subsequence.length() - genome_position[0];
+    cut_length[1] = subsequence.length() - genome_position[1];
+
+    for(int i = 0; i < 2; i++){
+//        cout << "&&&&&" << genome_position[i] << "," << cut_length[i] << endl;
+        if(cut_length[i] < (int)subsequence.length()){
+            donor_sequences[i*2] = donor_sequences[i*2].substr(0, donor_sequences[i*2].length() - cut_length[i]);
+            donor_sequences[i*2+1] = donor_sequences[i*2+1].substr(0, donor_sequences[i*2+1].length() - cut_length[i]);
+        }else{
+            donor_sequences[i*2] = "";
+            donor_sequences[i*2+1] = "";
+        }
+        if(genome_position[i] < 0) genome_position[i] = -1;
+    }
+    selection.min_genome_pos = min(genome_position[0], genome_position[1]);
+//    cout << "after apply Selection:" << endl;
+//    cout << donor_sequences[0] << endl;
+//    cout << donor_sequences[1] << endl;
+//    cout << donor_sequences[2] << endl;
+//    cout << donor_sequences[3] << endl;
+    bool donor_match = false;
+    if(donor_sequences[0] == donor_sequences[2] && donor_sequences[1] == donor_sequences[3]){
+        donor_match = true;
+        selection.haplotypes_consistent = true;
+    }else if(donor_sequences[0] == donor_sequences[3] && donor_sequences[1] == donor_sequences[2]){
+        donor_match = true;
+        selection.haplotypes_consistent = true;
+    }
+
+    for(int i = 0; i < 2; i++){
+        selection.genome_position[i] = genome_position[i];
+        selection.donor_length[i] = donor_sequences[i].length();
+    }
+
+    if(! donor_match){
+        if(variant_num[0] == separate_var_list[0].size() && variant_num[1] == separate_var_list[1].size()) return -1;
+        selection.haplotypes_consistent = false;
+        bool prefix_match = false;
+        if(PrefixMatch(donor_sequences[0], donor_sequences[2]) && PrefixMatch(donor_sequences[1], donor_sequences[3])){
+            prefix_match = true;
+        }else if(PrefixMatch(donor_sequences[0], donor_sequences[3]) && PrefixMatch(donor_sequences[1], donor_sequences[2])){
+            prefix_match = true;
+        }
+        if(prefix_match){
+            return 1;
+        }else{
+            return -1;
+        }
+    }
+
+    if(genome_position[0]!=genome_position[1]) return 1;
+
+    if(variant_num[0] == separate_var_list[0].size() && variant_num[1] == separate_var_list[1].size()){
+        // achieve whole genome
+        return 3;
+    }
+    // cut only when not reach the end
+    // set min_donor_length
+    // set need_variant = true, because you did not use up all variants
+    return 2;
+}
+
+int DiploidVCF::ExtendingDonorSequences(vector<DiploidVariant> separate_var_list[],
+                                      VariantSelection & selection,
+                                      const string & subsequence,
+                                      int offset,
+                                      int flag){
+    int genome_position[2] = {0, 0};
+    int pos_lower_bound[2] = {0, 0}; // exclusive
+    int pos_upper_bound[2] = {0, 0}; // exclusive
+
+    int variant_num[2];
+    bool consider_all_variants = true;
+    for(int i = 0; i < 2; i++){
+        variant_num[i] = (int)selection.phasing_vectors[i].size();
+
+        if(variant_num[i] == 0){
+            pos_lower_bound[i] = 0;
+        }else{
+            DiploidVariant lower_variant = separate_var_list[i][variant_num[i]-1];
+            pos_lower_bound[i] = (lower_variant.pos - offset) + lower_variant.ref.length();
+        }
+
+        if(variant_num[i] < separate_var_list[i].size()){
+            consider_all_variants = false;
+            pos_upper_bound[i] = separate_var_list[i][variant_num[i]].pos - offset;
+        }else{
+            if(selection.separate_score[i] == 0){
+                return -1;
+            }
+            pos_upper_bound[i] = (int)subsequence.length();
+        }
+        //if(pos_upper_bound[i] < pos_lower_bound[i]) pos_upper_bound[i] = pos_lower_bound[i];
+//        dout << i << " lower bound:" << pos_lower_bound[i] << endl;
+//        dout << i << " upper bound:" << pos_upper_bound[i] << endl;
+    }
+
+    if(min(pos_upper_bound[0], pos_upper_bound[1]) - max(pos_lower_bound[0], pos_lower_bound[1]) >= 0){
+        genome_position[0] = min(pos_upper_bound[0], pos_upper_bound[1]);
+        genome_position[1] = genome_position[0];
+    }else{
+        genome_position[0] = pos_upper_bound[0];
+        genome_position[1] = pos_upper_bound[1];
+    }
+
+    for(int i = 0; i < 2; i++){
+        // also consider overlap variants here
+        int pre_start = selection.genome_position[i];
+        if(i!=flag){
+            if(pre_start == genome_position[i]) continue;
+
+            if(pre_start > genome_position[i]){
+                int cut_len = pre_start - genome_position[i];
+                selection.donor_sequences[i*2] = selection.donor_sequences[i*2].substr(0, selection.donor_sequences[i*2].length()-cut_len);
+                selection.donor_sequences[i*2+1] = selection.donor_sequences[i*2+1].substr(0, selection.donor_sequences[i*2+1].length()-cut_len);
+            }else{
+                string post_s = subsequence.substr(pre_start, genome_position[i]-pre_start);
+                selection.donor_sequences[i*2] += post_s;
+                selection.donor_sequences[i*2+1] += post_s;
+            }
+            selection.genome_position[i] = genome_position[i];
+        }else{
+            int last_i = variant_num[i]-1;
+            DiploidVariant last_v = separate_var_list[i][last_i];
+            int last_phase = selection.phasing_vectors[i][last_i];
+            int pre_end = last_v.pos - offset;
+            int post_start = pre_end + last_v.ref.length();
+            if(pre_end < pre_start){
+                dout << "error when extend donor sequence" << endl;
+                return -1;
+            }
+
+            int post_end = genome_position[i];
+            if(post_end < post_start){
+                selection.overlap_detected = true;
+                genome_position[i] = post_start;
+                post_end = post_start;
+            }
+
+            string var_ref = last_v.ref;
+            string one_alt = var_ref;
+            string other_alt = var_ref;
+            if(last_phase == 0){
+                one_alt = last_v.alts[0];
+                if(last_v.multi_alts){
+                    other_alt = last_v.alts[1];
+                }else if(!last_v.heterozygous){
+                    other_alt = one_alt;
+                }
+            }else if(last_phase == 1){
+                if(last_v.multi_alts){
+                    one_alt = last_v.alts[1];
+                }
+                other_alt = last_v.alts[0];
+            }
+
+            string pre_string = subsequence.substr(pre_start, pre_end-pre_start);
+            string post_string = subsequence.substr(post_start, post_end - post_start);
+            selection.donor_sequences[i*2] += pre_string + one_alt + post_string;
+            selection.donor_sequences[i*2+1] += pre_string + other_alt + post_string;
+
+            selection.genome_position[i] = genome_position[i];
+        }
+    }
+
+    bool same_genome_position = false;
+    if(genome_position[0]==genome_position[1]) same_genome_position = true;
+
+    if(same_genome_position){
+        selection.min_genome_pos = genome_position[0];
+    }else{
+        selection.min_genome_pos = min(genome_position[0], genome_position[1]);
+    }
+
+    for(int i = 0; i < 2; i++){
+        selection.donor_length[i] = selection.donor_sequences[i].length();
+    }
+
+    bool donor_match = false;
+
+    if(same_genome_position){
+        if(selection.donor_sequences[0] == selection.donor_sequences[2] && selection.donor_sequences[1] == selection.donor_sequences[3]){
+            donor_match = true;
+            selection.haplotypes_consistent = true;
+        }
+        else if(selection.donor_sequences[0] == selection.donor_sequences[3] && selection.donor_sequences[1] == selection.donor_sequences[2]){
+            donor_match = true;
+            selection.haplotypes_consistent = true;
+        }
+    }
+
+    // matching prefix is actually not necessary, we can postpone until we get the same sequence length
+    if(! donor_match){
+        if(consider_all_variants) return -1;
+
+        selection.haplotypes_consistent = false;
+        bool prefix_match = false;
+        if(PrefixMatch(selection.donor_sequences[0], selection.donor_sequences[2]) && PrefixMatch(selection.donor_sequences[1], selection.donor_sequences[3])){
+            prefix_match = true;
+        }
+        else if(PrefixMatch(selection.donor_sequences[0], selection.donor_sequences[3]) && PrefixMatch(selection.donor_sequences[1], selection.donor_sequences[2])){
+            prefix_match = true;
+        }
+        if(prefix_match){
+//            if(same_genome_position){
+//                return 4;
+//            }
+            return 1;
+        }else{
+            return -1;
+        }
+    }
+
+    if(consider_all_variants){
+        return 3;
+    }
+
     return 2;
 }
 
@@ -1135,20 +1514,64 @@ bool DiploidVCF::AddVariantToSelection(list<VariantSelection> & variant_selectio
     int variant_pos = variant.pos;
     selection.pos_vectors[flag].push_back(variant_pos);
     selection.phasing_vectors[flag].push_back(haplotype);
+
+
     // $ did not add this function to VariantSelection to reduce memory usage
     // set selection.need_variant = false, add it directly into list
     if(haplotype != -1){
         selection.score++;
         selection.separate_score[flag] ++;
+    }else{
+        flag = -1;
     }
     // insert in the order of min donor length
-    string donor_sequences[4];
     int consistent_state = 0;
-    consistent_state = CheckDonorSequences(separate_var_list,
-                                      selection,
-                                      subsequence,
-                                      offset,
-                                      donor_sequences);
+    //check overlap
+
+    if(selection.overlap_detected){
+        //naive way of checking overlaps
+//        for(int i = 0; i < 2; i++){
+//            int largest_pos = 0;
+//            DiploidVariant largest_var;
+//            for(int k = 0; k < selection.phasing_vectors[i].size(); k++){
+//                int phasing = selection.phasing_vectors[i][k];
+//                if(phasing == -1) continue;
+//                DiploidVariant var = separate_var_list[i][k];
+//                int var_end = var.pos+var.ref.length();
+//                if(var.pos < largest_pos-3){
+//                    // two conditions
+//                    if(var.mdl != 0 || var.mil != 0){
+//                        if(largest_var.mdl != 0 || largest_var.mil != 0){
+//                            return false;
+//                        }
+//                    }
+//                    //if(var.pos = largest_var.pos) return false;
+//                }
+//                if(largest_pos < var_end){
+//                    largest_pos = var_end;
+//                    largest_var = var;
+//                }
+//            }
+//        }
+
+        string donor_sequences[4];
+        consistent_state = CheckDonorSequences(separate_var_list,
+                                             selection,
+                                             subsequence,
+                                             offset,
+                                             donor_sequences);
+        for(int i = 0; i < 4; i++)
+            selection.donor_sequences[i] = donor_sequences[i];
+    }else{
+        consistent_state = ExtendingDonorSequences(separate_var_list,
+                                          selection,
+                                          subsequence,
+                                          offset,
+                                          flag);
+    }
+
+    //PrintSelection(selection);
+
     // there are 4 state:
     // 0. not match and not prefix match, do not add, return -1
     // 1. not match but prefix match, just add, return 1
@@ -1163,19 +1586,25 @@ bool DiploidVCF::AddVariantToSelection(list<VariantSelection> & variant_selectio
 //        cout << donor_sequences[1] << endl;
 //        cout << donor_sequences[2] << endl;
 //        cout << donor_sequences[3] << endl;
-        bool inserted = false;
-        for(auto it = variant_selections.begin(); it != variant_selections.end(); ++it){
-            if(it->min_genome_pos > selection.min_genome_pos){
-                variant_selections.insert(it, selection);
-                inserted = true;
-                break;
-            }
-        }
-        if(!inserted){ // did not find a proper position to insert
-            variant_selections.push_back(selection);
-        }
+//        bool inserted = false;
+//        for(auto it = variant_selections.begin(); it != variant_selections.end(); ++it){
+//            if(it->min_genome_pos > selection.min_genome_pos){
+//                variant_selections.insert(it, selection);
+//                inserted = true;
+//                break;
+//            }
+//        }
+//        if(!inserted){ // did not find a proper position to insert
+//            variant_selections.push_back(selection);
+//        }
+        auto it = upper_bound(variant_selections.begin(), variant_selections.end(), selection);
+        variant_selections.insert(it, selection);
         return true;
     }
+
+//    if(consistent_state == 4){
+//        return CollapsePrefixMatchSelection(selection, variant_selections);
+//    }
 
     if(consistent_state == 2){
 
@@ -1184,7 +1613,7 @@ bool DiploidVCF::AddVariantToSelection(list<VariantSelection> & variant_selectio
 //        cout << donor_sequences[1] << endl;
 //        cout << donor_sequences[2] << endl;
 //        cout << donor_sequences[3] << endl;
-        return CollapseSelections(selection,
+        return CollapseSelections(selection,  // you can only collapse one selection at a time
                         variant_selections);
 
     }
@@ -1203,8 +1632,7 @@ bool DiploidVCF::AddVariantToSelection(list<VariantSelection> & variant_selectio
     return false;
 }
 
-// code review by Chen on 04/15/2016, unit test
-bool DiploidVCF::CollapseSelections(VariantSelection & selection,
+bool DiploidVCF::CollapsePrefixMatchSelection(VariantSelection selection,
                                     list<VariantSelection> & variant_selections){
     bool need_insert = false;
     for(auto it = variant_selections.begin(); it != variant_selections.end(); ){
@@ -1216,11 +1644,13 @@ bool DiploidVCF::CollapseSelections(VariantSelection & selection,
         if(ts.min_genome_pos > selection.min_genome_pos){
             variant_selections.insert(it, selection);
             return true;
-        }else if(ts.haplotypes_consistent &&
-                ts.genome_position[0] == selection.genome_position[0] &&
-                ts.genome_position[1] == selection.genome_position[1] &&
-                ( (ts.donor_length[0] == selection.donor_length[0] && ts.donor_length[1] == selection.donor_length[1]) ||
-                  (ts.donor_length[1] == selection.donor_length[0] && ts.donor_length[0] == selection.donor_length[1]) ) ){
+        }else if(ts.min_genome_pos == selection.min_genome_pos &&
+                ts.genome_position[0] == ts.genome_position[1] && // also same genome position
+                ts.donor_sequences[0] == selection.donor_sequences[0] &&
+                ts.donor_sequences[1] == selection.donor_sequences[1] &&
+                ts.donor_sequences[2] == selection.donor_sequences[2] &&
+                ts.donor_sequences[3] == selection.donor_sequences[3] )
+        {
             if(ts.score < selection.score){
                 it = variant_selections.erase(it);
                 need_insert = true;
@@ -1232,16 +1662,326 @@ bool DiploidVCF::CollapseSelections(VariantSelection & selection,
             ++it;
         }
     }
-    variant_selections.push_back(selection);
+    variant_selections.push_back(selection); // finally we need to insert
     return true;
+}
+
+// code review by Chen on 04/15/2016, unit test
+bool DiploidVCF::CollapseSelections(VariantSelection selection,
+                                    list<VariantSelection> & variant_selections){
+//    bool need_insert = false;
+//    for(auto it = variant_selections.begin(); it != variant_selections.end(); ){
+//        if(need_insert){
+//            variant_selections.insert(it, selection);
+//            return true;
+//        }
+//        VariantSelection ts = *it;
+//        if(ts.min_genome_pos > selection.min_genome_pos){
+//            variant_selections.insert(it, selection);
+//            return true;
+//        }else if(ts.haplotypes_consistent &&
+//                ts.genome_position[0] == selection.genome_position[0] &&
+//                ts.genome_position[1] == selection.genome_position[1] &&
+//                ( (ts.donor_length[0] == selection.donor_length[0] && ts.donor_length[1] == selection.donor_length[1]) ||
+//                  (ts.donor_length[1] == selection.donor_length[0] && ts.donor_length[0] == selection.donor_length[1]) ) ){
+//            if(ts.score < selection.score){
+//                it = variant_selections.erase(it);
+//                need_insert = true;
+//                continue;
+//            }else{
+//                return false;
+//            }
+//        }else{
+//            ++it;
+//        }
+//    }
+//    variant_selections.push_back(selection);
+//    return true;
+    auto lt = lower_bound(variant_selections.begin(), variant_selections.end(), selection);
+    auto rt = upper_bound(lt, variant_selections.end(), selection);
+    // lower bound is ret.first
+    // upper bound is ret.second
+
+    if(lt == variant_selections.end() || lt->min_genome_pos != selection.min_genome_pos){
+        variant_selections.insert(rt, selection);
+        return true;
+    }else{
+        for(auto it = lt; it!= rt;){
+            VariantSelection ts = *it;
+            if(ts.haplotypes_consistent &&
+                ts.genome_position[0] == selection.genome_position[0] &&
+                ts.genome_position[1] == selection.genome_position[1] &&
+                ( (ts.donor_length[0] == selection.donor_length[0] && ts.donor_length[1] == selection.donor_length[1]) ||
+                  (ts.donor_length[1] == selection.donor_length[0] && ts.donor_length[0] == selection.donor_length[1]) ) )
+            {
+                if(ts.score < selection.score){
+                    it = variant_selections.erase(it);
+                    variant_selections.insert(it, selection);
+                    return true;
+                }else{
+                    return false;
+                }
+            }else{
+                ++it;
+            }
+        }
+
+        // here, iterate all candidates, not found match, directly insert
+        variant_selections.insert(rt, selection);
+        return true;
+    }
+
 }
 
 // code reviewed by Chen on 04/15/2016
 // [TODO] unit test
 
+bool DiploidVCF::AcceleratedVariantMatchPathCreation(vector<DiploidVariant> & variant_list, int thread_index, int cluster_id){
+    if(variant_list.size() <= 1) return false;
+    sort(variant_list.begin(), variant_list.end()); // here we need to sort
+    vector<DiploidVariant> separate_var_list[2];
+	// separate into ref and que
+	int total_mil = 0;
+	int total_mdl = 0;
+	int min_pos = genome_sequence.length() + 1;
+	int max_pos = -1;
+	for (int i = 0; i < variant_list.size(); i++) {
+		int flag = variant_list[i].flag; // flag indicate if the variant is from ref set(0) or query set(1)
+		int pos = variant_list[i].pos;
+		separate_var_list[flag].push_back(variant_list[i]);
+		total_mil += variant_list[i].mil;
+		total_mdl += variant_list[i].mdl;
+		auto ref_sequence = variant_list[i].ref;
+		auto alt_sequences = variant_list[i].alts;
+		min_pos = min(pos, min_pos);
+		max_pos = max((int)(pos + ref_sequence.length()), max_pos);
+	}
+	min_pos = max(min_pos - 1, 0);
+	max_pos = min(max_pos + 1, (int)genome_sequence.length()); //exclusive
+	if (separate_var_list[0].size() == 0 || separate_var_list[1].size() == 0) {
+		return false;
+	}
+	if (separate_var_list[0].size() == 1 && separate_var_list[1].size() == 1){
+        // try direct match to save time
+        if(separate_var_list[0][0] == separate_var_list[1][0]){
+            complex_ref_match_num[thread_index]++;
+            complex_que_match_num[thread_index]++;
+
+            DiploidVariant tv = separate_var_list[0][0];
+            string match_record = to_string(tv.pos) + "\t" + tv.ref + "\t" + tv.alts[0];
+            if(tv.multi_alts) match_record += "/" + tv.alts[1];
+            match_record += "\t.\t.\t.\t.\t.\n";
+            complex_match_records[thread_index]->push_back(match_record);
+            // output match result
+            return true;
+        }
+        // if not match, still can match by changing genome
+	}else if(separate_var_list[0].size() == 1 || separate_var_list[1].size() == 1){
+        int flag = 0;
+        if(separate_var_list[1].size() == 1) flag = 1;
+        int r_flag = 1-flag;
+        if(separate_var_list[r_flag].size() > 4){
+            int total_r_mdl = 0;
+            int total_r_mil = 0;
+
+            for(int k = 0; k < separate_var_list[r_flag].size(); k++){
+                DiploidVariant var = separate_var_list[r_flag][k];
+                int var_mdl = var.mdl;
+                int var_mil = var.mil;
+                int ref_length = var.ref.length();
+                total_r_mdl += var_mdl;
+                total_r_mil += var_mil;
+            }
+
+            if(max(separate_var_list[flag][0].mdl, separate_var_list[flag][0].mil) > max(total_r_mdl, total_r_mil)) return false;
+        }
+	}
+
+	// remove singular variant
+    vector<bool> appliable_flag[2];
+    int total_change = total_mil+total_mdl;
+    for(int i = 0; i < 2; i++){
+        for(int k = 0; k < separate_var_list[i].size(); k++){
+            DiploidVariant cur_var = separate_var_list[i][k];
+            int max_change = max(cur_var.mil, cur_var.mdl);
+            if(max_change > total_change-max_change){
+                appliable_flag[i].push_back(false);
+            }else{
+                appliable_flag[i].push_back(true);
+            }
+        }
+    }
+
+	string subsequence = genome_sequence.substr(min_pos, max_pos - min_pos);
+	ToUpper(subsequence); // subsequence only contains upper char
+	int offset = min_pos;
+	int subsequence_length = max_pos - min_pos;
+	list<VariantSelection> variant_selections; // sorted by last matched donor length
+	VariantSelection best_selection;
+	VariantSelection dummy;
+
+    bool overlap_detected = false;
+
+    for(int i = 0; i < 2; i++){
+        int largest_pos = 0;
+        for(int k = 0; k < separate_var_list[i].size(); k++){
+            auto var = separate_var_list[i][k];
+            if(var.pos <= largest_pos){
+                overlap_detected = true;
+                break;
+            }
+            largest_pos = max(largest_pos, (int)(var.pos+var.ref.length()));
+        }
+        if(overlap_detected) break;
+    }
+    dummy.overlap_detected = overlap_detected;
+
+    variant_selections.push_back(dummy);
+
+    map<string, int> score_by_consistent_donor; // donor should be sorted
+
+    while(variant_selections.size() != 0){
+        VariantSelection current_selection = variant_selections.front();
+        variant_selections.pop_front();
+
+        bool get_ref_var = true;
+        int ref_var_taken = current_selection.phasing_vectors[0].size();
+        int que_var_taken = current_selection.phasing_vectors[1].size();
+        if(ref_var_taken >= separate_var_list[0].size()){
+            get_ref_var = false;
+        }else if(que_var_taken < separate_var_list[1].size()){
+              if(current_selection.genome_position[0] > current_selection.genome_position[1]){
+                get_ref_var = false;
+              }else if( current_selection.genome_position[0] == current_selection.genome_position[1]){
+                if(min(current_selection.donor_length[0], current_selection.donor_length[1]) > min(current_selection.donor_length[2], current_selection.donor_length[3])){
+                    get_ref_var = false;
+                }
+              }
+        }
+
+        DiploidVariant current_variant;
+        bool can_take_variant = true;
+        if(get_ref_var){
+            can_take_variant = appliable_flag[0][ref_var_taken];
+            current_variant = separate_var_list[0][ref_var_taken];
+        }else{
+            can_take_variant = appliable_flag[1][que_var_taken];
+            current_variant = separate_var_list[1][que_var_taken];
+        }
+
+        int current_flag = current_variant.flag;
+
+//            cout << "current selection" << endl;
+//            PrintSelection(current_selection);
+//            cout << "add variant";
+//            PrintVariant(current_variant);
+
+        bool added = false;
+        // make choose decision before not choose decision, save del times
+        if(can_take_variant){
+            added = AddVariantToSelection(variant_selections,
+                                current_selection,
+                                current_variant,
+                                0,
+                                separate_var_list,
+                                subsequence,
+                                offset,
+                                best_selection);
+    //            cout << "added state : " << added << endl;
+    //            PrintSelectionsList(variant_selections);
+
+            if(current_variant.heterozygous){
+                added = AddVariantToSelection(variant_selections,
+                                    current_selection,
+                                    current_variant,
+                                    1,
+                                    separate_var_list,
+                                    subsequence,
+                                    offset,
+                                    best_selection);
+    //                cout << "added state : " << added << endl;
+    //                PrintSelectionsList(variant_selections);
+            }
+        }
+
+       added= AddVariantToSelection(variant_selections,
+                            current_selection,
+                            current_variant,
+                            -1,
+                            separate_var_list,
+                            subsequence,
+                            offset,
+                            best_selection);
+//            cout << "added state : " << added << endl;
+//            PrintSelectionsList(variant_selections);
+
+    }
+//    dout << best_selection.score << endl;
+    if (best_selection.score <= 0) return false;
+//    cout << "best selection: " << endl;
+//    PrintSelection(best_selection);
+    complex_ref_match_num[thread_index] += best_selection.separate_score[0];
+    complex_que_match_num[thread_index] += best_selection.separate_score[1];
+
+    bool multiple_match = true;
+    if(best_selection.donor_sequences[0] == best_selection.donor_sequences[1]) multiple_match = true;
+    string match_record = to_string(offset) + "\t" + subsequence + "\t" + best_selection.donor_sequences[0];
+    if(multiple_match) match_record += "/" + best_selection.donor_sequences[1];
+    string vcf_record[2];
+    string phasing_record[2];
+
+	for (int i = 0; i < 2; i++) {
+		auto final_iter = separate_var_list[i].size()-1;
+		vector<int> phasing_vector = best_selection.phasing_vectors[i];
+		for (int k = 0; k < separate_var_list[i].size(); k++) {
+            int phasing = phasing_vector[k];
+            if(phasing == -1) continue;
+            DiploidVariant variant = separate_var_list[i][k];
+            string alt_string = variant.alts[0];
+            if(variant.multi_alts){
+                alt_string += "/" + variant.alts[1];
+            }
+            string phasing_string = "";
+            if(phasing == 0){
+                phasing_string += "1";
+                if(variant.heterozygous){
+                    if(variant.multi_alts){
+                        phasing_string += "|2";
+                    }else{
+                        phasing_string += "|0";
+                    }
+                }else{
+                    phasing_string += "|1";
+                }
+            }else if(phasing == 1){
+                if(variant.multi_alts){
+                    phasing_string += "2|1";
+                }else{
+                    phasing_string += "0|1";
+                }
+            }
+            string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
+            vcf_record[i] += variant_record;
+            phasing_record[i] += phasing_string;
+            if (k != final_iter) {
+                vcf_record[i] += ";";
+                phasing_record[i] += ";";
+            }
+		}
+	}
+	match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
+    match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
+	match_record += "\t" + to_string(best_selection.score) + "\n";
+
+	complex_match_records[thread_index]->push_back(match_record);
+    // add matching result
+
+    return true;
+}
+
 bool DiploidVCF::VariantMatchPathCreation(vector<DiploidVariant> & variant_list, int thread_index, int cluster_id){
     if(variant_list.size() <= 1) return false;
-    sort(variant_list.begin(), variant_list.end());
+    sort(variant_list.begin(), variant_list.end()); // here we need to sort
     vector<DiploidVariant> separate_var_list[2];
 	// separate into ref and que
 	int min_pos = genome_sequence.length() + 1;
@@ -1265,6 +2005,13 @@ bool DiploidVCF::VariantMatchPathCreation(vector<DiploidVariant> & variant_list,
         if(separate_var_list[0][0] == separate_var_list[1][0]){
             complex_ref_match_num[thread_index]++;
             complex_que_match_num[thread_index]++;
+
+            DiploidVariant tv = separate_var_list[0][0];
+            string match_record = to_string(tv.pos) + "\t" + tv.ref + "\t" + tv.alts[0];
+            if(tv.multi_alts) match_record += "/" + tv.alts[1];
+            match_record += "\t.\t.\t.\t.\t.\n";
+            complex_match_records[thread_index]->push_back(match_record);
+            // output match result
             return true;
         }
         // if not match, still can match by changing genome
@@ -1342,6 +2089,274 @@ bool DiploidVCF::VariantMatchPathCreation(vector<DiploidVariant> & variant_list,
 //    PrintSelection(best_selection);
     complex_ref_match_num[thread_index] += best_selection.separate_score[0];
     complex_que_match_num[thread_index] += best_selection.separate_score[1];
+
+    bool multiple_match = true;
+    if(best_selection.donor_sequences[0] == best_selection.donor_sequences[1]) multiple_match = true;
+    string match_record = to_string(offset) + "\t" + subsequence + "\t" + best_selection.donor_sequences[0];
+    if(multiple_match) match_record += "/" + best_selection.donor_sequences[1];
+    string vcf_record[2];
+    string phasing_record[2];
+
+	for (int i = 0; i < 2; i++) {
+		auto final_iter = separate_var_list[i].size()-1;
+		vector<int> phasing_vector = best_selection.phasing_vectors[i];
+		for (int k = 0; k < separate_var_list[i].size(); k++) {
+            int phasing = phasing_vector[k];
+            if(phasing == -1) continue;
+            DiploidVariant variant = separate_var_list[i][k];
+            string alt_string = variant.alts[0];
+            if(variant.multi_alts){
+                alt_string += "/" + variant.alts[1];
+            }
+            string phasing_string = "";
+            if(phasing == 0){
+                phasing_string += "1";
+                if(variant.heterozygous){
+                    if(variant.multi_alts){
+                        phasing_string += "|2";
+                    }else{
+                        phasing_string += "|0";
+                    }
+                }else{
+                    phasing_string += "|1";
+                }
+            }else if(phasing == 1){
+                if(variant.multi_alts){
+                    phasing_string += "2|1";
+                }else{
+                    phasing_string += "0|1";
+                }
+            }
+            string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
+            vcf_record[i] += variant_record;
+            phasing_record[i] += phasing_string;
+            if (k != final_iter) {
+                vcf_record[i] += ";";
+                phasing_record[i] += ";";
+            }
+		}
+	}
+	match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
+    match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
+	match_record += "\t" + to_string(best_selection.score) + "\n";
+
+	complex_match_records[thread_index]->push_back(match_record);
+    // add matching result
+    return true;
+}
+
+bool DiploidVCF::VariantMatchPathCreationByDonor(vector<DiploidVariant> & variant_list, int thread_index, int cluster_id){
+    if(variant_list.size() <= 1) return false;
+    sort(variant_list.begin(), variant_list.end()); // here we need to sort
+    vector<DiploidVariant> separate_var_list[2];
+	// separate into ref and que
+	int min_pos = genome_sequence.length() + 1;
+	int max_pos = -1;
+	for (int i = 0; i < variant_list.size(); i++) {
+		int flag = variant_list[i].flag; // flag indicate if the variant is from ref set(0) or query set(1)
+		int pos = variant_list[i].pos;
+		separate_var_list[flag].push_back(variant_list[i]);
+		auto ref_sequence = variant_list[i].ref;
+		auto alt_sequences = variant_list[i].alts;
+		min_pos = min(pos, min_pos);
+		max_pos = max((int)(pos + ref_sequence.length()), max_pos);
+	}
+	min_pos = max(min_pos - 1, 0);
+	max_pos = min(max_pos + 1, (int)genome_sequence.length()); //exclusive
+	if (separate_var_list[0].size() == 0 || separate_var_list[1].size() == 0) {
+		return false;
+	}
+	if (separate_var_list[0].size() == 1 && separate_var_list[1].size() == 1){
+        // try direct match to save time
+        if(separate_var_list[0][0] == separate_var_list[1][0]){
+            complex_ref_match_num[thread_index]++;
+            complex_que_match_num[thread_index]++;
+
+            DiploidVariant tv = separate_var_list[0][0];
+            string match_record = to_string(tv.pos) + "\t" + tv.ref + "\t" + tv.alts[0];
+            if(tv.multi_alts) match_record += "/" + tv.alts[1];
+            match_record += "\t.\t.\t.\t.\t.\n";
+            complex_match_records[thread_index]->push_back(match_record);
+            // output match result
+            return true;
+        }
+        // if not match, still can match by changing genome
+	}else if(separate_var_list[0].size() == 1 || separate_var_list[1].size() == 1){
+        int flag = 0;
+        if(separate_var_list[1].size() == 1) flag = 1;
+        int r_flag = 1-flag;
+        if(separate_var_list[r_flag].size() > 4){
+            int total_r_mdl = 0;
+            int total_r_mil = 0;
+
+            for(int k = 0; k < separate_var_list[r_flag].size(); k++){
+                DiploidVariant var = separate_var_list[r_flag][k];
+                int var_mdl = var.mdl;
+                int var_mil = var.mil;
+                int ref_length = var.ref.length();
+                total_r_mdl += var_mdl;
+                total_r_mil += var_mil;
+            }
+            if(max(separate_var_list[flag][0].mdl, separate_var_list[flag][0].mil) > max(total_r_mdl, total_r_mil)) return false;
+        }
+	}
+	string subsequence = genome_sequence.substr(min_pos, max_pos - min_pos);
+	ToUpper(subsequence); // subsequence only contains upper char
+	int offset = min_pos;
+	int subsequence_length = max_pos - min_pos;
+	list<VariantSelection> variant_selections; // sorted by last matched donor length
+	VariantSelection best_selection;
+
+	bool overlap_detected = false;
+
+    for(int i = 0; i < 2; i++){
+        int largest_pos = 0;
+        for(int k = 0; k < separate_var_list[i].size(); k++){
+            auto var = separate_var_list[i][k];
+            if(var.pos < largest_pos && var.pos+var.ref.length() > largest_pos){
+                overlap_detected = true;
+                break;
+            }
+            largest_pos = max(largest_pos, (int)(var.pos+var.ref.length()));
+        }
+        if(overlap_detected) break;
+    }
+
+
+	VariantSelection dummy;
+	dummy.overlap_detected = overlap_detected;
+
+    variant_selections.push_back(dummy);
+    map<string, int> score_by_consistent_donor; // donor should be sorted
+
+    while(variant_selections.size() != 0){
+        VariantSelection current_selection = variant_selections.front();
+        variant_selections.pop_front();
+        // all variants has been evaluated, need new variant
+        int previous_var_index = current_selection.cur_var;
+        if(previous_var_index < (int)variant_list.size()-1){
+
+            bool choose_ref = true;
+            int min_ref_donor = min(current_selection.donor_sequences[0].length(), current_selection.donor_sequences[1].length());
+            int min_que_donor = min(current_selection.donor_sequences[2].length(), current_selection.donor_sequences[3].length());
+            if(min_ref_donor > min_que_donor && current_selection.phasing_vectors[1].size() < separate_var_list[1].size()){
+                choose_ref = false;
+            }
+            if(current_selection.phasing_vectors[0].size() >= separate_var_list[0].size()){
+                choose_ref = false;
+            }
+            DiploidVariant current_variant;
+            if(choose_ref){
+                current_variant = separate_var_list[0][current_selection.phasing_vectors[0].size()];
+            }else{
+                current_variant = separate_var_list[1][current_selection.phasing_vectors[1].size()];
+            }
+
+            current_selection.cur_var++;
+            int current_flag = current_variant.flag;
+
+//            cout << "current selection" << endl;
+//            PrintSelection(current_selection);
+//            cout << "add variant";
+//            PrintVariant(current_variant);
+
+            bool added = false;
+            // make choose decision before not choose decision, save del times
+            added = AddVariantToSelection(variant_selections,
+                                current_selection,
+                                current_variant,
+                                0,
+                                separate_var_list,
+                                subsequence,
+                                offset,
+                                best_selection);
+//            cout << "added state : " << added << endl;
+//            PrintSelectionsList(variant_selections);
+
+            if(current_variant.heterozygous){
+                added = AddVariantToSelection(variant_selections,
+                                    current_selection,
+                                    current_variant,
+                                    1,
+                                    separate_var_list,
+                                    subsequence,
+                                    offset,
+                                    best_selection);
+//                cout << "added state : " << added << endl;
+//                PrintSelectionsList(variant_selections);
+            }
+
+           added= AddVariantToSelection(variant_selections,
+                                current_selection,
+                                current_variant,
+                                -1,
+                                separate_var_list,
+                                subsequence,
+                                offset,
+                                best_selection);
+//            cout << "added state : " << added << endl;
+//            PrintSelectionsList(variant_selections);
+        }
+    }
+//    dout << best_selection.score << endl;
+    if (best_selection.score <= 0) return false;
+//    cout << "best selection: " << endl;
+//    PrintSelection(best_selection);
+    complex_ref_match_num[thread_index] += best_selection.separate_score[0];
+    complex_que_match_num[thread_index] += best_selection.separate_score[1];
+
+    bool multiple_match = true;
+    if(best_selection.donor_sequences[0] == best_selection.donor_sequences[1]) multiple_match = true;
+    string match_record = to_string(offset) + "\t" + subsequence + "\t" + best_selection.donor_sequences[0];
+    if(multiple_match) match_record += "/" + best_selection.donor_sequences[1];
+    string vcf_record[2];
+    string phasing_record[2];
+
+	for (int i = 0; i < 2; i++) {
+		auto final_iter = separate_var_list[i].size()-1;
+		vector<int> phasing_vector = best_selection.phasing_vectors[i];
+		for (int k = 0; k < separate_var_list[i].size(); k++) {
+            int phasing = phasing_vector[k];
+            if(phasing == -1) continue;
+            DiploidVariant variant = separate_var_list[i][k];
+            string alt_string = variant.alts[0];
+            if(variant.multi_alts){
+                alt_string += "/" + variant.alts[1];
+            }
+            string phasing_string = "";
+            if(phasing == 0){
+                phasing_string += "1";
+                if(variant.heterozygous){
+                    if(variant.multi_alts){
+                        phasing_string += "|2";
+                    }else{
+                        phasing_string += "|0";
+                    }
+                }else{
+                    phasing_string += "|1";
+                }
+            }else if(phasing == 1){
+                if(variant.multi_alts){
+                    phasing_string += "2|1";
+                }else{
+                    phasing_string += "0|1";
+                }
+            }
+            string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
+            vcf_record[i] += variant_record;
+            phasing_record[i] += phasing_string;
+            if (k != final_iter) {
+                vcf_record[i] += ";";
+                phasing_record[i] += ";";
+            }
+		}
+	}
+	match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
+    match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
+	match_record += "\t" + to_string(best_selection.score) + "\n";
+
+	complex_match_records[thread_index]->push_back(match_record);
+    // add matching result
     return true;
 }
 
@@ -1994,23 +3009,23 @@ void DiploidVCF::ModifyRefMultiVar(const string & genome,
 }
 
 int DiploidVCF::test() {
-	genome_sequence = "GTCAGCCGG";
-	DiploidVariant d1(1, "T", vector<string> ({"A", "C"}), "1/2", true, true, 0);
-	DiploidVariant d2(4, "G", vector<string> ({"C", ""}), "0/1", true, false, 0);
-	DiploidVariant d3(5, "C", vector<string> ({"T", ""}), "0/1", true, false, 0); // this is false negative
-	DiploidVariant d4(6, "C", vector<string> ({"G", ""}), "0/1", true, false, 0);
-	DiploidVariant d5(7, "G", vector<string> ({"A", ""}), "0/1", true, false, 0);
-	DiploidVariant d6(1, "T", vector<string> ({"A", "C"}), "1/2", true, true, 1);
-	DiploidVariant d7(3, "AG", vector<string> ({"A", ""}), "0/1", true, false, 1);
-	DiploidVariant d8(7, "G", vector<string> ({"GA", ""}), "0/1", true, false, 1);
-
-    complex_ref_match_num.push_back(0);
-    complex_que_match_num.push_back(0);
-    complex_match_records = new vector<string>*[1];
-    complex_match_records[0] = new vector<string>;
-	//vector<DiploidVariant> var_list = { d2,d3,d4,d5,d7,d8 };
-	vector<DiploidVariant> var_list = { d1,d2,d3,d4,d5,d6,d7,d8 };
-	cout << VariantMatchPathCreation(var_list, 0,0) << endl;
+//	genome_sequence = "GTCAGCCGG";
+//	DiploidVariant d1(1, "T", vector<string> ({"A", "C"}), true, true, 0);
+//	DiploidVariant d2(4, "G", vector<string> ({"C", ""}), true, false, 0);
+//	DiploidVariant d3(5, "C", vector<string> ({"T", ""}), true, false, 0); // this is false negative
+//	DiploidVariant d4(6, "C", vector<string> ({"G", ""}), true, false, 0);
+//	DiploidVariant d5(7, "G", vector<string> ({"A", ""}), true, false, 0);
+//	DiploidVariant d6(1, "T", vector<string> ({"A", "C"}), true, true, 1);
+//	DiploidVariant d7(3, "AG", vector<string> ({"A", ""}), true, false, 1);
+//	DiploidVariant d8(7, "G", vector<string> ({"GA", ""}), true, false, 1);
+//
+//    complex_ref_match_num.push_back(0);
+//    complex_que_match_num.push_back(0);
+//    complex_match_records = new vector<string>*[1];
+//    complex_match_records[0] = new vector<string>;
+//	//vector<DiploidVariant> var_list = { d2,d3,d4,d5,d7,d8 };
+//	vector<DiploidVariant> var_list = { d1,d2,d3,d4,d5,d6,d7,d8 };
+//	cout << VariantMatchPathCreation(var_list, 0,0) << endl;
 	return 0;
 }
 
@@ -2132,7 +3147,8 @@ void DiploidVCF::LinearClusteringVariants() {
 	int del_len[2] = { 0 };
 	int c_start = 0;
 	int c_end = 0;
-
+    sort(ref_variant_list.begin(), ref_variant_list.end());
+    sort(que_variant_list.begin(), que_variant_list.end());
     int ref_size = ref_variant_list.size();
     int que_size = que_variant_list.size();
 
@@ -2152,12 +3168,13 @@ void DiploidVCF::LinearClusteringVariants() {
 
 		if(take_que){
             snp = que_variant_list[que_index];
+            //cout << "q |" << que_index << "," << snp.pos << endl;
             que_index++;
 		}else{
             snp = ref_variant_list[ref_index];
+            //cout << "r |" << ref_index << "," << snp.pos << endl;
             ref_index++;
 		}
-
 		// check if need to separator clusters
 		if (not_first) {
 			c_end = snp.pos;
@@ -2189,6 +3206,87 @@ void DiploidVCF::LinearClusteringVariants() {
 		c_start = max(c_start, snp.pos + (int)snp.ref.length() );
 
 		// assign snp to cluster
+		if(snp.pos == 142536905) cout << cluster_index << endl;
+		cluster_vars_map[cluster_index].push_back(snp);
+		if(!not_first) not_first = true;
+
+		int ref_length = (int)(snp.ref.length());
+
+		int flag = snp.flag;
+//        DiploidVariant snp = front_cluster[k];
+//        int rq = snp.flag;
+        ins_len[flag] += snp.mil;
+        del_len[flag] += snp.mdl;
+	}
+}
+
+
+void DiploidVCF::ReverseLinearClusteringVariants() {
+	int cluster_index = 0;
+	int ins_len[2] = { 0 };
+	int del_len[2] = { 0 };
+	int c_start = std::numeric_limits<int>::max();
+	int c_end = std::numeric_limits<int>::max();
+
+    sort(ref_variant_list.begin(), ref_variant_list.end());
+    sort(que_variant_list.begin(), que_variant_list.end());
+
+    int ref_size = ref_variant_list.size();
+    int que_size = que_variant_list.size();
+
+    int ref_index = ref_size-1;
+    int que_index = que_size-1;
+    bool not_first = false;
+    DiploidVariant snp;
+    while (ref_index >= 0 || que_index >= 0) {
+		bool take_que = true;
+		if(ref_index >= 0 && que_index >= 0){
+            if(ref_variant_list[ref_index].pos + ref_variant_list[ref_index].ref.size() > que_variant_list[que_index].pos+que_variant_list[que_index].ref.size()){
+                take_que = false;
+            }
+		}else if(ref_index >= 0){
+            take_que = false;
+		}
+
+		if(take_que){
+            snp = que_variant_list[que_index];
+            que_index--;
+		}else{
+            snp = ref_variant_list[ref_index];
+            ref_index--;
+		}
+
+		// check if need to separator clusters
+		if (not_first) {
+			c_start = snp.pos + snp.ref.size();
+			if (c_end - c_start >= 2) {
+                int separator_length = c_end - c_start;
+				string separator = genome_sequence.substr(c_start, separator_length);
+				int max_change = max(ins_len[0] + del_len[1], ins_len[1] + del_len[0]);
+				bool separate_cluster = false;
+				if(max_change == 0){
+                    separate_cluster = true;
+				}
+				else if (separator_length > 2 * max_change &&
+					(separator_length > MAX_REPEAT_LEN || !CheckTandemRepeat(separator, max_change)))
+				{
+				    separate_cluster = true;
+
+				}
+
+				if(separate_cluster){
+                    cluster_index++;
+					ins_len[0] = 0;
+					del_len[0] = 0;
+					ins_len[1] = 0;
+					del_len[1] = 0;
+					c_end = std::numeric_limits<int>::max(); // re-assign c_start
+				}
+			}
+		}
+		c_end = min(c_end, snp.pos);
+
+		// assign snp to cluster
 		//if(snp.pos == -1) cout << "@@@@@@@@@@@@@" << endl;
 		cluster_vars_map[cluster_index].push_back(snp);
 		if(!not_first) not_first = true;
@@ -2198,16 +3296,11 @@ void DiploidVCF::LinearClusteringVariants() {
 		int flag = snp.flag;
 //        DiploidVariant snp = front_cluster[k];
 //        int rq = snp.flag;
-        int snp_ins = max(0, (int)snp.alts[0].length() - (int)snp.ref.length());
-        int snp_del = max(0, (int)snp.ref.length() - (int)snp.alts[0].length());
-        if(snp.multi_alts){
-            int snp_ins = max(snp_ins, (int)snp.alts[1].length() - (int)snp.ref.length());
-            int snp_del = max(snp_del, (int)snp.ref.length() - (int)snp.alts[1].length());
-        }
-        ins_len[flag] += snp_ins;
-        del_len[flag] += snp_del;
+        ins_len[flag] += snp.mil;
+        del_len[flag] += snp.mdl;
 	}
 }
+
 
 void DiploidVCF::DivisiveHierarchicalClustering(list<vector<DiploidVariant>> & snp_clusters){
     // I use list of vectors instead of vector of vectors, to take advantage of member func of list
@@ -2327,43 +3420,34 @@ void DiploidVCF::DivisiveHierarchicalClustering(list<vector<DiploidVariant>> & s
 // code reviewed
 bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
     // end exclusive
+
+	map<int, int> size_of_cluster;
+
 	for (int cluster_id = start; cluster_id < end; cluster_id++) {
 		if (cluster_vars_map.find(cluster_id) != cluster_vars_map.end()) {
 			auto & var_list = cluster_vars_map[cluster_id];
-			if (var_list.size() <= 1) continue;
-			//dout << cluster_id << endl;
-			bool method1 = VariantMatchPathCreation(var_list, thread_index, cluster_id);
-
-            //bool method2 = VariantMatch(var_list, thread_index);
-            //if (method1 != method2){
-            //    cout << cluster_id << endl;
-            //}
-
-//			if (false && var_list.size() > 20) {
-//				list<vector<DiploidVariant>> cluster_list;
-//				cluster_list.push_back(var_list);
-//				DivisiveHierarchicalClustering(cluster_list);
-//				for(auto lt = cluster_list.begin(); lt != cluster_list.end(); ++lt){
-//                    auto cur_cluster = * lt;
-//                    if(cur_cluster.size() > 20){
-//                        dout << "[VarMatch] Warning: Large size cluster skipped" << endl;
-//                        continue;
-//                    }
-//                    if(overlap_match){
-//                        VariantMatchWithOverlap(cur_cluster, thread_index);
-//                    }else{
-//                        VariantMatch(cur_cluster, thread_index);
-//                    }
-//				}
+//			int var_list_size = var_list.size();
+//
+//			if(size_of_cluster.find(var_list_size) != size_of_cluster.end()){
+//                size_of_cluster[var_list_size] ++;
 //			}else{
-//			    if(overlap_match){
-//                    VariantMatchWithOverlap(var_list, thread_index);
-//			    }else{
-//                    VariantMatch(var_list, thread_index);
-//			    }
+//                size_of_cluster[var_list_size] = 1;
+//			}
+//
+//			if (var_list.size() <= 1) continue;
+//            cout << cluster_id << endl;
+			//bool method1 = VariantMatchPathCreationByDonor(var_list, thread_index, cluster_id);
+			bool method2 = AcceleratedVariantMatchPathCreation(var_list, thread_index, cluster_id);
+//			if(method1 != method2){
+//                cout << "not match" << endl;
 //			}
 		}
 	}
+
+//	for(auto it = size_of_cluster.begin(); it != size_of_cluster.end(); ++it){
+//        cout << it->first << "\t" << it->second << endl;
+//	}
+	return true;
 }
 
 // private
@@ -2426,7 +3510,7 @@ void DiploidVCF::ClusteringMatchMultiThread() {
 	for (int i = 0; i < thread_num; i++) {
 		for (int j = 0; j < complex_match_records[i]->size(); j++) {
 			if (complex_match_records[i]->at(j).find_first_not_of(' ') != std::string::npos) {
-				output_complex_file << complex_match_records[i]->at(j);
+				output_complex_file << chromosome_name << "\t" << complex_match_records[i]->at(j);
 			}
 		}
 	}
@@ -2469,8 +3553,7 @@ void DiploidVCF::Compare(string ref_vcf,
 	this->overlap_match = overlap_match;
 	this->variant_check = variant_check;
 	output_stat_filename = output_prefix + ".stat";
-	output_simple_filename = output_prefix + ".simple";
-	output_complex_filename = output_prefix + ".complex";
+    output_complex_filename = output_prefix + ".match";
 	//------------read genome sequence and decide boundary according to thread number
 	dsptime();
 	dout << " Read genome sequence file... " << endl;
@@ -2478,14 +3561,19 @@ void DiploidVCF::Compare(string ref_vcf,
 	dsptime();
 	dout << " Finish reading genome sequence file." << endl;
 	//------------read ref and query vcf file
+
+	int ref_total_num = 0;
+	int que_total_num = 0;
+
     dsptime();
     dout << " Read reference vcf file... " << endl;
-    ReadRefVCF(ref_vcf);
+    ref_total_num = ReadRefVCF(ref_vcf);
     dsptime();
     dout << " Read query vcf file... " << endl;
-    ReadQueryVCF(query_vcf);
+    que_total_num = ReadQueryVCF(query_vcf);
     dsptime();
     dout << " Finish reading all vcf file." << endl;
+    dout << " total variants: " << ref_total_num << "," << que_total_num << endl;
 	//-------------clustering search
 	dsptime();
 	dout << " Clustering snps ... " << endl;
@@ -2498,6 +3586,19 @@ void DiploidVCF::Compare(string ref_vcf,
 	dsptime();
 	dout << " Finish clustering search." << endl;
 	dout << " total match: " << total_ref_complex << "," << total_que_complex << endl;
+	int ref_mismatch_num = ref_total_num - total_ref_complex;
+	int que_mismatch_num = que_total_num - total_que_complex;
+	dout << " mismatch: " << ref_mismatch_num << "," << que_mismatch_num << endl;
+
+    ofstream output_stat_file;
+    output_stat_file.open(output_stat_filename);
+    output_stat_file << ref_total_num << endl;
+    output_stat_file << que_total_num << endl;
+    output_stat_file << total_ref_complex << endl;
+    output_stat_file << total_que_complex << endl;
+    output_stat_file << ref_mismatch_num << endl;
+    output_stat_file << que_mismatch_num << endl;
+    output_stat_file.close();
 	return;
 }
 
