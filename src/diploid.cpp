@@ -4,7 +4,7 @@
 
 // inline function protected
 // code reviewed by Channing
-bool global_match_genotype = true;
+
 
 inline bool CompareSequence(string s1, string s2) {
 	transform(s1.begin(), s1.end(), s1.begin(), ::toupper);
@@ -20,68 +20,10 @@ inline bool PrefixMatch( std::string const& lhs, std::string const& rhs )
         rhs.begin() );
 }
 
-inline void ToUpper(string & s){
-    transform(s.begin(), s.end(), s.begin(), ::toupper);
-}
-
-bool operator <(const DiploidVariant& x, const DiploidVariant& y) {
-	return x.pos < y.pos;
-}
-
-// this is based on the assumption that all sequence are in upper case
-bool operator ==(const DiploidVariant& x, const DiploidVariant& y) {
-	if (x.pos == y.pos && x.ref == y.ref) {
-        if(!global_match_genotype){
-            if (x.multi_alts && x.heterozygous && y.multi_alts && y.heterozygous) {
-                int match_times = 0;
-                for (int i = 0; i < 2; i++) {
-                    for (int j = 0; j < 2; j++) {
-                        if (x.alts[i] == y.alts[j])
-                            match_times++;
-                    }
-                }
-                if (match_times > 0)
-                    return true;
-            }
-            else if(x.alts[0] == y.alts[0]){
-                return true;
-            }
-        }else if(x.heterozygous == y.heterozygous && x.multi_alts == y.multi_alts){
-            if (x.multi_alts && x.heterozygous) {
-                int match_times = 0;
-                for (int i = 0; i < 2; i++) {
-                    for (int j = 0; j < 2; j++) {
-                        if (x.alts[i] == y.alts[j])
-                            match_times++;
-                    }
-                }
-                if (match_times >= 2)
-                    return true;
-            }
-            else if(x.alts[0] == y.alts[0]){
-                return true;
-            }
-        }
-	}
-	return false;
-}
-
-
-DiploidVCF::DiploidVCF(int thread_num_)
+DiploidVCF::DiploidVCF(int thread_num_):VCF(thread_num_)
 {
-	genome_sequence = "";
-	boundries_decided = false;
-	clustering_search = false;
     scoring_basepair = false;
-	match_genotype = true;
-    if (thread_num_ <= 0) {
-		thread_num = 1;
-	}
-	else {
-		thread_num = min(thread_num_, (int)thread::hardware_concurrency());
-	}
-	dout << "Thread Number: " << thread_num << endl;
-    chromosome_name = ".";
+	dout << "DiploidVCF() Thread Number: " << thread_num << endl;
 }
 
 DiploidVCF::~DiploidVCF()
@@ -3543,15 +3485,13 @@ void DiploidVCF::Compare(string ref_vcf,
 	bool overlap_match,
 	bool variant_check) {
 
-	global_match_genotype = match_genotype;
-
 	ref_vcf_filename = ref_vcf;
 	que_vcf_filename = query_vcf;
-	this->match_genotype = match_genotype;
 	this->normalization = normalization;
 	this->scoring_basepair = score_basepair;
 	this->overlap_match = overlap_match;
 	this->variant_check = variant_check;
+	this->match_genotype = match_genotype;
 	output_stat_filename = output_prefix + ".stat";
     output_complex_filename = output_prefix + ".match";
 	//------------read genome sequence and decide boundary according to thread number

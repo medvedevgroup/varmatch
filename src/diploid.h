@@ -1,8 +1,10 @@
 #pragma once
 
 #include "vcf.h"
+
 // data structure for direct search
-typedef struct DiploidVariant {
+class DiploidVariant {
+public:
     DiploidVariant(int pos_ = -1,
         string ref_ = "",
         vector<string> alts_ = {"",""},
@@ -28,13 +30,66 @@ typedef struct DiploidVariant {
     int mdl;
     int mil;
     int flag; //in DiploidVariant, flag = 0 is reference, flag = 1 is query
-}DiploidVariant;
+
+//    int get_pos() const{return pos};
+//    string get_ref() const{return ref};
+//    vector<string> get_alts() const{return alts};
+//    bool get_heterozygous() const{return heterozygous};
+//    bool get_multi_alts() const{return multi_alts};
+
+    bool operator <(const DiploidVariant& y) const {
+        return pos < y.pos;
+    }
+
+    // this is based on the assumption that all sequence are in upper case
+    bool operator ==(const DiploidVariant& y) {
+        if (pos == y.pos && ref == y.ref) {
+            if(heterozygous == y.heterozygous && multi_alts == y.multi_alts){
+                if (multi_alts && heterozygous) {
+                    int match_times = 0;
+                    for (int i = 0; i < 2; i++) {
+                        for (int j = 0; j < 2; j++) {
+                            if (alts[i] == y.alts[j])
+                                match_times++;
+                        }
+                    }
+                    if (match_times >= 2)
+                        return true;
+                }
+                else if(alts[0] == y.alts[0]){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool DirectCompare(const DiploidVariant& y){
+        if (pos == y.pos && ref == y.ref) {
+            if (multi_alts && heterozygous && y.multi_alts && y.heterozygous) {
+                int match_times = 0;
+                for (int i = 0; i < 2; i++) {
+                    for (int j = 0; j < 2; j++) {
+                        if (alts[i] == y.alts[j])
+                            match_times++;
+                    }
+                }
+                if (match_times > 0)
+                    return true;
+            }
+            else if(alts[0] == y.alts[0]){
+                return true;
+            }
+        }
+        return false;
+    }
+
+};
 
 // define outside of struct, idiomatic solution for lexicographical compare for structures
-bool operator <(const DiploidVariant& x, const DiploidVariant& y);
+//bool operator <(const DiploidVariant& x, const DiploidVariant& y);
 
-bool operator ==(const DiploidVariant& x, const DiploidVariant& y);
-
+//bool operator ==(const DiploidVariant& x, const DiploidVariant& y);
 
 class VariantSelection{
 public:
@@ -114,7 +169,6 @@ protected:
 	bool overlap_match;
 	bool variant_check;
 	map<int, vector<DiploidVariant> > cluster_vars_map;
-
 
 	void DecideBoundaries();
 

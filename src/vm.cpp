@@ -6,6 +6,7 @@
 #include "vcf.h"
 #include "removeduplicate.h"
 #include "diploid.h"
+#include "wholegenome.h"
 
 using namespace std;
 
@@ -132,6 +133,17 @@ int main(int argc, char* argv[])
 		usage(argv[0]);
 		return 0;
 	}
+
+	WholeGenome wg(args.thread_num);
+    wg.Compare(args.ref_vcf_filename,
+		args.que_vcf_filename,
+		args.genome_seq_filename,
+		args.output_filename,
+		args.match_genotype,
+		args.normalization,
+		args.score_basepair,
+		args.variant_check);
+	return 0;
 
     if(args.remove_duplicates){
         RemoveDuplicate rd(args.thread_num);

@@ -117,9 +117,9 @@ protected:
     bool boundries_decided; // before deciding boundries, can not read vcf file, because do not know how to split
 	bool normalization;
     // for inherit
-
-	bool clustering_search;
     bool match_genotype;
+	bool clustering_search;
+
 	int thread_num;
     string chromosome_name;
 	string genome_sequence; // genome sequence from fasta file
@@ -188,8 +188,12 @@ protected:
     bool CheckVariantOverlap(vector<SNP> snp_list);
 	bool NormalizeSnp(int pos, string ref, string alt, string & parsimonious_ref, string & parsimonious_alt);
 
+	inline void ToUpper(string & s){
+        transform(s.begin(), s.end(), s.begin(), ::toupper);
+    }
 
 public:
+
 	VCF(int thread_num_ = 0);
 	~VCF();
 
@@ -202,4 +206,5 @@ public:
             string output_prefix,
             bool match_genotype,
 			bool normalization);
+
 };
