@@ -133,17 +133,11 @@ class DiploidVCF : public VCF
 {
 private:
 
-    int total_ref_complex;
-	int total_que_complex;
-
     typedef vector<unordered_map<int, DiploidVariant > > VariantHash;
     typedef vector<map<int, DiploidVariant > > VariantMap;
 
 	VariantHash refpos_2_var;
 	VariantHash querypos_2_var;
-
-	vector<int> complex_ref_match_num;
-	vector<int> complex_que_match_num;
 
 	vector<DiploidVariant> variant_list;
 	vector<DiploidVariant> ref_variant_list;
@@ -163,8 +157,13 @@ private:
 	ofstream offf;
 	const time_t ctt = time(0);
 
-
 protected:
+
+    vector<int> complex_ref_match_num;
+	vector<int> complex_que_match_num;
+    int total_ref_complex;
+	int total_que_complex;
+
 	bool scoring_basepair;
 	bool overlap_match;
 	bool variant_check;
@@ -306,6 +305,8 @@ protected:
 public:
 	DiploidVCF(int thread_num_);
 	~DiploidVCF();
+
+	const static int VAR_LEN = 100;
 
     int test();
     // for public access

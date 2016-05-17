@@ -211,6 +211,8 @@ int DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_varia
 //            cout << "find snp from: " << flag << endl;
 //        }
 		auto ref = columns[3];
+
+		if(ref.size() >= VAR_LEN) continue;
 		auto alt_line = columns[4];
 		auto quality = columns[5];
 
@@ -261,9 +263,11 @@ int DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_varia
 		vector<string> alt_list;
 		if (alt_line.find(",") != std::string::npos) {
 			alt_list = split(alt_line, ',');
+			if(alt_list[0].size() >= VAR_LEN || alt_list[1].size() >= VAR_LEN) continue;
 			is_multi_alternatives = true;
 		}
 		else {
+            if(alt_line.size() >= VAR_LEN) continue;
 			alt_list.push_back(alt_line);
 		}
 
@@ -1710,7 +1714,7 @@ bool DiploidVCF::AcceleratedVariantMatchPathCreation(vector<DiploidVariant> & va
             complex_que_match_num[thread_index]++;
 
             DiploidVariant tv = separate_var_list[0][0];
-            string match_record = to_string(tv.pos) + "\t" + tv.ref + "\t" + tv.alts[0];
+            string match_record = to_string(tv.pos+1) + "\t" + tv.ref + "\t" + tv.alts[0];
             if(tv.multi_alts) match_record += "/" + tv.alts[1];
             match_record += "\t.\t.\t.\t.\t.\n";
             complex_match_records[thread_index]->push_back(match_record);
@@ -1867,8 +1871,20 @@ bool DiploidVCF::AcceleratedVariantMatchPathCreation(vector<DiploidVariant> & va
 
     bool multiple_match = true;
     if(best_selection.donor_sequences[0] == best_selection.donor_sequences[1]) multiple_match = true;
-    string match_record = to_string(offset) + "\t" + subsequence + "\t" + best_selection.donor_sequences[0];
-    if(multiple_match) match_record += "/" + best_selection.donor_sequences[1];
+//    string match_record = to_string(offset) + "\t" + subsequence + "\t" + best_selection.donor_sequences[0];
+//    if(multiple_match) match_record += "/" + best_selection.donor_sequences[1];
+    string parsimonious_ref = subsequence;
+    string parsimonious_alt0 = best_selection.donor_sequences[0];
+    string parsimonious_alt1 = best_selection.donor_sequences[1];
+
+    int parsimonious_pos = NormalizeVariantSequence(offset,
+                             parsimonious_ref,
+                             parsimonious_alt0,
+                             parsimonious_alt1);
+
+    string match_record = to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
+    if(multiple_match) match_record += "/" + parsimonious_alt1;
+
     string vcf_record[2];
     string phasing_record[2];
 
@@ -3376,8 +3392,10 @@ bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
 //                size_of_cluster[var_list_size] = 1;
 //			}
 //
-//			if (var_list.size() <= 1) continue;
-//            cout << cluster_id << endl;
+			if (var_list.size() > 100){
+                cout << cluster_id << ":" ;
+                cout << var_list.size() << endl;
+            }
 			//bool method1 = VariantMatchPathCreationByDonor(var_list, thread_index, cluster_id);
 			bool method2 = AcceleratedVariantMatchPathCreation(var_list, thread_index, cluster_id);
 //			if(method1 != method2){

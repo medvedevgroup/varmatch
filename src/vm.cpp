@@ -26,6 +26,7 @@ typedef struct Args {
 	bool score_basepair;
 	bool overlap_match;
 	bool variant_check; // check if variant matches
+	bool whole_genome;
 }Args;
 
 bool ParserArgs(Args & args, int argc, char* argv[]) {
@@ -39,6 +40,7 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
     args.overlap_match = false;
     args.variant_check = false;
     args.output_filename = "out";
+    args.whole_genome = false;
 	for (int i = 1; i < argc; i++)
 	{
 		//cout << argv[i] << endl;
@@ -88,6 +90,8 @@ bool ParserArgs(Args & args, int argc, char* argv[]) {
             args.overlap_match = true;
 		}else if(! strcmp(argv[i], "-c")){
             args.variant_check = true;
+		}else if(! strcmp(argv[i], "-w")){
+            args.whole_genome = true;
 		}
 		else {
 			cout << "[Error] Unrecognized parameter: " << argv[i] << endl;
@@ -134,16 +138,25 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	WholeGenome wg(args.thread_num);
-    wg.Compare(args.ref_vcf_filename,
-		args.que_vcf_filename,
-		args.genome_seq_filename,
-		args.output_filename,
-		args.match_genotype,
-		args.normalization,
-		args.score_basepair,
-		args.variant_check);
-	return 0;
+	if(args.whole_genome){
+
+
+        WholeGenome wg(args.thread_num);
+
+        if(args.direct_search){
+            wg.DirectMatch(args.ref_vcf_filename, args.que_vcf_filename, args.match_genotype, args.normalization);
+            return 0;
+        }
+        wg.Compare(args.ref_vcf_filename,
+            args.que_vcf_filename,
+            args.genome_seq_filename,
+            args.output_filename,
+            args.match_genotype,
+            args.normalization,
+            args.score_basepair,
+            args.variant_check);
+        return 0;
+	}
 
     if(args.remove_duplicates){
         RemoveDuplicate rd(args.thread_num);

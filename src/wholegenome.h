@@ -2,10 +2,22 @@
 
 #include "vcf.h"
 #include "diploid.h"
+//#include "tbb/task_scheduler_init.h"
+//#include "tbb/blocked_range.h"
+//#include "tbb/parallel_for.h"
+//#include "tbb/concurrent_vector.h"
 
 typedef struct VariantIndicator{
+    VariantIndicator(int chr_id_ = -1,
+    int var_id_ = -1,
+    bool refer_ = true) :
+    chr_id(chr_id_),
+    var_id(var_id_),
+    refer(refer_){}
+
     int chr_id;
     int var_id;
+    bool refer;
 }VariantIndicator;
 
 class WholeGenome: public DiploidVCF{
@@ -35,6 +47,21 @@ protected:
     int ReadQueryVariants(string filename);
     bool ParallelClustering(); // parallel by chr id
     bool ParallelMatching(); // parallel by task
+    bool TBBMatching();
+
+    void SingleThreadClustering(int chr_id);
+    bool MatchingSingleCluster(int cluster_index, int thread_index);
+
+    //override
+    bool ClusteringMatchInThread(int start, int end, int thread_index);
+    void ClusteringMatchMultiThread();
+    int NormalizeVariantSequence(int pos,
+                             string & parsimonious_ref,
+                             string & parsimonious_alt0,
+                             string & parsimonious_alt1,
+                             int chr_id);
+
+
 public:
     WholeGenome(int thread_num_);
     ~WholeGenome();
@@ -46,4 +73,9 @@ public:
         bool normalization,
         bool score_basepair,
         bool variant_check);
+
+    void DirectMatch(string ref_vcf,
+                string query_vcf,
+                bool match_genometype,
+                bool normalization);
 };
