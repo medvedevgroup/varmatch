@@ -123,9 +123,9 @@ int usage(char* command) {
 int main(int argc, char* argv[])
 {
 	dout << "Debug Mode" << endl;
-//	DiploidVCF dvs(1);
-//	dvs.test();
-//	return 0;
+//    WholeGenome wg(1);
+//    wg.test();
+//    return 0;
 
 
 	if (argc < 2) {
@@ -147,6 +147,8 @@ int main(int argc, char* argv[])
             wg.DirectMatch(args.ref_vcf_filename, args.que_vcf_filename, args.match_genotype, args.normalization);
             return 0;
         }
+
+
         wg.Compare(args.ref_vcf_filename,
             args.que_vcf_filename,
             args.genome_seq_filename,

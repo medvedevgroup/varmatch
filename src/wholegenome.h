@@ -20,9 +20,48 @@ typedef struct VariantIndicator{
     bool refer;
 }VariantIndicator;
 
+typedef struct Interval {
+    int start;
+    int end;
+    Interval() : start(0), end(0) {}
+    Interval(int s, int e) : start(s), end(e) {}
+}Interval;
+
+class SequencePath{
+public:
+    SequencePath(int n)
+    {
+        reference_length = n;
+        for(int i = 0; i < 4; i++){
+            string_sequences[i].resize(n, ".");
+            // default value is "."
+            donor_sequences[i] = "";
+        }
+        current_genome_pos = -1;
+        score = 0;
+        removable = false;
+        same_donor_len = false;
+        current_equal_donor_pos[0] = -1;
+        current_equal_donor_pos[1] = -1;
+        reached_sync_num = 0;
+    }
+    int reference_length;
+    vector<string> string_sequences[4];
+    map<int, pair<int, int>> choice_made[2]; // this can be used to indicate if choice is made and which choice
+    // one choice is a pair: variant id, phasing index
+    int current_genome_pos;
+    string donor_sequences[4];
+    int current_equal_donor_pos[2];
+    int score;
+    bool removable;
+    bool same_donor_len;
+    int reached_sync_num;
+};
+
 class WholeGenome: public DiploidVCF{
 private:
     int chrom_num;
+
     //int thread_num; VCF->DiploidVariant->WholeGenome
 protected:
     map<string, int> chrid_by_chrname;
@@ -61,6 +100,41 @@ protected:
                              string & parsimonious_alt1,
                              int chr_id);
 
+    struct compInterval {
+        bool operator()(const Interval &a, const Interval &b) const {
+            return a.start<b.start;
+        }
+    };
+
+    vector<Interval> merge(vector<Interval> &intervals) {
+        sort(intervals.begin(),intervals.end(),compInterval());
+        vector<Interval> results;
+        for(int i=0; i<intervals.size(); i++) {
+            if(results.empty() || results.back().end < intervals[i].start)  // no overlap
+                results.push_back(intervals[i]);
+            else   // overlap
+                results.back().end = max(results.back().end, intervals[i].end);
+        }
+        return results;
+    }
+
+    bool PathNeedDecision(SequencePath& sp, multimap<int, int> * choices_by_pos[], int pos);
+    int PathExtendOneStep(SequencePath& sp,
+                          multimap<int, int> * choices_by_pos[],
+                          const string & reference_sequence,
+                          vector<int> & sync_points);
+
+    bool PathMakeDecision(SequencePath& sp,
+                                 vector<DiploidVariant> & variant_list,
+                                 multimap<int, int> * choices_by_pos[],
+                                 list<SequencePath> & sequence_path_list,
+                                 const string & reference_sequence);
+
+    bool MatchingSingleClusterBaseExtending(int cluster_index, int thread_index);
+    bool DonorLengthEqual(SequencePath & a, SequencePath & b);
+    void ConvergePaths(list<SequencePath> & path_list);
+    int CheckPathEqualProperty(SequencePath & sp);
+
 
 public:
     WholeGenome(int thread_num_);
@@ -78,4 +152,7 @@ public:
                 string query_vcf,
                 bool match_genometype,
                 bool normalization);
+
+    int test(); // for direct test
+    void PrintPath(SequencePath & sp);
 };

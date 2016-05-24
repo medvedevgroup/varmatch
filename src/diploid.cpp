@@ -903,7 +903,7 @@ void PrintSelection(VariantSelection selection){
     cout << endl;
 }
 
-void PrintVariant(DiploidVariant var){
+void DiploidVCF::PrintVariant(DiploidVariant var){
     cout << "-Variant:-" << endl;
     cout << var.flag << "," << var.pos << "," << var.ref << "," << var.alts[0];
     if(var.multi_alts) cout << "/" << var.alts[1];
@@ -1653,7 +1653,7 @@ bool DiploidVCF::CollapseSelections(VariantSelection selection,
         return true;
     }else{
         for(auto it = lt; it!= rt;){
-            VariantSelection ts = *it;
+            VariantSelection ts = *it;//ts represents each selection in variant_selections
             if(ts.haplotypes_consistent &&
                 ts.genome_position[0] == selection.genome_position[0] &&
                 ts.genome_position[1] == selection.genome_position[1] &&

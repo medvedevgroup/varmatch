@@ -302,6 +302,8 @@ protected:
                                       int offset,
                                       string donor_sequences[]);
 
+    void PrintVariant(DiploidVariant var);
+
 public:
 	DiploidVCF(int thread_num_);
 	~DiploidVCF();
