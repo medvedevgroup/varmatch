@@ -78,6 +78,9 @@ protected:
     vector<vector<VariantIndicator>> variants_by_cluster;
     // copy the above into this.
 
+    int score_unit;
+    int score_scheme;
+
     bool ReadWholeGenomeSequence(string filename);
     bool ReadGenomeSequenceList(string filename);
     int ReadWholeGenomeVariant(string filename, int flag);
@@ -135,23 +138,46 @@ protected:
     void ConvergePaths(list<SequencePath> & path_list);
     int CheckPathEqualProperty(SequencePath & sp);
 
+    int ScoreEditDistance(DiploidVariant & dv, int allele_indicator);
+    int EditDistance(const std::string& s1, const std::string& s2);
+    bool PathMakeDecisionNoGenotype(SequencePath& sp,
+                                 vector<DiploidVariant> & variant_list,
+                                 multimap<int, int> * choices_by_pos[],
+                                 list<SequencePath> & sequence_path_list,
+                                 const string & reference_sequence);
+
+    void ConstructMatchRecord(SequencePath & best_path,
+                               vector<DiploidVariant> & variant_list,
+                               string & subsequence,
+                               int offset,
+                               int thread_index,
+                               int chr_id);
+
+    void ConstructMatchRecordNoGenotype(SequencePath & best_path,
+                                       vector<DiploidVariant> & variant_list,
+                                       string & subsequence,
+                                       int offset,
+                                       int thread_index,
+                                       int chr_id);
+
+    int CalculateScore(DiploidVariant & dv, int choice);
+
 
 public:
-    WholeGenome(int thread_num_);
+    WholeGenome(int thread_num_,
+                int score_unit_,
+                int match_mode_,
+                int score_scheme_);
+
     ~WholeGenome();
+
     void Compare(string ref_vcf,
         string query_vcf,
         string genome_seq,
-        string output_prefix,
-        bool match_genotype,
-        bool normalization,
-        bool score_basepair,
-        bool variant_check);
+        string output_prefix);
 
     void DirectMatch(string ref_vcf,
-                string query_vcf,
-                bool match_genometype,
-                bool normalization);
+                string query_vcf);
 
     int test(); // for direct test
     void PrintPath(SequencePath & sp);

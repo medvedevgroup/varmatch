@@ -1,5 +1,5 @@
-#include "stdafx.h"
-#include <splitvcf.h>
+//#include "stdafx.h"
+#include "splitvcf.h"
 
 SplitVcf::SplitVcf(int argc, char* argv) {
 	version = "0.9";
