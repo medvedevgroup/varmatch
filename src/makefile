@@ -3,16 +3,18 @@ CXXFLAGS=-std=c++11 -pthread -g
 CXXFLAGS2=-I ../include
 CXXFLAGTBB=-ltbb
 
-all: vm
+all: vm-core
 
-vm: vm.cpp vcf.cpp removeduplicate.cpp diploid.cpp wholegenome.cpp util.cpp
+vm-core: vm.cpp wholegenome.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
 	cp $@ ../$@
 
-split: splitvcf.cpp util.cpp
+filter_hc: filter_hc.cpp util.cpp
+	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
+
+filter_cv: filter_cv.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
 
 clean:
-	rm -f vm
+	rm -f vm-core
 	rm -f *.o
-	rm -f split

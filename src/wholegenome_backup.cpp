@@ -2,15 +2,53 @@
 
 using namespace std;
 
-WholeGenome::WholeGenome(int thread_num_,
+WholeGenome::WholeGenome(int thread_num_, 
+    int score_unit_, 
+    int match_mode_, 
+    int score_scheme_,
     string output_dir_){
 
     thread_num = thread_num_;
     chrom_num = 24;
+    
+    //thread_num = thread_num_;
+    score_unit_indicator = score_unit_;
+    match_mode_indicator = match_mode_;
+    score_scheme_indicator = score_scheme_;
 
     output_dir = output_dir_;
 
-    //thread_num = thread_num_;
+    if(score_unit_indicator == -1){
+        score_unit_list.push_back(0);
+        score_unit_list.push_back(1);
+    }else{
+        score_unit_list.push_back(score_unit_indicator);
+    }
+
+    if(match_mode_indicator == -1){
+        match_mode_list.push_back(0);
+        match_mode_list.push_back(1);
+    }else{
+        match_mode_list.push_back(match_mode_indicator);
+    }
+
+    if(score_scheme_indicator == -1){
+        score_scheme_list.push_back(0);
+        score_scheme_list.push_back(1);
+        score_scheme_list.push_back(2);
+    }else{
+        score_scheme_list.push_back(score_scheme_indicator);
+    }
+
+    for(int i = 0; i < score_unit_list.size(); i++){
+        for(int j = 0; j < match_mode_list.size(); j++){
+            for(int k = 0; k < score_scheme_list.size(); k++){
+                int mode_index = GetIndexFromMatchScore(score_scheme_list[i], match_mode_list[j], score_scheme_list[k]);
+                mode_index_list.push_back(mode_index);  // so that I can directly know how many mode, do not need to calculate all the time
+            }
+        }
+    }
+
     //dout << "WholeGenome() Thread Number: " << thread_num << endl;
 
     ref_variant_by_chrid = new vector<DiploidVariant>*[chrom_num];
@@ -30,8 +68,6 @@ WholeGenome::WholeGenome(int thread_num_,
 	chrname_dict["chrX"] = 22;
 	chrname_dict["Y"] = 23;
 	chrname_dict["chrY"] = 23;
-
-    per_list = {0.0, 0.1, 0.2, 0.3, 0.9};
 
 }
 
@@ -119,9 +155,6 @@ bool WholeGenome::ReadGenomeSequenceList(string filename){
 
 int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
     int total_num = 0;
-    int long_num = 0;
-    double QUAL_LOWER_BOUND = 0.1;
-
 	ifstream vcf_file;
 	vcf_file.open(filename.c_str());
 	if (!vcf_file.good()) {
@@ -129,7 +162,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 		return -1;
 	}
 
-    vector<float> quality_list;
+    map<int, int> quality_num;
 
 	int genotype_index = -1;
 	char genotype_separator = '/';
@@ -151,7 +184,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
                 cout << "[VarMatch] Warning: not enough information in VCF file for genotype matching." << endl;
                 cout << "[VarMatch] \tAutomatically turn off genotype matching module " << filename << endl;
                 match_mode_indicator = 1;
-                //continue;
+                continue;
             }
             if(columns.size() < 6){
                 cout << "[VarMatch] Warning: not enough information in VCF file for variant matching." << endl;
@@ -164,10 +197,17 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 
 		auto ref = columns[3];
 		auto alt_line = columns[4];
-		double quality = stod(columns[5]);
+		float quality = stof(columns[5]);
 
         if(flag){
-            quality_list.push_back(quality);
+            int quality_int = (int) quality;
+            //dout << quality_int << endl;
+            if(quality_que_totalnum.find(quality_int) != quality_que_totalnum.end()){
+                quality_que_totalnum[quality_int] += 1.0;
+            }else{
+                quality_que_totalnum[quality_int] = 1.0;
+            }
+
         }
 
 		ToUpper(ref);
@@ -176,9 +216,8 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 		bool is_heterozygous_variant = false;
 		bool is_multi_alternatives = false;
 
-		if (match_mode_indicator != 1) { // match mode indicator is -1 or 0
+		if (columns.size() >= 10) {
 			if (genotype_index < 0) {
-                // change genotype index
                 auto formats = split(columns[8], ':');
                 for (int i = 0; i < formats.size(); i++) {
                     if (formats[i] == "GT") {
@@ -186,47 +225,32 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
                         break;
                     }
                 }
-                // if GT not found
                 if(genotype_index < 0){
-                    if(match_mode_indicator != 1){
-                        cout << "[VarMatch] Warning: VCF entry does not contain genotype information." << endl;
-                        cout << "[VarMatch] \tAutomatically turn off genotype matching mode. " << endl;
-                        match_mode_indicator = 1;
-                    }
+                    cout << "[VarMatch] VCF entry does not contain genotype information" << endl;
+                    continue;
                 }
 			}
+			auto additionals = split(columns[9], ':');
+            vector<string> genotype_columns = split(additionals[genotype_index], genotype_separator);
 
-            if(match_mode_indicator != 1){
+            if(genotype_columns.size() != 2){
+                genotype_separator = '|';
+                genotype_columns = split(additionals[genotype_index], genotype_separator);
+            }
 
-    			auto additionals = split(columns[9], ':');
-                vector<string> genotype_columns = split(additionals[genotype_index], genotype_separator);
+			// normalize format of genotype: sorted, separated by |
+			if (genotype_columns.size() != 2) {
+				cout << "[VarMatch] Warning Unrecognized Genotype: " << additionals[genotype_index] << endl;
+				continue;
+			}
+			else {
+				if (genotype_columns[0] != genotype_columns[1]) {
+					is_heterozygous_variant = true;
+				}
+			}
 
-                if(genotype_columns.size() != 2){
-                    
-                    if(genotype_separator == '/'){
-                        genotype_separator = '|';
-                    }else{
-                        genotype_separator = '/';
-                    }
-                    genotype_columns = split(additionals[genotype_index], genotype_separator);
-                }
-
-    			// normalize format of genotype: sorted, separated by |
-    			if (genotype_columns.size() != 2) {
-    				cout << "[VarMatch] Warning: Unrecognized Genotype: " << additionals[genotype_index] << endl;
-                    cout << "[VarMatch] \tAutomatically turn off genotype matching mode." << endl;
-                    match_mode_indicator = 1;
-    			}
-    			else {
-    				if (genotype_columns[0] != genotype_columns[1]) {
-    					is_heterozygous_variant = true;
-    				}
-                    if (genotype_columns[1] == "0" && genotype_columns[0] == "0") {
-                        //cout << "Skip Variants when both genotype is refernce allele: " << line << endl;
-                        
-                        continue;
-                    }
-    			}
+            if (genotype_columns[1] == "0" && genotype_columns[0] == "0") {
+                continue;
             }
 		}
 
@@ -247,8 +271,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
         }
 
         if(snp_ins > VAR_LEN || snp_del > VAR_LEN){
-            dout << "[VarMatch] skip large INDEL with length > " << VAR_LEN << "| "<< line <<endl;
-            long_num ++;
+            //dout << "[VarMatch] skip large INDEL with length > 50 bp" << endl;
             continue;
         }
 
@@ -280,37 +303,6 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 	}
 	vcf_file.close();
 
-    if(flag){
-        sort(quality_list.begin(), quality_list.end());
-        auto qual_lower_it = lower_bound(quality_list.begin(), quality_list.end(), QUAL_LOWER_BOUND);
-        int qual_lower_index = qual_lower_it - quality_list.begin();
-        int rest_size = quality_list.size() - qual_lower_index;
-
-        vector<float> temp_percentage_list;
-        temp_percentage_list.push_back(0.0);
-        threshold_list.push_back(0.0);
-        
-        for(int i = 1; i < per_list.size(); i++){
-            int additional_index = (int)(rest_size * per_list[i]);
-            int real_index = qual_lower_index + additional_index;
-            if(real_index >= quality_list.size()) real_index = quality_list.size() - 1;
-            double quality = quality_list[real_index];
-            threshold_list.push_back(quality);
-
-            auto quality_lowit = lower_bound(quality_list.begin(), quality_list.end(), quality);
-            int quality_low_index = quality_lowit - quality_list.begin();
-            // following program will retain variants >= quality threshold
-            
-            int quality_size = quality_low_index + 1; // counting number, +/- 1 does not matter
-            if(quality_size > quality_list.size()) quality_size = quality_list.size();
-            double percentage = (double)quality_size/ quality_list.size();
-            temp_percentage_list.push_back(percentage);
-        }
-        threshold_num = threshold_list.size();
-        // revice percentage
-        per_list = temp_percentage_list;
-    }
-    cout << flag << "," << total_num << "," << long_num << endl;
 	return total_num;
 }
 
@@ -455,8 +447,7 @@ bool WholeGenome::CheckTandemRepeat(string sequence, int unit_threshold) {
     return final_checking;
 }
 
-bool WholeGenome::MatchVariantListInThread(int thread_index, 
-    int threshold_index,
+bool WholeGenome::MatchVariantListInThread(int thread_index,
     int chr_id,
     vector<DiploidVariant> & variant_list,
     int cluster_id){
@@ -497,21 +488,29 @@ bool WholeGenome::MatchVariantListInThread(int thread_index,
         if(separate_var_list[0][0] == separate_var_list[1][0]){
 
             DiploidVariant tv = separate_var_list[0][0];
-            string match_record = chrname_by_chrid[chr_id] + "\t" + to_string(tv.pos+1) + "\t" + tv.ref + "\t" + tv.alts[0];
+            string match_record = to_string(tv.pos+1) + "\t" + tv.ref + "\t" + tv.alts[0];
             if(tv.multi_alts) match_record += "/" + tv.alts[1];
             match_record += "\t.\t.\t.\t.\t.\n";
             // here we need to push back for all mode_index
             //complex_match_records[thread_index]->push_back(match_record);
+            int qual = (int)(tv.qual);
+
             for(int mi = 0; mi < mode_index_list.size(); mi ++){
                 int mode_i = mode_index_list[mi];
-                //if(mi == 0){
+                if(mi == 0){
                     match_records_by_mode_by_thread[thread_index][mode_i]->push_back(match_record);
-                //}else{
-                //    match_records_by_mode_by_thread[thread_index][mode_i]->push_back("$"+to_string(match_records_by_mode_by_thread[thread_index][0]->size()));
+                }else{
+                    match_records_by_mode_by_thread[thread_index][mode_i]->push_back("$");
                     // use dollor to represent that it is the same
-                //}
-                baseline_total_match_num[thread_index][threshold_index]->at(mode_i)++;
-                query_total_match_num[thread_index][threshold_index]->at(mode_i)++;
+                }
+                baseline_total_match_num[thread_index]->at(mode_i)++;
+                query_total_match_num[thread_index]->at(mode_i)++;
+                auto end_it = quality_que_matchnum_by_thread_mode[thread_index][mode_i]->end();
+                if(quality_que_matchnum_by_thread_mode[thread_index][mode_i]->find(qual) != end_it){
+                    quality_que_matchnum_by_thread_mode[thread_index][mode_i]->at(qual) += 1.0;
+                }else{
+                    quality_que_matchnum_by_thread_mode[thread_index][mode_i]->at(qual) = 1.0;
+                }
             }
             // output match result
             return true;
@@ -614,8 +613,7 @@ bool WholeGenome::MatchVariantListInThread(int thread_index,
                                             chr_id,
                                             score_unit,
                                             match_mode,
-                                            score_scheme,
-                                            threshold_index);
+                                            score_scheme);
             }
         }
     }
@@ -632,37 +630,29 @@ bool WholeGenome::ClusteringMatchInThread(int start, int end, int thread_index) 
         if(vi_list.size() <= 1) continue;
         // create variant_list from vi_list;
 
-        for(int t = 0; t < threshold_num; t++){
-
-            double quality_threshold = threshold_list[t];
-
-            vector<DiploidVariant> variant_list;
-            int chr_id = -1;
-            for(int i = 0; i < vi_list.size(); i++){
-                VariantIndicator vi = vi_list[i];
-                chr_id = vi.chr_id;
-                int var_id = vi.var_id;
-                DiploidVariant var;
-                if(vi.refer){
-                    var = ref_variant_by_chrid[chr_id]->at(var_id);
-                }else{
-                    var = que_variant_by_chrid[chr_id]->at(var_id);
-                }
-                if(var.qual < quality_threshold) continue;
-                variant_list.push_back(var);
+        vector<DiploidVariant> variant_list;
+        int chr_id = -1;
+        for(int i = 0; i < vi_list.size(); i++){
+            VariantIndicator vi = vi_list[i];
+            chr_id = vi.chr_id;
+            int var_id = vi.var_id;
+            DiploidVariant var;
+            if(vi.refer){
+                var = ref_variant_by_chrid[chr_id]->at(var_id);
+            }else{
+                var = que_variant_by_chrid[chr_id]->at(var_id);
             }
-            if(chr_id == -1 || chr_id >= chrom_num){
-                cout << "[VarMatch] Error in matching single cluster" << endl;
-                continue;
-            }
-
-            MatchVariantListInThread(thread_index, 
-                                    t,
-                                    chr_id,
-                                    variant_list,
-                                    cluster_id);
-
+            variant_list.push_back(var);
         }
+        if(chr_id == -1 || chr_id >= chrom_num){
+            cout << "[VarMatch] Error in matching single cluster" << endl;
+            continue;
+        }
+
+        MatchVariantListInThread(thread_index, 
+                                chr_id,
+                                variant_list,
+                                cluster_id);
 
         //if(method1 != method2){
         //    cout << "not same result for cluster :" << cluster_id << ": " << method1 << "," << method2 << endl;
@@ -1267,8 +1257,7 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
                                                     int chr_id,
                                                     int score_unit,
                                                     int match_mode,
-                                                    int score_scheme,
-                                                    int threshold_index){
+                                                    int score_scheme){
     //--------------for unit test------------------------------
     //dout << variant_list.size() << endl;
 
@@ -1356,8 +1345,7 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
                              offset,
                              thread_index,
                              chr_id,
-                             mode_index,
-                             threshold_index);
+                             mode_index);
     }else{
         ConstructMatchRecordNoGenotype(best_path,
                                        variant_list,
@@ -1365,8 +1353,7 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
                                        offset,
                                        thread_index,
                                        chr_id,
-                                       mode_index,
-                                       threshold_index);
+                                       mode_index);
     }
     return true;
 }
@@ -1377,14 +1364,9 @@ void WholeGenome::ConstructMatchRecord(SequencePath & best_path,
                                        int offset,
                                        int thread_index,
                                        int chr_id,
-                                       int mode_index,
-                                       int threshold_index){
+                                       int mode_index){
     int truth_num = 0;
     int predict_num = 0;
-
-    bool need_match_record = false;
-
-    if (threshold_index == 0) need_match_record = true;
 
     bool multiple_match = false;
 
@@ -1401,11 +1383,12 @@ void WholeGenome::ConstructMatchRecord(SequencePath & best_path,
 //                             parsimonious_alt1,
 //                             chr_id);
 
-    string match_record = chrname_by_chrid[chr_id] + "\t" + to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
+    string match_record = to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
     if(multiple_match) match_record += "/" + parsimonious_alt1;
 
     string vcf_record[2];
     string phasing_record[2];
+    vector<int> query_qual_list;
 
 	for (int i = 0; i < 2; i++) {
 		for (auto it = best_path.choice_made[i].begin(); it != best_path.choice_made[i].end(); ++it) {
@@ -1418,57 +1401,67 @@ void WholeGenome::ConstructMatchRecord(SequencePath & best_path,
                 truth_num++;
             }else{
                 predict_num++;
+                query_qual_list.push_back((int)variant.qual);
             }
 
-            if(need_match_record){
-                string alt_string = variant.alts[0];
-                if(variant.multi_alts){
-                    alt_string += "/" + variant.alts[1];
-                }
-                string phasing_string = "";
-                if(phasing == 0){
-                    phasing_string += "1";
-                    if(variant.heterozygous){
-                        if(variant.multi_alts){
-                            phasing_string += "|2";
-                        }else{
-                            phasing_string += "|0";
-                        }
-                    }else{
-                        phasing_string += "|1";
-                    }
-                }else if(phasing == 1){
-                    if(variant.multi_alts){
-                        phasing_string += "2|1";
-                    }else{
-                        phasing_string += "0|1";
-                    }
-                }
-                string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
-                vcf_record[i] += variant_record;
-                phasing_record[i] += phasing_string;
-                vcf_record[i] += ";";
-                phasing_record[i] += ";";
+            string alt_string = variant.alts[0];
+            if(variant.multi_alts){
+                alt_string += "/" + variant.alts[1];
             }
+            string phasing_string = "";
+            if(phasing == 0){
+                phasing_string += "1";
+                if(variant.heterozygous){
+                    if(variant.multi_alts){
+                        phasing_string += "|2";
+                    }else{
+                        phasing_string += "|0";
+                    }
+                }else{
+                    phasing_string += "|1";
+                }
+            }else if(phasing == 1){
+                if(variant.multi_alts){
+                    phasing_string += "2|1";
+                }else{
+                    phasing_string += "0|1";
+                }
+            }
+            string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
+            vcf_record[i] += variant_record;
+            phasing_record[i] += phasing_string;
+            vcf_record[i] += ";";
+            phasing_record[i] += ";";
 		}
-        if(need_match_record){
-            vcf_record[i] = vcf_record[i].substr(0, vcf_record[i].size()-1);
-            phasing_record[i] = phasing_record[i].substr(0, phasing_record[i].size()-1);
-        }
+
+        vcf_record[i] = vcf_record[i].substr(0, vcf_record[i].size()-1);
+        phasing_record[i] = phasing_record[i].substr(0, phasing_record[i].size()-1);
 
 	}
 
-    if(need_match_record){
-    	match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
-        match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
-    	match_record += "\t" + to_string(best_path.score) + "\n";
+    float average_count = (float)truth_num/float(predict_num);
 
-    	//complex_match_records[thread_index]->push_back(match_record);
-    	match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
+    auto end_it = quality_que_matchnum_by_thread_mode[thread_index][mode_index]->end();
+    for(int i = 0; i < query_qual_list.size(); i++){
+        int qual = query_qual_list[i];
+        if(quality_que_matchnum_by_thread_mode[thread_index][mode_index]->find(qual) != end_it){
+            quality_que_matchnum_by_thread_mode[thread_index][mode_index]->at(qual) += average_count;
+        }else{
+            quality_que_matchnum_by_thread_mode[thread_index][mode_index]->at(qual) = average_count;
+        }
     }
 
-    baseline_total_match_num[thread_index][threshold_index]->at(mode_index) += truth_num;
-    query_total_match_num[thread_index][threshold_index]->at(mode_index) += predict_num;
+
+    match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
+    match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
+    match_record += "\t" + to_string(best_path.score) + "\n";
+
+    //complex_match_records[thread_index]->push_back(match_record);
+    match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
+
+
+    baseline_total_match_num[thread_index]->at(mode_index) += truth_num;
+    query_total_match_num[thread_index]->at(mode_index) += predict_num;
 }
 
 
@@ -1478,13 +1471,9 @@ void WholeGenome::ConstructMatchRecordNoGenotype(SequencePath & best_path,
                                                  int offset,
                                                  int thread_index,
                                                  int chr_id,
-                                                 int mode_index,
-                                                 int threshold_index){
+                                                 int mode_index){
     int truth_num = 0;
     int predict_num = 0;
-
-    bool need_match_record = false;
-    if(threshold_index == 0) need_match_record = true;
 
     bool multiple_match = false;
     string parsimonious_ref = subsequence;
@@ -1499,11 +1488,13 @@ void WholeGenome::ConstructMatchRecordNoGenotype(SequencePath & best_path,
 //                             parsimonious_alt1,
 //                             chr_id);
 
-    string match_record = chrname_by_chrid[chr_id] + "\t" + to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
+    string match_record = to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
     //if(multiple_match) match_record += "/" + parsimonious_alt1;
 
     string vcf_record[2];
     string phasing_record[2];
+
+    vector<int> query_qual_list;
 
 	for (int i = 0; i < 2; i++) {
 		for (auto it = best_path.choice_made[i].begin(); it != best_path.choice_made[i].end(); ++it) {
@@ -1516,44 +1507,52 @@ void WholeGenome::ConstructMatchRecordNoGenotype(SequencePath & best_path,
                 truth_num++;
             }else{
                 predict_num++;
+                query_qual_list.push_back((int)variant.qual);
             }
 
-            if(need_match_record){
-                string alt_string = variant.alts[0];
-                if(variant.multi_alts){
-                    alt_string += "/" + variant.alts[1];
-                }
-                string phasing_string = "";
-                if(phasing == 0){
-                    phasing_string += "1|1";
-                }else if(phasing == 1){
-                    phasing_string += "2|2";
-                }
-                string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
-                vcf_record[i] += variant_record;
-                phasing_record[i] += phasing_string;
-                vcf_record[i] += ";";
-                phasing_record[i] += ";";
+            string alt_string = variant.alts[0];
+            if(variant.multi_alts){
+                alt_string += "/" + variant.alts[1];
             }
+            string phasing_string = "";
+            if(phasing == 0){
+                phasing_string += "1|1";
+            }else if(phasing == 1){
+                phasing_string += "2|2";
+            }
+            string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
+            vcf_record[i] += variant_record;
+            phasing_record[i] += phasing_string;
+            vcf_record[i] += ";";
+            phasing_record[i] += ";";
+
 		}
-        if(need_match_record){
-            vcf_record[i] = vcf_record[i].substr(0, vcf_record[i].size()-1);
-            phasing_record[i] = phasing_record[i].substr(0, phasing_record[i].size()-1);
-        }
+        vcf_record[i] = vcf_record[i].substr(0, vcf_record[i].size()-1);
+        phasing_record[i] = phasing_record[i].substr(0, phasing_record[i].size()-1);
 
 	}
 
-    if(need_match_record){
-	   match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
-        match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
-	   match_record += "\t" + to_string(best_path.score) + "\n";
+    match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
+    match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
+    match_record += "\t" + to_string(best_path.score) + "\n";
 
-	   //complex_match_records[thread_index]->push_back(match_record);
-	   match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
+    //complex_match_records[thread_index]->push_back(match_record);
+    match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
+
+    float average_count = (float)truth_num/float(predict_num);
+
+    auto end_it = quality_que_matchnum_by_thread_mode[thread_index][mode_index]->end();
+    for(int i = 0; i < query_qual_list.size(); i++){
+        int qual = query_qual_list[i];
+        if(quality_que_matchnum_by_thread_mode[thread_index][mode_index]->find(qual) != end_it){
+            quality_que_matchnum_by_thread_mode[thread_index][mode_index]->at(qual) += average_count;
+        }else{
+            quality_que_matchnum_by_thread_mode[thread_index][mode_index]->at(qual) = average_count;
+        }
     }
 
-    baseline_total_match_num[thread_index][threshold_index]->at(mode_index) += truth_num;
-    query_total_match_num[thread_index][threshold_index]->at(mode_index) += predict_num;
+    baseline_total_match_num[thread_index]->at(mode_index) += truth_num;
+    query_total_match_num[thread_index]->at(mode_index) += predict_num;
 }
 
 bool WholeGenome::DonorLengthEqual(SequencePath & a, SequencePath & b){
@@ -1652,30 +1651,26 @@ void WholeGenome::ClusteringMatchMultiThread() {
 	//initialize vector size
 	//complex_match_records = new vector<string>*[thread_num];
 	match_records_by_mode_by_thread = new vector<string>**[thread_num];
-
+    quality_que_matchnum_by_thread_mode = new map<int, float> ** [thread_num];
     //query_matches_by_mode_by_thread = new vector<int> ** [thread_num];
 
 	for(int i = 0; i < thread_num; i++){
         match_records_by_mode_by_thread[i] = new vector<string>*[MATCH_MODE_NUM];
+        quality_que_matchnum_by_thread_mode[i] = new map<int, float>*[MATCH_MODE_NUM];
         for(int j = 0; j < MATCH_MODE_NUM; j++){
             match_records_by_mode_by_thread[i][j] = new vector<string>;
+            quality_que_matchnum_by_thread_mode[i][j] = new map<int, float>;
         }
 	}
 
-    baseline_total_match_num = new vector<int>** [thread_num];
-    query_total_match_num = new vector<int> ** [thread_num];
+    baseline_total_match_num = new vector<int>* [thread_num];
+    query_total_match_num = new vector<int> * [thread_num];
 
     for(int i = 0; i < thread_num; i++){
-        
-        baseline_total_match_num[i] = new vector<int>* [ROC_SAMPLE_NUM];
-        query_total_match_num[i] = new vector<int>* [ROC_SAMPLE_NUM];
-
-        for(int j = 0; j < ROC_SAMPLE_NUM; j++){
-            baseline_total_match_num[i][j] = new vector<int>;
-            baseline_total_match_num[i][j]->resize(MATCH_MODE_NUM, 0);
-            query_total_match_num[i][j] = new vector<int>;
-            query_total_match_num[i][j]->resize(MATCH_MODE_NUM, 0);
-        }
+        baseline_total_match_num[i] = new vector<int>;
+        baseline_total_match_num[i]->resize(MATCH_MODE_NUM, 0);
+        query_total_match_num[i] = new vector<int>;
+        query_total_match_num[i]->resize(MATCH_MODE_NUM, 0);
     }
 
 	vector<thread> threads;
@@ -1702,12 +1697,11 @@ void WholeGenome::ClusteringMatchMultiThread() {
     std::for_each(threads.begin(), threads.end(), std::mem_fn(&std::thread::join));
 
     //output all results
-    cout << "writing results..." << endl;
     ofstream output_stat_file;
     output_stat_file.open(output_dir + "/" + output_prefix+".stat");
 
     cout << "=========VarMatch Result Stat.=======" << endl;
-    string stat_head_string = "#score_unit\tmatch_mode\tscore_unit\tqual_threshold\tbaseline_match_num\tquery_match_num\tquery_total_num";
+    string stat_head_string = "#score_unit\tmatch_mode\tscore_unit\tbaseline_match_num\tquery_match_num";
     cout << stat_head_string << endl;
     output_stat_file << "##Baseline:" << baseline_variant_total_num << endl;
     output_stat_file << "##Query:"<< query_variant_total_num << endl;
@@ -1727,51 +1721,28 @@ void WholeGenome::ClusteringMatchMultiThread() {
                 int total_ref_complex = 0;
                 int total_que_complex = 0;
 
-                string threshold_string = "";
-                string baseline_match_num_string = "";
-                string query_match_num_string = "";
-                string query_total_num_string = "";
+                int baseline_match_num_by_threshold_by_mode = 0;
+                int query_match_num_by_threshold_by_mode = 0;
 
-                for(int t = 0; t < threshold_num; t++){
-                    
-                    threshold_string += to_string(threshold_list[t]);
-
-                    int baseline_match_num_by_threshold_by_mode = 0;
-                    int query_match_num_by_threshold_by_mode = 0;
-
-                    for(int i = 0; i < thread_num; i++){
-                        baseline_match_num_by_threshold_by_mode += baseline_total_match_num[i][t]->at(mode_index);
-                        query_match_num_by_threshold_by_mode += query_total_match_num[i][t]->at(mode_index);
-                    }
-
-                    baseline_match_num_string += to_string(baseline_match_num_by_threshold_by_mode);
-                    query_match_num_string += to_string(query_match_num_by_threshold_by_mode);
-                    query_total_num_string += to_string((int)(query_variant_total_num * (1-per_list[t])) );
-
-                    if(t < threshold_num-1){
-                        threshold_string += ",";
-                        baseline_match_num_string += ",";
-                        query_match_num_string += ",";
-                        query_total_num_string += ",";
-                    }
-                                  
+                for(int i = 0; i < thread_num; i++){
+                    baseline_match_num_by_threshold_by_mode += baseline_total_match_num[i]->at(mode_index);
+                    query_match_num_by_threshold_by_mode += query_total_match_num[i]->at(mode_index);
                 }
 
+                string baseline_match_num_string = to_string(baseline_match_num_by_threshold_by_mode);
+                string query_match_num_string = to_string(query_match_num_by_threshold_by_mode);
+                
                 string total_match_num_string = to_string(score_unit) + "\t" +
                                                 to_string(match_mode) + "\t" + 
                                                 to_string(score_scheme) + "\t" +
-                                                threshold_string + "\t" +
                                                 baseline_match_num_string + "\t" + 
-                                                query_match_num_string + "\t" + 
-                                                query_total_num_string;// + "\t" + to_string(mode_index);
+                                                query_match_num_string;// + "\t" + to_string(mode_index);
                 cout << total_match_num_string << endl;
                 output_stat_file << total_match_num_string << endl;
             }
         }
     }
     output_stat_file.close();
-
-    int bench_mode_index = GetIndexFromMatchScore(0, 0, 0);
 
     for(int x = 0; x < score_unit_list.size(); x++){
         score_unit = score_unit_list[x];
@@ -1792,12 +1763,7 @@ void WholeGenome::ClusteringMatchMultiThread() {
                 for(int i = 0; i < thread_num; i++){
                     for(int k = 0; k < match_records_by_mode_by_thread[i][mode_index]->size(); k++){
                         if (match_records_by_mode_by_thread[i][mode_index]->at(k).find_first_not_of(' ') != std::string::npos) {
-                            //if(match_records_by_mode_by_thread[i][mode_index]->at(k)[0] == '$'){
-                                //int bench_mode_index = stoi(match_records_by_mode_by_thread[i][mode_index]->at(k).erase(0,1));
-                                //output_complex_file << match_records_by_mode_by_thread[i][0]->at(k);
-                            //}else{
-                                output_complex_file << match_records_by_mode_by_thread[i][mode_index]->at(k);
-                            //}
+                            output_complex_file << match_records_by_mode_by_thread[i][mode_index]->at(k);
                         }
                     }
                 }
@@ -1806,20 +1772,53 @@ void WholeGenome::ClusteringMatchMultiThread() {
         }
     }
 
+    map<int, float> query_qual_matchnum[MATCH_MODE_NUM];
+
+    for(int i  = 0; i < mode_index_list.size(); i++){
+
+        int mode_index = mode_index_list[i];
+        for(int t = 0; t < thread_num; t++){
+            auto matchmap_pointer = quality_que_matchnum_by_thread_mode[t][mode_index];
+            for(auto it = matchmap_pointer->begin(); it != matchmap_pointer->end(); ++it){
+                int qual = it->first;
+                if(query_qual_matchnum[mode_index].find(qual) != query_qual_matchnum[mode_index].end()){
+                    query_qual_matchnum[mode_index][qual] += 1.0;
+                }else{
+                    query_qual_matchnum[mode_index][qual] = 1.0;
+                }
+
+            }
+        }
+    }
+    map<int, float> query_qual_accumulated_totalnum;
+
+    for(int i = 0; i < mode_index_list.size(); i++){
+        int mode_index = mode_index_list[i];
+        for(auto it = query_qual_totalnum.begin(); it!= query_qual_totalnum.end(); ++it){
+            map<int, float> query_qual_accumulated_matchnum;
+        }
+
+    }
+    map<int, float> roc_xy [MATCH_MODE_NUM];
+
+
+    ofstream output_roc_file;
+    output_roc_file.open(output_dir + "/" + output_prefix+".roc");
+
+    output_roc_file.close();
     // clear all matching records
 	for(int i = 0; i < thread_num; i++){
         for(int j = 0; j < MATCH_MODE_NUM; j++){
             delete match_records_by_mode_by_thread[i][j];
-        }
-        for(int j = 0; j < ROC_SAMPLE_NUM; j++){
-            delete baseline_total_match_num[i][j];
-            delete query_total_match_num[i][j];
+            delete quality_que_matchnum_by_thread_mode[i][j];
         }
         delete[] match_records_by_mode_by_thread[i];
-        delete[] baseline_total_match_num[i];
-        delete[] query_total_match_num[i];
+        delete[] quality_que_matchnum_by_thread_mode[i];
+        delete baseline_total_match_num[i];
+        delete query_total_match_num[i];
 	}
 	delete[] match_records_by_mode_by_thread;
+    delete[] quality_que_matchnum_by_thread_mode;
     delete[] baseline_total_match_num;
     delete[] query_total_match_num;
 
@@ -1965,10 +1964,7 @@ void WholeGenome::ReadRef(string genome_seq, string ref_vcf){
 
 void WholeGenome::Compare(string query_vcf,
 	string output_prefix,
-    bool detail_results,
-    int score_unit_,
-    int match_mode_,
-    int score_scheme_)
+    bool detail_results)
 {
     // initialize query variant data structure
     que_variant_by_chrid = new vector<DiploidVariant>*[chrom_num];
@@ -1985,53 +1981,14 @@ void WholeGenome::Compare(string query_vcf,
     this->output_prefix = output_prefix;
     this->detail_results = detail_results;
 
-    score_unit_indicator = score_unit_;
-    match_mode_indicator = match_mode_;
-    score_scheme_indicator = score_scheme_;
-
     query_variant_total_num = ReadQueryVariants(query_vcf);
-
-    if(score_unit_indicator == -1){
-        score_unit_list.push_back(0);
-        score_unit_list.push_back(1);
-    }else{
-        score_unit_list.push_back(score_unit_indicator);
-    }
-
-    if(match_mode_indicator == -1){
-        match_mode_list.push_back(0);
-        match_mode_list.push_back(1);
-    }else{
-        match_mode_list.push_back(match_mode_indicator);
-    }
-
-    if(score_scheme_indicator == -1){
-        score_scheme_list.push_back(0);
-        score_scheme_list.push_back(1);
-        score_scheme_list.push_back(2);
-    }else{
-        score_scheme_list.push_back(score_scheme_indicator);
-    }
-
-    for(int i = 0; i < score_unit_list.size(); i++){
-        for(int j = 0; j < match_mode_list.size(); j++){
-            for(int k = 0; k < score_scheme_list.size(); k++){
-                int mode_index = GetIndexFromMatchScore(score_scheme_list[i], match_mode_list[j], score_scheme_list[k]);
-                mode_index_list.push_back(mode_index);  // so that I can directly know how many mode, do not need to calculate all the time
-            }
-        }
-    }
-
     cout << "Baseline VCF: " << ref_vcf_filename << endl;
     cout << "Query VCF: " << query_vcf << endl;
     cout << "========VCF Stat.==========" << endl;
     cout << "Total Number of VCF Entries: " << endl;
     cout << "Baseline: " << baseline_variant_total_num << "; Query: " << query_variant_total_num << endl;
 
-    cout << "parallel clustering..." << endl;
     ParallelClustering();
-    
-    cout << "matching variants..." << endl;
     ClusteringMatchMultiThread();
 
     // most clustering results are cleared inside ParallelClustering function except the following one
@@ -2046,8 +2003,7 @@ void WholeGenome::Compare(string query_vcf,
 
     query_variant_strings.clear();
     query_variant_total_num = 0;
-    threshold_list.clear();
-    threshold_num = 0;
+    quality_que_totalnum.clear();
     // The following three matching results are cleared inside ClusteringMatchMultiThread function
     // match_records_by_mode_by_thread;
     // baseline_total_match_num;

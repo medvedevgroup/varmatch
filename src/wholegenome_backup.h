@@ -100,8 +100,10 @@ protected:
     vector<string> *** match_records_by_mode_by_thread;
     //vector<int> *** baseline_matches_by_mode_by_thread;
     //vector<int> *** query_matches_by_mode_by_thread;
-    vector<int> *** baseline_total_match_num;
-    vector<int> *** query_total_match_num;
+    vector<int> ** baseline_total_match_num;
+    vector<int> ** query_total_match_num;
+
+    map<int, float> *** quality_que_matchnum_by_thread_mode;
 
     //map<float, int> *** tp_qual_num_by_mode_by_thread;
     //map<float, int> *** fp_qual_num_by_mode_by_thread;
@@ -121,10 +123,7 @@ protected:
     vector<int> score_scheme_list;
     vector<int> mode_index_list;
 
-    vector<double> threshold_list;
-    int threshold_num;
-
-    vector<float> per_list;
+    map<int, float> quality_que_totalnum;
 
     bool ReadWholeGenomeSequence(string filename);
     bool ReadGenomeSequenceList(string filename);
@@ -192,8 +191,7 @@ protected:
                                             int chr_id,
                                             int score_unit,
                                             int match_mode,
-                                            int score_scheme,
-                                            int threshold_index);
+                                            int score_scheme);
 
     bool DonorLengthEqual(SequencePath & a, SequencePath & b);
     void ConvergePaths(list<SequencePath> & path_list);
@@ -216,8 +214,7 @@ protected:
                                int offset,
                                int thread_index,
                                int chr_id,
-                               int mode_index,
-                               int threshold_index);
+                               int mode_index);
 
     void ConstructMatchRecordNoGenotype(SequencePath & best_path,
                                        vector<DiploidVariant> & variant_list,
@@ -225,8 +222,7 @@ protected:
                                        int offset,
                                        int thread_index,
                                        int chr_id,
-                                       int mode_index,
-                                       int threshold_index);
+                                       int mode_index);
 
     int CalculateScore(DiploidVariant & dv,
                        int choice,
@@ -243,8 +239,7 @@ protected:
 
     bool CheckTandemRepeat(string sequence, int unit_threshold);
 
-    bool MatchVariantListInThread(int thread_index, 
-        int threshold_index,
+    bool MatchVariantListInThread(int thread_index,
         int chr_id,
         vector<DiploidVariant> & variant_list,
         int cluster_id);
@@ -252,6 +247,9 @@ protected:
 
 public:
     WholeGenome(int thread_num_,
+                int score_unit_,
+                int match_mode_,
+                int score_scheme_,
                 string output_dir_);
 
     ~WholeGenome();
@@ -261,10 +259,7 @@ public:
 
     void Compare(string query_vcf,
         string output_prefix,
-        bool detail_results,
-        int score_unit_,
-        int match_mode_,
-        int score_scheme_);
+        bool detail_results);
 
     void DirectMatch(string ref_vcf,
                 string query_vcf);

@@ -84,6 +84,22 @@ public:
         return false;
     }
 
+    bool CompareNoGenotype(const DiploidVariant & y){
+        if(pos == y.pos && ref == y.ref){
+            if(alts[0] == y.alts[0]) return true;
+            if(multi_alts){
+                if(alts[1] == y.alts[0]) return true;
+                if(y.multi_alts && alts[1] == y.alts[1]){
+                    return true;
+                }
+            }
+            if(y.multi_alts && alts[0] == y.alts[1]){
+                return true;
+            }
+        }
+        return false;
+    }
+
 };
 
 // define outside of struct, idiomatic solution for lexicographical compare for structures
