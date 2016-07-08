@@ -18,20 +18,21 @@ VCF::VCF(int thread_num_)
 	genome_sequence = "";
 	boundries_decided = false;
 	clustering_search = false;
-	match_genotype = false;
+	match_genotype = true;
     if (thread_num_ <= 0) {
 		thread_num = 1;
 	}
 	else {
 		thread_num = min(thread_num_, (int)thread::hardware_concurrency());
 	}
-	dout << "Thread Number: " << thread_num << endl;
+	dout << "VCF() Thread Number: " << thread_num << endl;
     chromosome_name = ".";
 }
 
 VCF::~VCF()
 {
 }
+
 
 // protected
 bool VCF::NormalizeSnp(int pos, string ref, string alt, string & parsimonious_ref, string & parsimonious_alt) {

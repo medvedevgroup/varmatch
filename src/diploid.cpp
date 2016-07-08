@@ -4,7 +4,7 @@
 
 // inline function protected
 // code reviewed by Channing
-bool global_match_genotype = true;
+
 
 inline bool CompareSequence(string s1, string s2) {
 	transform(s1.begin(), s1.end(), s1.begin(), ::toupper);
@@ -20,68 +20,10 @@ inline bool PrefixMatch( std::string const& lhs, std::string const& rhs )
         rhs.begin() );
 }
 
-inline void ToUpper(string & s){
-    transform(s.begin(), s.end(), s.begin(), ::toupper);
-}
-
-bool operator <(const DiploidVariant& x, const DiploidVariant& y) {
-	return x.pos < y.pos;
-}
-
-// this is based on the assumption that all sequence are in upper case
-bool operator ==(const DiploidVariant& x, const DiploidVariant& y) {
-	if (x.pos == y.pos && x.ref == y.ref) {
-        if(!global_match_genotype){
-            if (x.multi_alts && x.heterozygous && y.multi_alts && y.heterozygous) {
-                int match_times = 0;
-                for (int i = 0; i < 2; i++) {
-                    for (int j = 0; j < 2; j++) {
-                        if (x.alts[i] == y.alts[j])
-                            match_times++;
-                    }
-                }
-                if (match_times > 0)
-                    return true;
-            }
-            else if(x.alts[0] == y.alts[0]){
-                return true;
-            }
-        }else if(x.heterozygous == y.heterozygous && x.multi_alts == y.multi_alts){
-            if (x.multi_alts && x.heterozygous) {
-                int match_times = 0;
-                for (int i = 0; i < 2; i++) {
-                    for (int j = 0; j < 2; j++) {
-                        if (x.alts[i] == y.alts[j])
-                            match_times++;
-                    }
-                }
-                if (match_times >= 2)
-                    return true;
-            }
-            else if(x.alts[0] == y.alts[0]){
-                return true;
-            }
-        }
-	}
-	return false;
-}
-
-
-DiploidVCF::DiploidVCF(int thread_num_)
+DiploidVCF::DiploidVCF(int thread_num_):VCF(thread_num_)
 {
-	genome_sequence = "";
-	boundries_decided = false;
-	clustering_search = false;
     scoring_basepair = false;
-	match_genotype = true;
-    if (thread_num_ <= 0) {
-		thread_num = 1;
-	}
-	else {
-		thread_num = min(thread_num_, (int)thread::hardware_concurrency());
-	}
-	dout << "Thread Number: " << thread_num << endl;
-    chromosome_name = ".";
+	dout << "DiploidVCF() Thread Number: " << thread_num << endl;
 }
 
 DiploidVCF::~DiploidVCF()
@@ -269,6 +211,8 @@ int DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_varia
 //            cout << "find snp from: " << flag << endl;
 //        }
 		auto ref = columns[3];
+
+		if(ref.size() >= VAR_LEN) continue;
 		auto alt_line = columns[4];
 		auto quality = columns[5];
 
@@ -319,9 +263,11 @@ int DiploidVCF::ReadDiploidVCF(string filename, vector<DiploidVariant> & x_varia
 		vector<string> alt_list;
 		if (alt_line.find(",") != std::string::npos) {
 			alt_list = split(alt_line, ',');
+			if(alt_list[0].size() >= VAR_LEN || alt_list[1].size() >= VAR_LEN) continue;
 			is_multi_alternatives = true;
 		}
 		else {
+            if(alt_line.size() >= VAR_LEN) continue;
 			alt_list.push_back(alt_line);
 		}
 
@@ -957,7 +903,7 @@ void PrintSelection(VariantSelection selection){
     cout << endl;
 }
 
-void PrintVariant(DiploidVariant var){
+void DiploidVCF::PrintVariant(DiploidVariant var){
     cout << "-Variant:-" << endl;
     cout << var.flag << "," << var.pos << "," << var.ref << "," << var.alts[0];
     if(var.multi_alts) cout << "/" << var.alts[1];
@@ -1707,7 +1653,7 @@ bool DiploidVCF::CollapseSelections(VariantSelection selection,
         return true;
     }else{
         for(auto it = lt; it!= rt;){
-            VariantSelection ts = *it;
+            VariantSelection ts = *it;//ts represents each selection in variant_selections
             if(ts.haplotypes_consistent &&
                 ts.genome_position[0] == selection.genome_position[0] &&
                 ts.genome_position[1] == selection.genome_position[1] &&
@@ -1768,7 +1714,7 @@ bool DiploidVCF::AcceleratedVariantMatchPathCreation(vector<DiploidVariant> & va
             complex_que_match_num[thread_index]++;
 
             DiploidVariant tv = separate_var_list[0][0];
-            string match_record = to_string(tv.pos) + "\t" + tv.ref + "\t" + tv.alts[0];
+            string match_record = to_string(tv.pos+1) + "\t" + tv.ref + "\t" + tv.alts[0];
             if(tv.multi_alts) match_record += "/" + tv.alts[1];
             match_record += "\t.\t.\t.\t.\t.\n";
             complex_match_records[thread_index]->push_back(match_record);
@@ -1925,8 +1871,20 @@ bool DiploidVCF::AcceleratedVariantMatchPathCreation(vector<DiploidVariant> & va
 
     bool multiple_match = true;
     if(best_selection.donor_sequences[0] == best_selection.donor_sequences[1]) multiple_match = true;
-    string match_record = to_string(offset) + "\t" + subsequence + "\t" + best_selection.donor_sequences[0];
-    if(multiple_match) match_record += "/" + best_selection.donor_sequences[1];
+//    string match_record = to_string(offset) + "\t" + subsequence + "\t" + best_selection.donor_sequences[0];
+//    if(multiple_match) match_record += "/" + best_selection.donor_sequences[1];
+    string parsimonious_ref = subsequence;
+    string parsimonious_alt0 = best_selection.donor_sequences[0];
+    string parsimonious_alt1 = best_selection.donor_sequences[1];
+
+    int parsimonious_pos = NormalizeVariantSequence(offset,
+                             parsimonious_ref,
+                             parsimonious_alt0,
+                             parsimonious_alt1);
+
+    string match_record = to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
+    if(multiple_match) match_record += "/" + parsimonious_alt1;
+
     string vcf_record[2];
     string phasing_record[2];
 
@@ -3434,8 +3392,10 @@ bool DiploidVCF::ClusteringMatchInThread(int start, int end, int thread_index) {
 //                size_of_cluster[var_list_size] = 1;
 //			}
 //
-//			if (var_list.size() <= 1) continue;
-//            cout << cluster_id << endl;
+			if (var_list.size() > 100){
+                cout << cluster_id << ":" ;
+                cout << var_list.size() << endl;
+            }
 			//bool method1 = VariantMatchPathCreationByDonor(var_list, thread_index, cluster_id);
 			bool method2 = AcceleratedVariantMatchPathCreation(var_list, thread_index, cluster_id);
 //			if(method1 != method2){
@@ -3543,15 +3503,13 @@ void DiploidVCF::Compare(string ref_vcf,
 	bool overlap_match,
 	bool variant_check) {
 
-	global_match_genotype = match_genotype;
-
 	ref_vcf_filename = ref_vcf;
 	que_vcf_filename = query_vcf;
-	this->match_genotype = match_genotype;
 	this->normalization = normalization;
 	this->scoring_basepair = score_basepair;
 	this->overlap_match = overlap_match;
 	this->variant_check = variant_check;
+	this->match_genotype = match_genotype;
 	output_stat_filename = output_prefix + ".stat";
     output_complex_filename = output_prefix + ".match";
 	//------------read genome sequence and decide boundary according to thread number

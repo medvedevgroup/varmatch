@@ -2,7 +2,6 @@
 matching equivalent genetic variants with different complex representations
 
 # Prerequisite
-- python 2.7 or later
 - GCC 4.7 or later for c++11 support
 
 # Installation
@@ -20,101 +19,80 @@ make all
 *compare two vcf files to match variants*
 
 ```
-./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output
+./vm -b baseline.vcf -q query.vcf -g chr1.fa -o out
 ```
-- `-r` reference vcf file
+- `-b` baseline vcf file
 - `-q` query vcf file
-- `-g` single genome fasta file
-- `-o` output directory, default value is `./output`
+- `-g` genome fasta file
+- `-o` output file prefix, default value is `out`
 
-### Match Genotypes
-
-*compare two vcf files to match variants with genotypes*
+### Detail Usage
 
 ```
-./varmatch -r one.vcf -q another.vcf -g chr1.fa --genotype
+./vm  -g <file> -b <file> -q <file> [-o <string>] [-t <int>] [-u <0|1>]
+     [-m <0|1>] [-s <0|1|2|3>] [-h]
 ```
 
-- `--genotype` active genotype matching module
+Where:
+
+   `-g` <file>,  `--genome_sequence` <file>
+     (required)  genome sequence FASTA filename
+
+   `-b` <file>,  `--baseline` <file>
+     (required)  baseline variant VCF filename
+
+   `-q` <file>,  `--query` <file>
+     (required)  query variant VCF filename
+
+   `-o` <string>,  `--output_prefix` <string>
+     output filename prefix, default is "out"
+
+   `-t` <int>,  `--thread_num` <int>
+     number of threads, default is the number of available cores.
+
+     If larger than number of available cores or less than 1, automatically
+     set to default value
+
+   `-u` <0|1>,  `--score_unit` <0|1>
+     scoring function/score unit: (Default: 0)
+
+     0 : the score that a VCF entry contributes is 1.
+
+     1 : the score that a VCF entry contributes is the edit distance
+     between the new allele and the reference one.
 
 
-### Find matches from multiple (more than one) vcf files
+   `-m` <0|1>,  `--match_mode` <0|1>
+     matching mode: (Default: 0)
 
-```
-./varmatch --multi_vcf 1.vcf 2.vcf 3.vcf -g genome.fa -o ./output
-```
+     0 : a set of query entries match a set of baseline entries if, for
+     each entry, we can select one of the alleles such that the inferred
+     sequences are identical
 
-- `--multi_vcf`  vcf file list separated by blank spaces
-
-
-### Remove duplicates in one vcf file or variant database
-
-*illustrate how to use --remove_dup module*
-
-*This function module can be used to remove duplicates in database or single vcf file*
-
-```
-./varmatch -g genome.fa --remove_dup database.vcf -o ./output
-```
-
-- `--remove_dup` vcf file name
+     1 : a set of query entries match a set of baseline entries if there
+     exist a phasing of each set such that the two inferred haplotypes from
+     the query are equal to the two inferred haplotypes from the
+     baseline.
 
 
+   `-s` <0|1|2|3>,  `--score_scheme` <0|1|2|3>
+     scoring scheme: (Default: 0)
 
-### Multi chromosomes mode
+     0 : find two subsets of non-overlapping equivalent variants such that
+     the score of the matched variants is maximized (Default)
 
-if vcf file contains variants of multi chromosome, use `--multi_genome` parameter instead of `-g`:
+     1 : find two subsets of non-overlapping equivalent variants such that
+     the score of the chosen baseline variants is maximized
 
+     2 : find a maximum scoring set of variants in the query such that each
+     variant can be matched by a subset of the baseline variants
 
-```
-./varmatch --multi_genome chromosome_list.txt -r one.vcf -q another.vcf
-```
+     3 : (1 to 1 direct match) find a maximum scoring set of entry pairs
+     such that each entry pair contains one query and one baseline variant
+     that result in the same sequence. In this scheme, different scoring
+     functions and matching mode have no difference.
 
-- `--multi_genome` chromosome list file contains chromosome name and FASTA file absolute path, separated by `\t`.
-
-An example of chromosome list file is as follows:
-
->1&nbsp;&nbsp;&nbsp;&nbsp;/home/varmatch/human/chr1.fa
-
->2&nbsp;&nbsp;&nbsp;&nbsp;/home/varmatch/human/chr2.fa
-
->17&nbsp;&nbsp;&nbsp;/home/varmatch/human/backup/chr17.fa
-
->X&nbsp;&nbsp;&nbsp;&nbsp;/home/varmatch/human/chrxx.fa
-
->Y&nbsp;&nbsp;&nbsp;&nbsp;/home/anotherpath/human/chrY/human.y.fa
-
-
-### Using multi threads
-
-```
-./varmatch -r one.vcf -q another.vcf -g chr1.fa -o ./output -t 8
-```
-
-- `-t` thread number
-
-
-
-
-### Detailed Usage:
+### Help Information:
 
 use `-h/--help` for detailed help message.
 
-
-# Output
-### Standard Output:
-```
-######### Matching Result ################
-
- ref total: Number of VCF entries in reference VCF file
- que total: Number of VCF entries in query VCF file
- ref matches: Number of matched VCF entries in reference VCF file
- que matches: Number of matched VCF entries in query VCF file
- ref mismatch: Number of mismatch in reference VCF file
- alt mismatch: Number of mismatch in query VCF file
-
-```
-# VarMatch Parallel Mode
-VarMatch supports parallel computing with `-t ` parameter.
-
-Parallel computing is based on C++11 standard.
