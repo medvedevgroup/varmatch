@@ -41,7 +41,7 @@ typedef struct Interval {
 
 class SequencePath{
 public:
-    SequencePath(int n, int v)
+    SequencePath(int n)
     {
         reference_length = n;
         for(int i = 0; i < 4; i++){
@@ -56,10 +56,6 @@ public:
         current_equal_donor_pos[0] = -1;
         current_equal_donor_pos[1] = -1;
         reached_sync_num = 0;
-
-        for(int i = 0; i < v; i++){
-            choice_vector.push_back(-89);
-        }
     }
     int reference_length;
     vector<string> string_sequences[4];
@@ -72,7 +68,6 @@ public:
     bool removable;
     bool same_donor_len;
     int reached_sync_num;
-    vector<int> choice_vector;
 };
 
 class WholeGenome{
@@ -103,14 +98,10 @@ protected:
     vector<vector<VariantIndicator>> variants_by_cluster;
 
     vector<string> *** match_records_by_mode_by_thread;
-
     //vector<int> *** baseline_matches_by_mode_by_thread;
     //vector<int> *** query_matches_by_mode_by_thread;
     vector<int> *** baseline_total_match_num;
     vector<int> *** query_total_match_num;
-
-    vector<int> *** baseline_total_edit_distance;
-    vector<int> *** query_total_edit_distance;
 
     //map<float, int> *** tp_qual_num_by_mode_by_thread;
     //map<float, int> *** fp_qual_num_by_mode_by_thread;
@@ -175,13 +166,12 @@ protected:
         return results;
     }
 
-    int PathNeedDecision(SequencePath& sp, multimap<int, int> * choices_by_pos[], int pos);
+    bool PathNeedDecision(SequencePath& sp, multimap<int, int> * choices_by_pos[], int pos);
     int PathExtendOneStep(SequencePath& sp,
                           multimap<int, int> * choices_by_pos[],
                           const string & reference_sequence,
                           vector<int> & sync_points,
-                          int match_mode,
-                          int & variant_need_decision);
+                          int match_mode);
 
     bool PathMakeDecision(SequencePath& sp,
                                  vector<DiploidVariant> & variant_list,
@@ -191,44 +181,6 @@ protected:
                                  int score_unit,
                                  int match_mode,
                                  int score_scheme);
-
-    bool VariantMakeDecision(SequencePath& sp,
-                             vector<DiploidVariant> & variant_list,
-                             list<SequencePath> & sequence_path_list,
-                             const string & reference_sequence,
-                             int score_unit,
-                             int match_mode,
-                             int score_scheme,
-                             int variant_index);
-
-    bool VariantMakeDecisionNoGenotype(SequencePath& sp,
-                         vector<DiploidVariant> & variant_list,
-                         list<SequencePath> & sequence_path_list,
-                         const string & reference_sequence,
-                         int score_unit,
-                         int match_mode,
-                         int score_scheme,
-                         int variant_index);
-
-    bool AppendChangedSp(SequencePath& sp,
-                         vector<DiploidVariant> & variant_list,
-                         list<SequencePath> & sequence_path_list,
-                         const string & reference_sequence,
-                         int score_unit,
-                         int match_mode,
-                         int score_scheme,
-                         int variant_index,
-                         int c);
-
-    bool AppendChangedSpNoGenotype(SequencePath& sp,
-                         vector<DiploidVariant> & variant_list,
-                         list<SequencePath> & sequence_path_list,
-                         const string & reference_sequence,
-                         int score_unit,
-                         int match_mode,
-                         int score_scheme,
-                         int variant_index,
-                         int c);
 
     bool PathMakeDecisionBackup(SequencePath& sp,
                                  vector<DiploidVariant> & variant_list,
@@ -276,25 +228,7 @@ protected:
                                int mode_index,
                                int threshold_index);
 
-    void ConstructMatchRecordBackup(SequencePath & best_path,
-                               vector<DiploidVariant> & variant_list,
-                               string & subsequence,
-                               int offset,
-                               int thread_index,
-                               int chr_id,
-                               int mode_index,
-                               int threshold_index);
-
     void ConstructMatchRecordNoGenotype(SequencePath & best_path,
-                                       vector<DiploidVariant> & variant_list,
-                                       string & subsequence,
-                                       int offset,
-                                       int thread_index,
-                                       int chr_id,
-                                       int mode_index,
-                                       int threshold_index);
-
-    void ConstructMatchRecordNoGenotypeBackup(SequencePath & best_path,
                                        vector<DiploidVariant> & variant_list,
                                        string & subsequence,
                                        int offset,
@@ -328,10 +262,6 @@ protected:
     int needleman_wunsch(string S1, string S2, string &R1, string &R2);
     void GenerateAltVector(string ref, string alt, vector<string> & alt_vector);
 
-    int CalculateEditDistance(DiploidVariant & dv,
-                                int choice,
-                                int match_mode);
-
 public:
     WholeGenome(int thread_num_,
                 string output_dir_,
@@ -350,9 +280,7 @@ public:
         int score_scheme_);
 
     void DirectMatch(string ref_vcf,
-                string query_vcf,
-                int match_mode_,
-                string output_prefix);
+                string query_vcf);
 
     int test(); // for direct test
     void PrintPath(SequencePath & sp);
@@ -361,7 +289,4 @@ public:
     const static int VAR_LEN = 100;
     const static int MAX_REPEAT_LEN = 1000;
     const static int ROC_SAMPLE_NUM = 5;
-    const static int MEANING_CHOICE_BOUND = -10;
-    const static int NOT_USE = -9;
-    const static int EASY_MATCH_VAR_NUM = 5;
 };

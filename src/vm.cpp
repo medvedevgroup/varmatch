@@ -20,6 +20,8 @@ typedef struct Args {
 	int score_scheme;
     bool detail_results;
     vector<string> query_file_list;
+    bool pr_curves;
+    bool direct_match;
 
 //	bool direct_search;
 //	string chr_name;
@@ -91,11 +93,18 @@ bool TclapParser(Args & args, int argc, char** argv){
         TCLAP::ValuesConstraint<int> allowedFour(allowed_four);
         TCLAP::ValueArg<int> arg_score_scheme("s", "score_scheme", score_scheme_string, false, -1, &allowedFour);
 
+        //string direct_match_string = "Direct Match. \n";
+        //TCLAP::SwitchArg arg_direct_match("d", "direct_match", direct_match_string, cmd, false);
+
         string detail_results_string = "output detail matching results, by default do not output.\n"
         "filename in format PREFIX.PARAMETER.match\n"
         "The results present which variants in baseline match which variants in query.";
 
         TCLAP::SwitchArg arg_detail_results("e","detail_results", detail_results_string, cmd, false);
+
+        string precision_recall_string = "Disable Precision-Recall curves. \n";
+        TCLAP::SwitchArg arg_disable_curves("C", "disable_curves", precision_recall_string, cmd, false);
+
         cmd.add(arg_score_scheme);
         cmd.add(arg_match_mode);
         cmd.add(arg_score_unit);
@@ -120,6 +129,8 @@ bool TclapParser(Args & args, int argc, char** argv){
 		args.match_mode = arg_match_mode.getValue();
 		args.score_scheme = arg_score_scheme.getValue();
         args.detail_results = arg_detail_results.getValue();
+        args.pr_curves = ! arg_disable_curves.getValue();
+        //args.direct_match = arg_direct_match.getValue();
 	}
 	catch (TCLAP::ArgException &e)
 	{
@@ -159,7 +170,16 @@ int main(int argc, char* argv[])
 
     //return 0;
     WholeGenome wg(args.thread_num,
-                   args.output_dir);
+                   args.output_dir,
+                   args.pr_curves);
+
+    // if(args.direct_match){
+    //     for(int i = 0; i < args.query_file_list.size(); i++){
+    //         string query_filename = args.query_file_list[i];
+    //         wg.DirectMatch(args.ref_vcf_filename, query_filename, args.match_mode);
+    //     }
+    //     return 0;
+    // }
 
     wg.ReadRef(args.genome_seq_filename, 
         args.ref_vcf_filename);
@@ -167,6 +187,7 @@ int main(int argc, char* argv[])
     // use a loop 
     for(int i = 0; i < args.query_file_list.size(); i++){
         string query_filename = args.query_file_list[i];
+
         wg.Compare(query_filename,
             "query"+to_string(i+1),
             args.detail_results,

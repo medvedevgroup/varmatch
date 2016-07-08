@@ -9,6 +9,7 @@ using namespace std;
 typedef struct Args {
 	string bed_filename;
     vector<string> vcf_filenames;
+    bool keep_outside;
 }Args;
 
 bool TclapParser(Args & args, int argc, char** argv){
@@ -21,6 +22,9 @@ bool TclapParser(Args & args, int argc, char** argv){
 		TCLAP::ValueArg<std::string> arg_bed_filename("b", "bedfile", "bedfile", true, "", "file");
 		TCLAP::MultiArg<std::string> arg_vcf_filenames("v", "vcf_files", "VCF file list", true, "file list");
 
+        string keep_variant_outside_string = "Keep variants outside, default keep variants inside. \n";
+        TCLAP::SwitchArg arg_keep_outside("o", "outside", keep_variant_outside_string, cmd, false);
+
         cmd.add(arg_vcf_filenames);
         cmd.add(arg_bed_filename);
 
@@ -28,6 +32,7 @@ bool TclapParser(Args & args, int argc, char** argv){
 
 		args.bed_filename = arg_bed_filename.getValue();
 		args.vcf_filenames = arg_vcf_filenames.getValue();
+        args.keep_outside = arg_keep_outside.getValue();
 	}
 	catch (TCLAP::ArgException &e)
 	{
@@ -74,9 +79,10 @@ void ReadBedfile(string bed_filename,
 
 void FilterVcfFile(string vcf_filename, 
 	map<string, int> & chrname_2_index, 
-	vector<map<int, int>> & chr_end_start){
+	vector<map<int, int>> & chr_end_start,
+    bool keep_outside){
 	
-	string filter_filename = vcf_filename + ".nhc.vcf";
+	string filter_filename = vcf_filename + ".lcr.vcf";
 
 	ifstream input(vcf_filename);
 	if(!input.good()){
@@ -107,11 +113,20 @@ void FilterVcfFile(string vcf_filename,
     	int startp = itlow->second;
     	int endp = itlow->first;
     	if(varp >= startp && varp< endp){
-    		continue;
-    	}
-    	
-    	output_lines.push_back(line);
-    
+            if(keep_outside){
+    		  continue;
+            }else{
+                output_lines.push_back(line);
+            }
+    	}else{
+            // variants are outside of bed region
+            if(!keep_outside){
+                // if you do not want to keep outside variants
+                continue;
+            }else{
+                output_lines.push_back(line);
+            }
+        }
     }
 
 	ofstream filter_file;
@@ -136,7 +151,7 @@ int main(int argc, char* argv[]){
     vector<string> vcf_filenames = args.vcf_filenames;
 
     for(auto vcf_filename: vcf_filenames){
-    	FilterVcfFile(vcf_filename, chrname_2_index, chr_end_start);
+    	FilterVcfFile(vcf_filename, chrname_2_index, chr_end_start, args.keep_outside);
     }
 
     return 0;

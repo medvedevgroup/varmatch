@@ -9,7 +9,8 @@ public:
         int mdl_ = 0,
         int mil_ = 0,
         bool flag_ = false,
-        double qual_ = 0.0) :
+        double qual_ = 0.0,
+        bool zero_one_var_ = false) :
         pos(pos_),
         ref(ref_),
         alts(alts_),
@@ -18,13 +19,16 @@ public:
         mdl(mdl_),
         mil(mil_),
         flag(flag_),
-        qual(qual_){}
+        qual(qual_),
+        zero_one_var(zero_one_var_){}
 
     int pos;
     string ref;
     vector<string> alts;
     bool heterozygous;
     bool multi_alts;
+    bool zero_one_var; // which means the phasing should be 0/1 or 1/0, no matter if it contains multi_alts
+    // i.e. multi_alts does not mean that it is 1/2 or 2/1
     int mdl;
     int mil;
     bool flag; //in DiploidVariant, flag = false is reference, flag = true is query
@@ -59,6 +63,16 @@ public:
                 else if(alts[0] == y.alts[0]){
                     return true;
                 }
+            }
+            if(multi_alts && zero_one_var && y.multi_alts && y.zero_one_var){
+                int match_times = 0;
+                for (int i = 0; i < 2; i++) {
+                    for (int j = 0; j < 2; j++) {
+                        if (alts[i] == y.alts[j])
+                            match_times++;
+                    }
+                }
+                if(match_times > 1) return true;
             }
         }
         return false;

@@ -2,7 +2,6 @@
 
 using namespace std;
 
-// constructor
 WholeGenome::WholeGenome(int thread_num_,
     string output_dir_,
     bool pr_curves){
@@ -56,7 +55,6 @@ inline int WholeGenome::GetIndexFromMatchScore(int score_unit, int match_mode, i
     return result;
 }
 
-// distructor
 WholeGenome::~WholeGenome(){
 
     for(int j = 0; j < chrom_num; j++){
@@ -199,11 +197,8 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 
 		bool is_heterozygous_variant = false;
 		bool is_multi_alternatives = false;
-        bool is_zero_one_var = false;
-        
-        vector<string> genotype_columns;
-		
-        if (match_mode_indicator != 1) { // match mode indicator is -1 or 0
+
+		if (match_mode_indicator != 1) { // match mode indicator is -1 or 0
 			if (genotype_index < 0) {
                 // change genotype index
                 auto formats = split(columns[8], ':');
@@ -215,7 +210,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
                 }
                 // if GT not found
                 if(genotype_index < 0){
-                    if(match_mode_indicator != 1 && match_mode_indicator != 1){
+                    if(match_mode_indicator != 1){
                         cout << "[VarMatch] Warning: VCF entry does not contain genotype information." << endl;
                         cout << "[VarMatch] \tAutomatically turn off genotype matching mode. " << endl;
                         match_mode_indicator = 1;
@@ -223,11 +218,10 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
                 }
 			}
 
-            
             if(match_mode_indicator != 1){
 
     			auto additionals = split(columns[9], ':');
-                genotype_columns = split(additionals[genotype_index], genotype_separator);
+                vector<string> genotype_columns = split(additionals[genotype_index], genotype_separator);
 
                 if(genotype_columns.size() != 2){
                     
@@ -250,11 +244,9 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
     					is_heterozygous_variant = true;
     				}
                     if (genotype_columns[1] == "0" && genotype_columns[0] == "0") {
-                        //cout << "Skip Variants when both genotype is refernce allele: " << line << endl;   
+                        //cout << "Skip Variants when both genotype is refernce allele: " << line << endl;
+                        
                         continue;
-                    }
-                    if(genotype_columns[0] == "0" || genotype_columns[1] == "0"){
-                        is_zero_one_var = true;
                     }
     			}
             }
@@ -269,23 +261,6 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 			alt_list.push_back(alt_line);
 		}
 
-        if(alt_list.size() > 2){
-            if(match_mode_indicator != 1){
-            vector<string> temp_alt_list = alt_list;
-            alt_list.clear();
-            for(int i = 0; i < 2; i++){
-                int alt_indicator = stoi(genotype_columns[i]);
-                if(alt_indicator == 0) continue;
-                alt_list.push_back(temp_alt_list[alt_indicator-1]);
-            }
-            }else{
-                vector<string> temp_alt_list = alt_list;
-                alt_list.clear();
-                alt_list.push_back(temp_alt_list[0]);
-                alt_list.push_back(temp_alt_list[1]);
-            }
-        }
-
         int snp_ins = max(0, (int)alt_list[0].length() - (int)ref.length());
         int snp_del = max(0, (int)ref.length() - (int)alt_list[0].length());
         if(is_multi_alternatives){
@@ -299,7 +274,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
             continue;
         }
 
-		DiploidVariant dv(pos, ref, alt_list, is_heterozygous_variant, is_multi_alternatives, snp_del, snp_ins, flag, quality, is_zero_one_var);
+		DiploidVariant dv(pos, ref, alt_list, is_heterozygous_variant, is_multi_alternatives, snp_del, snp_ins, flag, quality);
 		//if (normalization) {
 			//NormalizeDiploidVariant(dv);
 		//}
@@ -488,19 +463,7 @@ int WholeGenome::needleman_wunsch(string S1, string S2, string &R1, string &R2)
     }
     reverse(R1.begin(), R1.end());
     reverse(R2.begin(), R2.end());
-
-    int result = score[N][M];
-
-    for (int i = 0; i <= N; i++)
-    {
-        delete score[i];
-        delete trackBack[i];
-    }
-
-    delete score;
-    delete trackBack;
-
-    return result;
+    return score[N][M];
 }
 
 void WholeGenome::GenerateAltVector(string ref, string alt, vector<string> & alt_vector){
@@ -653,7 +616,6 @@ bool WholeGenome::CheckTandemRepeat(string sequence, int unit_threshold) {
     return final_checking;
 }
 
-// preprocess
 bool WholeGenome::MatchVariantListInThread(int thread_index, 
     int threshold_index,
     int chr_id,
@@ -701,26 +663,16 @@ bool WholeGenome::MatchVariantListInThread(int thread_index,
             match_record += "\t.\t.\t.\t.\t.\n";
             // here we need to push back for all mode_index
             //complex_match_records[thread_index]->push_back(match_record);
-
-            int edit_distance = CalculateEditDistance(tv, 0, 0);
             for(int mi = 0; mi < mode_index_list.size(); mi ++){
                 int mode_i = mode_index_list[mi];
                 //if(mi == 0){
-                
-
-                // this line should be recovered
-                match_records_by_mode_by_thread[thread_index][mode_i]->push_back(match_record);
-                
+                    match_records_by_mode_by_thread[thread_index][mode_i]->push_back(match_record);
                 //}else{
                 //    match_records_by_mode_by_thread[thread_index][mode_i]->push_back("$"+to_string(match_records_by_mode_by_thread[thread_index][0]->size()));
                     // use dollor to represent that it is the same
                 //}
                 baseline_total_match_num[thread_index][threshold_index]->at(mode_i)++;
                 query_total_match_num[thread_index][threshold_index]->at(mode_i)++;
-
-                baseline_total_edit_distance[thread_index][threshold_index]->at(mode_i) +=  edit_distance;
-                query_total_edit_distance[thread_index][threshold_index]->at(mode_i) += edit_distance;
-                //calculate the edit distance
             }
             // output match result
             return true;
@@ -747,26 +699,18 @@ bool WholeGenome::MatchVariantListInThread(int thread_index,
         }
     }
 
-    separate_var_list[0].clear();
-    separate_var_list[1].clear();
     // remove singular variant
     // [todo] try removing this filter to see running time changes
     vector<bool> appliable_flag;
     int total_change = total_mil+total_mdl;
 
-    if(variant_list.size() > EASY_MATCH_VAR_NUM){
-        for(int k = 0; k < variant_list.size(); k++){
-            DiploidVariant cur_var = variant_list[k];
-            int max_change = max(cur_var.mil, cur_var.mdl);
-            if(max_change > total_change-max_change){
-                appliable_flag.push_back(false);
-                //dout << "this variant is removed" << endl;
-            }else{
-                appliable_flag.push_back(true);
-            }
-        }
-    }else{
-        for(int k = 0; k < variant_list.size(); k++){
+    for(int k = 0; k < variant_list.size(); k++){
+        DiploidVariant cur_var = variant_list[k];
+        int max_change = max(cur_var.mil, cur_var.mdl);
+        if(max_change > total_change-max_change){
+            appliable_flag.push_back(false);
+            //dout << "this variant is removed" << endl;
+        }else{
             appliable_flag.push_back(true);
         }
     }
@@ -836,16 +780,9 @@ bool WholeGenome::MatchVariantListInThread(int thread_index,
             }
         }
     }
-
-    for(int i = 0; i < 2; i++){
-        delete choices_by_pos[i];
-    }
-    //delete choices_by_pos;
-
     return true;
 }
 
-// transfer indicator to variant 
 bool WholeGenome::ClusteringMatchInThread(int start, int end, int thread_index) {
 
 	for (int cluster_id = start; cluster_id < end; cluster_id++) {
@@ -898,28 +835,19 @@ bool WholeGenome::ClusteringMatchInThread(int start, int end, int thread_index) 
 
 
 // to reduce memory usage of paths, move all functions about SequencePath out into WholeGenome with a parameter SequencePath
-int WholeGenome::PathNeedDecision(SequencePath& sp, multimap<int, int> * choices_by_pos[], int pos){
+bool WholeGenome::PathNeedDecision(SequencePath& sp, multimap<int, int> * choices_by_pos[], int pos){
     for(int i = 0; i < 2; i++){
         if(choices_by_pos[i]->find(pos) != choices_by_pos[i]->end()){
-            pair<multimap<int, int>::iterator, multimap<int, int>::iterator> var_range;
-            var_range = choices_by_pos[i]->equal_range(pos);
-
-            for(auto it = var_range.first; it != var_range.second; ++it){
-                int var_index = (*it).second;
-                if(sp.choice_vector[var_index] <= MEANING_CHOICE_BOUND) return var_index;
-            }
             // you need to make choices now
-            // if(sp.choice_made[i].find(pos) == sp.choice_made[i].end()){
-            //     // no choice made at current pos
-            //     return true;
-            // }
+            if(sp.choice_made[i].find(pos) == sp.choice_made[i].end()){
+                // no choice made at current pos
+                return true;
+            }
         }
     }
-    return -1;
+    return false;
 }
 
-// if match_mode == 1, i.e. variant match mode, only check one sequence
-// otherwise, check two sequences
 int WholeGenome::CheckPathEqualProperty(SequencePath & sp, int match_mode)
 {
 
@@ -991,8 +919,7 @@ int WholeGenome::PathExtendOneStep(SequencePath& sp,
                                    multimap<int, int> * choices_by_pos[],
                                    const string & reference_sequence,
                                    vector<int> & sync_points,
-                                   int match_mode,
-                                   int & variant_need_decision){
+                                   int match_mode){
     //-1 operation fail, path deleted
     //0 operation succeed
     //1 operation fail, need to make decision first, then extend
@@ -1006,13 +933,11 @@ int WholeGenome::PathExtendOneStep(SequencePath& sp,
     for(int next_genome_pos = start_pos; next_genome_pos <= end_pos; next_genome_pos++){
 
         // before make decision, we need to check if the equal property still holds
-        int variant_need_decision_ = PathNeedDecision(sp, choices_by_pos, next_genome_pos);
-        if(variant_need_decision_ >= 0){
+        if(PathNeedDecision(sp, choices_by_pos, next_genome_pos)){
 
             // check equal property
             int statu = CheckPathEqualProperty(sp, match_mode);
             if(statu == -1) return -1;
-            variant_need_decision = variant_need_decision_;
             return 1; // need decision on next position
         }
 
@@ -1057,18 +982,15 @@ int WholeGenome::CalculateScore(DiploidVariant & dv,
                                 int match_mode,
                                 int score_scheme){
     int score = 0;
-    if(choice <= NOT_USE) return score;
     if(score_unit == 0){
         score = 1;
     }else if(score_unit == 1){
         if(match_mode == 0){
             if(choice == -1){
                 score += ScoreEditDistance(dv, 0);
-            }else if(choice == -2){
-                score += ScoreEditDistance(dv, 1);
             }else if(choice == 0){
                 score += ScoreEditDistance(dv, 0);
-                if(dv.multi_alts && !dv.zero_one_var){
+                if(dv.multi_alts){
                     score += ScoreEditDistance(dv, 1);
                 }
             }else{
@@ -1093,37 +1015,6 @@ int WholeGenome::CalculateScore(DiploidVariant & dv,
     }
 }
 
-
-// this is the special function to calculate edit distance
-int WholeGenome::CalculateEditDistance(DiploidVariant & dv,
-                                int choice,
-                                int match_mode){
-    int score = 0;
-    if(choice <= NOT_USE) return score;
-
-    if(match_mode == 0){
-        if(choice == -1){
-            score += ScoreEditDistance(dv, 0);
-        }else if(choice == -2){
-            score += ScoreEditDistance(dv, 1);
-        }else if(choice == 0){
-            score += ScoreEditDistance(dv, 0);
-            if(dv.multi_alts && !dv.zero_one_var){
-                score += ScoreEditDistance(dv, 1);
-            }
-        }else{
-            score += ScoreEditDistance(dv, 0);
-            score += ScoreEditDistance(dv, 1);
-        }
-    }else{
-        score += 2 * ScoreEditDistance(dv, choice);
-    }
-
-    return score;
-}
-
-
-// function no longer used, move to VariantMakeDecisionNoGenotype
 // no genotype means you can maintain only one strand
 // for simplicity, also work on original SequencePath data structure
 // when making decision, only decide one path
@@ -1157,7 +1048,7 @@ bool WholeGenome::PathMakeDecisionNoGenotype(SequencePath& sp,
             string alts[2];
             alts[0] = var.alts[0];
             alts[1] = alts[0];
-            if(var.multi_alts){ //here do not have to change anything
+            if(var.multi_alts){
                 alts[1] = var.alts[1];
             }
 
@@ -1185,7 +1076,7 @@ bool WholeGenome::PathMakeDecisionNoGenotype(SequencePath& sp,
                 candidate_choices[i].push_back(pair<int, int>(var_index, 0));
             }
 
-            if(var.multi_alts){ // here do not have to change anything
+            if(var.multi_alts){
 
                 //if heterozygous, then there is another choice, check if it is applicable
                 string temp = alts[0];
@@ -1297,564 +1188,6 @@ bool WholeGenome::PathMakeDecisionNoGenotype(SequencePath& sp,
     return true;
 }
 
-bool WholeGenome::AppendChangedSp(SequencePath& sp,
-                         vector<DiploidVariant> & variant_list,
-                         list<SequencePath> & sequence_path_list,
-                         const string & reference_sequence,
-                         int score_unit,
-                         int match_mode,
-                         int score_scheme,
-                         int variant_index,
-                         int c)
-{
-    int pos = sp.current_genome_pos+1;
-
-    SequencePath path = sp;
-
-    if(c == NOT_USE){
-        path.choice_vector[variant_index] = c;
-        sequence_path_list.push_back(path);
-        return true;
-    }
-
-    pair<int, int> var_choice[2];
-    int x = 0;
-    int var_index = variant_index;
-    DiploidVariant var = variant_list[var_index];
-    if(var.flag) x = 1;
-    string ref = var.ref;
-    string alts[2];
-
-    if(c == -1){
-        alts[0] = ref;
-        alts[1] = var.alts[0];
-    }else if(c == -2){
-        alts[0] = ref;
-        alts[1] = var.alts[1];
-    }else if(c >= 0){
-        // c == 0 or 1
-        alts[0] = var.alts[c];
-        alts[1] = alts[0];
-
-        if(var.multi_alts && !var.zero_one_var){
-            // choose 1 or 0
-            alts[1] = var.alts[1- c];
-        }else{
-            // c is 0, choose 0 or -1
-            if(var.heterozygous) alts[1] = ref;
-        }
-    }else{
-        dout << "Unrecognized choice" << endl;
-    }
-    path.score += CalculateScore(var,
-                                 c,
-                                 score_unit,
-                                 match_mode,
-                                 score_scheme);
-    ToUpper(ref);
-    ToUpper(alts[0]);
-    ToUpper(alts[1]);
-    for(int y = 0; y < 2; y++){
-        // iterate two alts
-        string alt = alts[y];
-        if(alt == ref) continue;
-        vector<string> alt_vector;
-        GenerateAltVector(ref, alt, alt_vector);
-
-        int k = 0;
-        for(; k < ref.length()-1; k++){
-
-            if(alt_vector[k].size() != 1 || ref[k] != alt_vector[k][0]){
-                path.string_sequences[x*2+y][pos+k] = alt_vector[k];
-            }
-            // else changes nothing
-
-        }
-        // hence k == ref.length()-1, the last position
-        assert(k == ref.length()-1);
-        string alt_part = alt_vector[k];
-        if(alt_part.length() > 0){
-            if(alt_part.length() > 1){
-                if(alt_part[0] == ref[k]){
-                    if(path.string_sequences[x*2+y][pos+k] == "."){
-                        path.string_sequences[x*2+y][pos+k] = alt_part;
-                    }else{
-                        path.string_sequences[x*2+y][pos+k] += alt_part.substr(1, alt_part.size() - 1);
-                    }
-                }else{
-                    path.string_sequences[x*2+y][pos+k] = alt_part;
-                }
-            }else{
-                if(ref[k] != alt_vector[k][0]){
-                    path.string_sequences[x*2+y][pos+k] = alt_part;
-                }
-            }
-        }else{
-            path.string_sequences[x*2+y][pos+k] = "";
-        }
-    }
-
-    // choice made
-    path.choice_vector[variant_index] = c;
-    //dout << "after decision at variant " << variant_index << endl;
-    //PrintPath(path);
-    sequence_path_list.push_back(path);
-    return true;
-}
-
-
-// Question: when you make decision, do you also need to align?
-// Answer: No, as it makes no difference, so currently you can skip alignment
-bool WholeGenome::VariantMakeDecision(SequencePath& sp,
-                         vector<DiploidVariant> & variant_list,
-                         list<SequencePath> & sequence_path_list,
-                         const string & reference_sequence,
-                         int score_unit,
-                         int match_mode,
-                         int score_scheme,
-                         int variant_index)
-{
-
-    int pos = sp.current_genome_pos+1;
-
-    int var_index = variant_index;
-    DiploidVariant var = variant_list[var_index];
-
-    // also this variant may not be used
-    AppendChangedSp(sp,
-                variant_list,
-                sequence_path_list,
-                reference_sequence,
-                score_unit,
-                match_mode,
-                score_scheme,
-                var_index,
-                NOT_USE);
-
-    int i = 0;
-    if(var.flag) i = 1;
-    //PrintVariant(var);
-
-    // check if current var influence
-    string ref = var.ref; //even we do not know the offset, we know ref start from pos of reference_sequence
-    string alts[2];
-    alts[0] = var.alts[0];
-    alts[1] = alts[0];
-    if(var.multi_alts && !var.zero_one_var){
-        alts[1] = var.alts[1];
-    }else if(var.heterozygous){
-        alts[1] = ref;
-    }
-
-    // not just purely consider if a vqriant can be applied, but if a choice
-    int skiped_y = -1;
-    if(alts[1] == ref) skiped_y = 1;
-
-    bool choice_applicable = true;
-    for(int k = 0; k < ref.length(); k++){
-    // for each ref char
-        for(int y = 0; y < 2; y++){
-            // for each strain
-            if(y == skiped_y) continue;
-            if(sp.string_sequences[i*2+y][k+pos] != "."){
-                // decision in this area has already been made
-                if(k >= alts[y].length()){
-                    choice_applicable = false;
-                    break;
-                }else{
-                    if(ref[k] != alts[y][k]){
-                        choice_applicable = false;
-                        break;
-                    }
-                }
-            }
-        }
-        if(!choice_applicable) break;
-    }
-
-    if(choice_applicable){
-        //candidate_choices[i].push_back(pair<int, int>(var_index, 0));
-        AppendChangedSp(sp,
-                        variant_list,
-                        sequence_path_list,
-                        reference_sequence,
-                        score_unit,
-                        match_mode,
-                        score_scheme,
-                        var_index,
-                        0);
-    }
-
-    if(var.heterozygous){
-
-        //if heterozygous, then there is another choice, check if it is applicable
-
-        string temp = alts[0];
-        alts[0] = alts[1];
-        alts[1] = temp;
-
-        skiped_y = -1;
-        if(alts[0] == ref) skiped_y = 0;
-
-        choice_applicable = true;
-        for(int k = 0; k < ref.length(); k++){
-        // for each ref char
-            for(int y = 0; y < 2; y++){
-                // for each strain
-                if(skiped_y == y) continue;
-                if(sp.string_sequences[i*2+y][k+pos] != "."){
-                    // decision in this area has already been made
-                    if(k >= alts[y].length()){
-                        // should be a deletion
-                        choice_applicable = false;
-                        break;
-                    }else{
-                        // should be equal at current position
-                        // can be an insertion, as long as current position is the same
-                        if(ref[k] != alts[y][k]){
-                            choice_applicable = false;
-                            break;
-                        }
-                    }
-                }
-            }
-            if(!choice_applicable) break;
-        }
-
-        if(choice_applicable){
-            if(var.multi_alts && !var.zero_one_var){
-                //candidate_choices[i].push_back(pair<int, int>(var_index, 1));
-                AppendChangedSp(sp,
-                        variant_list,
-                        sequence_path_list,
-                        reference_sequence,
-                        score_unit,
-                        match_mode,
-                        score_scheme,
-                        var_index,
-                        1);
-            }else{
-                //candidate_choices[i].push_back(pair<int, int>(var_index, -1));
-                AppendChangedSp(sp,
-                        variant_list,
-                        sequence_path_list,
-                        reference_sequence,
-                        score_unit,
-                        match_mode,
-                        score_scheme,
-                        var_index,
-                        -1);
-            }
-        }
-    }
-
-    if(var.multi_alts && var.zero_one_var){
-        // here contains another two combinations  alt1/ref and ref/alt1
-        alts[0] = var.alts[1];
-        alts[1] = ref;
-
-        choice_applicable = true;
-        int y = 0;
-        for(int k = 0; k < ref.length(); k++){
-        // for each ref char
-            {
-                // for each strain
-                if(sp.string_sequences[i*2+y][k+pos] != "."){
-                    // decision in this area has already been made
-                    if(k >= alts[y].length()){
-                        // should be a deletion
-                        choice_applicable = false;
-                        break;
-                    }else{
-                        // should be equal at current position
-                        // can be an insertion, as long as current position is the same
-                        if(ref[k] != alts[y][k]){
-                            choice_applicable = false;
-                            break;
-                        }
-                    }
-                }
-            }
-            if(!choice_applicable) break;
-        }
-
-        if(choice_applicable){
-            //candidate_choices[i].push_back(pair<int, int>(var_index, 1));
-            AppendChangedSp(sp,
-                variant_list,
-                sequence_path_list,
-                reference_sequence,
-                score_unit,
-                match_mode,
-                score_scheme,
-                var_index,
-                1);
-        }
-
-
-        alts[0] = ref;
-        alts[1] = var.alts[1];
-
-        choice_applicable = true;
-        y = 1;
-        for(int k = 0; k < ref.length(); k++){
-        // for each ref char
-            {
-                // for each strain
-                if(sp.string_sequences[i*2+y][k+pos] != "."){
-                    // decision in this area has already been made
-                    if(k >= alts[y].length()){
-                        // should be a deletion
-                        choice_applicable = false;
-                        break;
-                    }else{
-                        // should be equal at current position
-                        // can be an insertion, as long as current position is the same
-                        if(ref[k] != alts[y][k]){
-                            choice_applicable = false;
-                            break;
-                        }
-                    }
-                }
-            }
-            if(!choice_applicable) break;
-        }
-
-        if(choice_applicable){
-            //candidate_choices[i].push_back(pair<int, int>(var_index, -2));
-            AppendChangedSp(sp,
-                variant_list,
-                sequence_path_list,
-                reference_sequence,
-                score_unit,
-                match_mode,
-                score_scheme,
-                var_index,
-                -2);
-        }
-    }
-        
-}
-
-// no genotype means you only need to maintain one strand
-// for simplicity, also work on original SequencePath data structure
-// when making decision, only decide one path
-// when extending, only extend one path
-// when comparing, only compare one path
-bool WholeGenome::VariantMakeDecisionNoGenotype(SequencePath& sp,
-                         vector<DiploidVariant> & variant_list,
-                         list<SequencePath> & sequence_path_list,
-                         const string & reference_sequence,
-                         int score_unit,
-                         int match_mode,
-                         int score_scheme,
-                         int variant_index)
-{
-
-    int pos = sp.current_genome_pos+1;
-
-    int var_index = variant_index;
-    DiploidVariant var = variant_list[var_index];
-
-    // also this variant may not be used
-    AppendChangedSpNoGenotype(sp,
-                variant_list,
-                sequence_path_list,
-                reference_sequence,
-                score_unit,
-                match_mode,
-                score_scheme,
-                var_index,
-                NOT_USE);
-
-    int i = 0;
-    if(var.flag) i = 1;
-    //PrintVariant(var);
-
-    // check if current var influence
-    string ref = var.ref; //even we do not know the offset, we know ref start from pos of reference_sequence
-    string alts[2];
-    alts[0] = var.alts[0];
-    alts[1] = alts[0];
-    if(var.multi_alts && !var.zero_one_var){
-        alts[1] = var.alts[1];
-    }else if(var.heterozygous){
-        alts[1] = ref;
-    }
-
-    bool choice_applicable = true;
-    for(int k = 0; k < ref.length(); k++){
-    // for each ref char
-        int y = 0;
-        {
-            if(sp.string_sequences[i*2+y][k+pos] != "."){
-                // decision in this area has already been made
-                if(k >= alts[y].length()){
-                    choice_applicable = false;
-                    break;
-                }else{
-                    if(ref[k] != alts[y][k]){
-                        choice_applicable = false;
-                        break;
-                    }
-                }
-            }
-        }
-        if(!choice_applicable) break;
-    }
-
-    if(choice_applicable){
-        //candidate_choices[i].push_back(pair<int, int>(var_index, 0));
-        AppendChangedSpNoGenotype(sp,
-                        variant_list,
-                        sequence_path_list,
-                        reference_sequence,
-                        score_unit,
-                        match_mode,
-                        score_scheme,
-                        var_index,
-                        0);
-    }
-
-    // if variants is 0/1, then it does not make sense to apply reference, as it is the same as not_use
-    // if variants is 0/1 but contains multi alts, then should try another alt
-    // if variants is 1/2 , then should try another alt
-    // if variants is 1/1 or 2/2 then should not try another alt
-    // but here we do not care the phasing
-    // so as long as variant has multi_alts, use another alt
-
-    if(var.multi_alts){
-
-        //if it contains multi alts, then there is another choice, check if it is applicable
-
-        string temp = alts[0];
-        alts[0] = alts[1];
-        alts[1] = temp;
-
-        choice_applicable = true;
-        for(int k = 0; k < ref.length(); k++){
-        // for each ref char
-            int y = 0;
-            {
-                if(sp.string_sequences[i*2+y][k+pos] != "."){
-                    // decision in this area has already been made
-                    if(k >= alts[y].length()){
-                        // should be a deletion
-                        choice_applicable = false;
-                        break;
-                    }else{
-                        // should be equal at current position
-                        // can be an insertion, as long as current position is the same
-                        if(ref[k] != alts[y][k]){
-                            choice_applicable = false;
-                            break;
-                        }
-                    }
-                }
-            }
-            if(!choice_applicable) break;
-        }
-
-        if(choice_applicable){
-            AppendChangedSp(sp,
-                    variant_list,
-                    sequence_path_list,
-                    reference_sequence,
-                    score_unit,
-                    match_mode,
-                    score_scheme,
-                    var_index,
-                    1);
-        }
-    }   
-}
-
-
-bool WholeGenome::AppendChangedSpNoGenotype(SequencePath& sp,
-                         vector<DiploidVariant> & variant_list,
-                         list<SequencePath> & sequence_path_list,
-                         const string & reference_sequence,
-                         int score_unit,
-                         int match_mode,
-                         int score_scheme,
-                         int variant_index,
-                         int c)
-{
-    int pos = sp.current_genome_pos+1;
-    SequencePath path = sp;
-    if(c == NOT_USE){
-        path.choice_vector[variant_index] = c;
-        sequence_path_list.push_back(path);
-        return true;
-    }
-
-    pair<int, int> var_choice[2];
-    int x = 0;
-    int var_index = variant_index;
-    DiploidVariant var = variant_list[var_index];
-    if(var.flag) x = 1;
-    string ref = var.ref;
-    string alts[2];
-
-    if(c == 0 || c == 1){
-        // c == 0 or 1
-        alts[0] = var.alts[c];
-    }else{
-        dout << "Unrecognized choice" << endl;
-    }
-    path.score += CalculateScore(var,
-                                 c,
-                                 score_unit,
-                                 match_mode,
-                                 score_scheme);
-    ToUpper(ref);
-    ToUpper(alts[0]);
-    int y = 0;
-
-    string alt = alts[y];
-    vector<string> alt_vector;
-    GenerateAltVector(ref, alt, alt_vector);
-    int k = 0;
-    for(; k < ref.length()-1; k++){
-        if(alt_vector[k].size() != 1 || ref[k] != alt_vector[k][0]){
-            path.string_sequences[x*2+y][pos+k] = alt_vector[k];
-        }
-        // else changes nothing
-    }
-    // hence k == ref.length()-1, the last position
-    assert(k == ref.length()-1);
-    string alt_part = alt_vector[k];
-    if(alt_part.length() > 0){
-        if(alt_part.length() > 1){
-            if(alt_part[0] == ref[k]){
-                if(path.string_sequences[x*2+y][pos+k] == "."){
-                    path.string_sequences[x*2+y][pos+k] = alt_part;
-                }else{
-                    path.string_sequences[x*2+y][pos+k] += alt_part.substr(1, alt_part.size() - 1);
-                }
-            }else{
-                path.string_sequences[x*2+y][pos+k] = alt_part;
-            }
-        }else{
-            if(ref[k] != alt_vector[k][0]){
-                path.string_sequences[x*2+y][pos+k] = alt_part;
-            }
-        }
-    }else{
-        path.string_sequences[x*2+y][pos+k] = "";
-    }
-    // choice made
-    path.choice_vector[variant_index] = c;
-    //dout << "after decision at variant " << variant_index << endl;
-    //PrintPath(path);
-    sequence_path_list.push_back(path);
-    return true;
-}
-
-// this function is no longer used, because you can not make decison for one position at once,
-// there might be multiple variants in one position,
-// so a better way to do this is to make decision for one variant at a time
-// previously I just want to save some time, but ignore the multiple variant condition
 bool WholeGenome::PathMakeDecision(SequencePath& sp,
                                  vector<DiploidVariant> & variant_list,
                                  multimap<int, int> * choices_by_pos[],
@@ -1886,22 +1219,19 @@ bool WholeGenome::PathMakeDecision(SequencePath& sp,
             string alts[2];
             alts[0] = var.alts[0];
             alts[1] = alts[0];
-            if(var.multi_alts && !var.zero_one_var){
+            if(var.multi_alts){
                 alts[1] = var.alts[1];
             }else if(var.heterozygous){
                 alts[1] = ref;
             }
 
             // not just purely consider if a vqriant can be applied, but if a choice
-            int skiped_y = -1;
-            if(alts[1] == ref) skiped_y = 1;
 
             bool choice_applicable = true;
             for(int k = 0; k < ref.length(); k++){
             // for each ref char
                 for(int y = 0; y < 2; y++){
                     // for each strain
-                    if(y == skiped_y) continue;
                     if(sp.string_sequences[i*2+y][k+pos] != "."){
                         // decision in this area has already been made
                         if(k >= alts[y].length()){
@@ -1925,20 +1255,15 @@ bool WholeGenome::PathMakeDecision(SequencePath& sp,
             if(var.heterozygous){
 
                 //if heterozygous, then there is another choice, check if it is applicable
-
                 string temp = alts[0];
                 alts[0] = alts[1];
                 alts[1] = temp;
-
-                skiped_y = -1;
-                if(alts[0] == ref) skiped_y = 0;
 
                 choice_applicable = true;
                 for(int k = 0; k < ref.length(); k++){
                 // for each ref char
                     for(int y = 0; y < 2; y++){
                         // for each strain
-                        if(skiped_y == y) continue;
                         if(sp.string_sequences[i*2+y][k+pos] != "."){
                             // decision in this area has already been made
                             if(k >= alts[y].length()){
@@ -1959,79 +1284,11 @@ bool WholeGenome::PathMakeDecision(SequencePath& sp,
                 }
 
                 if(choice_applicable){
-                    if(var.multi_alts && !var.zero_one_var){
+                    if(var.multi_alts){
                         candidate_choices[i].push_back(pair<int, int>(var_index, 1));
                     }else{
                         candidate_choices[i].push_back(pair<int, int>(var_index, -1));
                     }
-                }
-            }
-
-            if(var.multi_alts && var.zero_one_var){
-                // here contains another two combinations  alt1/ref and ref/alt1
-                alts[0] = var.alts[1];
-                alts[1] = ref;
-
-                choice_applicable = true;
-                int y = 0;
-                for(int k = 0; k < ref.length(); k++){
-                // for each ref char
-                    {
-                        // for each strain
-                        if(sp.string_sequences[i*2+y][k+pos] != "."){
-                            // decision in this area has already been made
-                            if(k >= alts[y].length()){
-                                // should be a deletion
-                                choice_applicable = false;
-                                break;
-                            }else{
-                                // should be equal at current position
-                                // can be an insertion, as long as current position is the same
-                                if(ref[k] != alts[y][k]){
-                                    choice_applicable = false;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if(!choice_applicable) break;
-                }
-
-                if(choice_applicable){
-                    candidate_choices[i].push_back(pair<int, int>(var_index, 1));
-                }
-
-
-                alts[0] = ref;
-                alts[1] = var.alts[1];
-
-                choice_applicable = true;
-                y = 1;
-                for(int k = 0; k < ref.length(); k++){
-                // for each ref char
-                    {
-                        // for each strain
-                        if(sp.string_sequences[i*2+y][k+pos] != "."){
-                            // decision in this area has already been made
-                            if(k >= alts[y].length()){
-                                // should be a deletion
-                                choice_applicable = false;
-                                break;
-                            }else{
-                                // should be equal at current position
-                                // can be an insertion, as long as current position is the same
-                                if(ref[k] != alts[y][k]){
-                                    choice_applicable = false;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if(!choice_applicable) break;
-                }
-
-                if(choice_applicable){
-                    candidate_choices[i].push_back(pair<int, int>(var_index, -2));
                 }
             }
         }
@@ -2068,15 +1325,12 @@ bool WholeGenome::PathMakeDecision(SequencePath& sp,
                     if(c == -1){
                         alts[0] = ref;
                         alts[1] = var.alts[0];
-                    }else if(c == -2){
-                        alts[0] = ref;
-                        alts[1] = var.alts[1];
                     }else{
                         // c == 0 or 1
                         alts[0] = var.alts[c];
                         alts[1] = alts[0];
 
-                        if(var.multi_alts && !var.zero_one_var){
+                        if(var.multi_alts){
                             // choose 1 or 0
                             alts[1] = var.alts[1- c];
                         }else{
@@ -2136,8 +1390,8 @@ bool WholeGenome::PathMakeDecision(SequencePath& sp,
                 path.choice_made[x][pos] = var_choice[x];
             }
             // choice made
-            dout << "after decision at pos " << pos << endl;
-            PrintPath(path);
+            //dout << "after decision at pos " << pos << endl;
+            //PrintPath(path);
             sequence_path_list.push_back(path);
         }
     }
@@ -2155,6 +1409,202 @@ bool WholeGenome::PathMakeDecisionBackup(SequencePath& sp,
                                  int match_mode,
                                  int score_scheme)
 {
+    int pos = sp.current_genome_pos+1;
+
+    vector<pair<int, int>> candidate_choices[2];
+    for(int i = 0; i < 2; i++){
+
+        // because if it's (-1,-1), it will do nothing, so it's ok to have this one...
+        candidate_choices[i].push_back(pair<int, int>(-1, -1));
+        // in this position, make choice of not use any variants, no matter if there is variant
+
+        pair<multimap<int, int>::iterator, multimap<int, int>::iterator> var_range;
+        var_range = choices_by_pos[i]->equal_range(pos);
+
+        for(auto it = var_range.first; it != var_range.second; ++it){
+            int var_index = (*it).second;
+            DiploidVariant var = variant_list[var_index];
+            //PrintVariant(var);
+
+            // check if current var influence
+            string ref = var.ref; //even we do not know the offset, we know ref start from pos of reference_sequence
+            string alts[2];
+            alts[0] = var.alts[0];
+            alts[1] = alts[0];
+            if(var.multi_alts){
+                alts[1] = var.alts[1];
+            }else if(var.heterozygous){
+                alts[1] = ref;
+            }
+
+            // not just purely consider if a vqriant can be applied, but if a choice
+
+            bool choice_applicable = true;
+            for(int k = 0; k < ref.length(); k++){
+            // for each ref char
+                for(int y = 0; y < 2; y++){
+                    // for each strain
+                    if(sp.string_sequences[i*2+y][k+pos] != "."){
+                        // decision in this area has already been made
+                        if(k >= alts[y].length()){
+                            choice_applicable = false;
+                            break;
+                        }else{
+                            if(ref[k] != alts[y][k]){
+                                choice_applicable = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if(!choice_applicable) break;
+            }
+
+            if(choice_applicable){
+                candidate_choices[i].push_back(pair<int, int>(var_index, 0));
+            }
+
+            if(var.heterozygous){
+
+                //if heterozygous, then there is another choice, check if it is applicable
+                string temp = alts[0];
+                alts[0] = alts[1];
+                alts[1] = temp;
+
+                choice_applicable = true;
+                for(int k = 0; k < ref.length(); k++){
+                // for each ref char
+                    for(int y = 0; y < 2; y++){
+                        // for each strain
+                        if(sp.string_sequences[i*2+y][k+pos] != "."){
+                            // decision in this area has already been made
+                            if(k >= alts[y].length()){
+                                // should be a deletion
+                                choice_applicable = false;
+                                break;
+                            }else{
+                                // should be equal at current position
+                                // can be an insertion, as long as current position is the same
+                                if(ref[k] != alts[y][k]){
+                                    choice_applicable = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if(!choice_applicable) break;
+                }
+
+                if(choice_applicable){
+                    if(var.multi_alts){
+                        candidate_choices[i].push_back(pair<int, int>(var_index, 1));
+                    }else{
+                        candidate_choices[i].push_back(pair<int, int>(var_index, -1));
+                    }
+                }
+            }
+        }
+    }
+
+    //dout << candidate_choices[0].size() << "," << candidate_choices[1].size() << endl;
+
+    for(int i = 0; i < candidate_choices[0].size(); i++){
+        for(int j = 0; j < candidate_choices[1].size(); j++){
+            // iterate all choices
+            SequencePath path = sp;
+            pair<int, int> var_choice[2];
+            var_choice[0] = candidate_choices[0][i];
+            var_choice[1] = candidate_choices[1][j];
+            for(int x = 0; x < 2; x++){
+                // iterate truth and predict
+                int var_index = var_choice[x].first;
+                if(var_index != -1){
+//                    string temp_sequence = reference_sequence.substr(pos, 1);
+//                    path.string_sequences[x*2][pos] = temp_sequence;
+//                    path.string_sequences[x*2+1][pos] = temp_sequence;
+//                }else{
+                    // set score
+
+
+                    DiploidVariant var = variant_list[var_index];
+                    // if(var.flag != x){
+                    //     dout << "Error" << endl;
+                    // }
+                    string ref = var.ref;
+                    string alts[2];
+
+                    int c = var_choice[x].second;
+                    if(c == -1){
+                        alts[0] = ref;
+                        alts[1] = var.alts[0];
+                    }else{
+                        // c == 0 or 1
+                        alts[0] = var.alts[c];
+                        alts[1] = alts[0];
+
+                        if(var.multi_alts){
+                            // choose 1 or 0
+                            alts[1] = var.alts[1- c];
+                        }else{
+                            // c is 0, choose 0 or -1
+                            if(var.heterozygous) alts[1] = ref;
+                        }
+                    }
+
+                    path.score += CalculateScore(var,
+                                                 c,
+                                                 score_unit,
+                                                 match_mode,
+                                                 score_scheme);
+
+                    ToUpper(ref);
+                    ToUpper(alts[0]);
+                    ToUpper(alts[1]);
+                    for(int y = 0; y < 2; y++){
+                        // iterate two alts
+                        int k = 0;
+                        for(; k < ref.length()-1; k++){
+                            if(k < alts[y].length()){
+                                if(ref[k] != alts[y][k]){
+                                    path.string_sequences[x*2+y][pos+k] = alts[y].substr(k,1);
+                                }
+                                // else change nothing
+                            }else{
+                                path.string_sequences[x*2+y][pos+k] = "";
+                            }
+                        }
+                        // hence k == ref.length()-1, the last position
+                        if(k < alts[y].length()){
+                            string alt_part = alts[y].substr(k, alts[y].length()-k);
+                            if(alt_part.length() > 1){
+                                if(alt_part[0] == ref[k]){
+                                    if(path.string_sequences[x*2+y][pos+k] == "."){
+                                        path.string_sequences[x*2+y][pos+k] = alt_part;
+                                    }else{
+                                        path.string_sequences[x*2+y][pos+k] += alt_part.substr(1, alt_part.size() - 1);
+                                    }
+                                }else{
+                                    path.string_sequences[x*2+y][pos+k] = alt_part;
+                                }
+                            }else{
+                                if(ref[k] != alts[y][k]){
+                                    path.string_sequences[x*2+y][pos+k] = alt_part;
+                                }
+                            }
+                        }else{
+                            path.string_sequences[x*2+y][pos+k] = "";
+                        }
+                    }
+                }
+                path.choice_made[x][pos] = var_choice[x];
+            }
+            // choice made
+            //dout << "after decision at pos " << pos << endl;
+            //PrintPath(path);
+            sequence_path_list.push_back(path);
+        }
+    }
+
     //expected number of inserted paths are 2,3,4,6,x...
     return true;
 }
@@ -2173,11 +1623,6 @@ void WholeGenome::PrintPath(SequencePath & sp){
         cout << sp.donor_sequences[i] << endl;
     }
     cout << "@ Removable: " << sp.removable << endl;
-
-    for(int i = 0; i < sp.choice_vector.size(); i++){
-        cout << sp.choice_vector[i] << ",";
-    }
-    cout << endl;
 }
 
 // next: while until current path list is empty
@@ -2202,7 +1647,7 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
     //int chr_id = 0;
     //-------------end unit test-------------------------------
 
-    //cout << chr_id << "," << cluster_index << "," << variant_list.size() << endl;
+
 
     // so a legal sync_points vector contains at least two
     // first is the end of variant, there should be at least one variant
@@ -2210,67 +1655,43 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
 
     list<SequencePath> current_path_list;
     list<SequencePath> next_path_list;
-    SequencePath sp(subsequence.length(), variant_list.size());
+    SequencePath sp(subsequence.length());
     SequencePath best_path = sp;
     current_path_list.push_back(sp);
     while(current_path_list.size() != 0){
         bool reach_sync_point = true;
-        // extend path before reaches sync points
-        //cout << "\t" << current_path_list.size() << endl;
         while(current_path_list.size() != 0){
             SequencePath path = current_path_list.front();
             current_path_list.pop_front();
             //dout << path.current_genome_pos << ":" << current_path_list.size() << endl;
             //PrintPath(path);
-            int variant_need_decision = -1;
-            int is_extend = PathExtendOneStep(path, choices_by_pos, subsequence, sync_points, match_mode, variant_need_decision);
-            //cout << variant_need_decision << endl;
-            //PrintPath(path);
+            int is_extend = PathExtendOneStep(path, choices_by_pos, subsequence, sync_points, match_mode);
+            //if(cluster_index == 220730) PrintPath(path);
             if(is_extend == -1){
-                // discard path
                 continue;
             }
             else if(is_extend == 0){
                 next_path_list.push_back(path);
                 // here the path is supposed to reach the next sync point
-                // so it goes into next path list, and decrease the number of current path list
             }else if(is_extend == 1){
                 if(match_mode == 0){
-                    // PathMakeDecision(path,
-                    //                  variant_list,
-                    //                  choices_by_pos,
-                    //                  current_path_list,
-                    //                  subsequence,
-                    //                  score_unit,
-                    //                  match_mode,
-                    //                  score_scheme);
-
-                    VariantMakeDecision(path,
-                                         variant_list,
-                                         current_path_list,
-                                         subsequence,
-                                         score_unit,
-                                         match_mode,
-                                         score_scheme,
-                                         variant_need_decision);
+                    PathMakeDecision(path,
+                                     variant_list,
+                                     choices_by_pos,
+                                     current_path_list,
+                                     subsequence,
+                                     score_unit,
+                                     match_mode,
+                                     score_scheme);
                 }else{
-                    // PathMakeDecisionNoGenotype(path,
-                    //                            variant_list,
-                    //                            choices_by_pos,
-                    //                            current_path_list,
-                    //                            subsequence,
-                    //                            score_unit,
-                    //                            match_mode,
-                    //                            score_scheme);
-
-                    VariantMakeDecisionNoGenotype(path,
-                                                 variant_list,
-                                                 current_path_list,
-                                                 subsequence,
-                                                 score_unit,
-                                                 match_mode,
-                                                 score_scheme,
-                                                 variant_need_decision);
+                    PathMakeDecisionNoGenotype(path,
+                                               variant_list,
+                                               choices_by_pos,
+                                               current_path_list,
+                                               subsequence,
+                                               score_unit,
+                                               match_mode,
+                                               score_scheme);
                 }
             }else if(is_extend == 2){
                 if(path.score > best_path.score){
@@ -2292,19 +1713,14 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
             //}
         }
     }
-    current_path_list.clear();
-    next_path_list.clear();
     // print best_path
     if(best_path.score <= 0) return false;
 
     //dout << "new method: " << best_path.score << endl;
 
-    //PrintPath(best_path);
-
     //==========================output ======================
     int mode_index = GetIndexFromMatchScore(score_unit, match_mode, score_scheme);
 
-    //return true;
     if(match_mode == 0){
         ConstructMatchRecord(best_path,
                              variant_list,
@@ -2327,230 +1743,7 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
     return true;
 }
 
-int GetMatchmodeFromModeIndex(int mode_index){
-    int result = mode_index;
-    result >>= 2;
-    result &= 1;
-    return result;
-}
-
 void WholeGenome::ConstructMatchRecord(SequencePath & best_path,
-                                       vector<DiploidVariant> & variant_list,
-                                       string & subsequence,
-                                       int offset,
-                                       int thread_index,
-                                       int chr_id,
-                                       int mode_index,
-                                       int threshold_index){
-    int truth_num = 0;
-    int predict_num = 0;
-    int truth_edit_distance = 0;
-    int predict_edit_distance = 0;
-
-    bool need_match_record = false;
-
-    if (threshold_index == 0) need_match_record = true;
-
-    bool multiple_match = false;
-
-    if(best_path.donor_sequences[0] != best_path.donor_sequences[1]) multiple_match = true;
-
-    string parsimonious_ref = subsequence;
-    string parsimonious_alt0 = best_path.donor_sequences[0];
-    string parsimonious_alt1 = best_path.donor_sequences[1];
-
-    int parsimonious_pos = offset;
-//    NormalizeVariantSequence(offset,
-//                             parsimonious_ref,
-//                             parsimonious_alt0,
-//                             parsimonious_alt1,
-//                             chr_id);
-
-    string match_record = chrname_by_chrid[chr_id] + "\t" + to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
-    if(multiple_match) match_record += "/" + parsimonious_alt1;
-
-    string vcf_record[2];
-    string phasing_record[2];
-
-    for (int i = 0; i < 2; i++) {
-        for (int var_index = 0; var_index < variant_list.size(); var_index++) {
-            DiploidVariant variant = variant_list[var_index];
-            if(variant.flag != i) continue;
-            //The exact wording from the C++ standard is (§4.7/4): "If the source type is bool,
-            // the value false is converted to zero and the value true is converted to one."
-            int phasing = best_path.choice_vector[var_index];
-            if(phasing <= NOT_USE) continue;
-            int edit_distance = CalculateEditDistance(variant, phasing, 0);
-            if(i == 0){
-                truth_num ++;
-                truth_edit_distance += edit_distance;
-            }else{
-                predict_num ++;
-                predict_edit_distance += edit_distance;
-            }
-
-            if(need_match_record){
-                string alt_string = variant.alts[0];
-                if(variant.multi_alts){
-                    alt_string += "/" + variant.alts[1];
-                }
-                string phasing_string = "";
-                if(phasing == 0){
-                    phasing_string += "1";
-                    if(variant.heterozygous){
-                        if(variant.multi_alts && !variant.zero_one_var){
-                            phasing_string += "|2";
-                        }else{
-                            phasing_string += "|0";
-                        }
-                    }else{
-                        phasing_string += "|1";
-                    }
-                }else if(phasing == 1){
-                    if(variant.multi_alts && !variant.zero_one_var){
-                        phasing_string += "2|1";
-                    }else if(variant.multi_alts && variant.zero_one_var){
-                        phasing_string += "2|0";
-                    }else{
-                        phasing_string += "0|1";
-                    }
-                }else if(phasing == -1){
-                    phasing_string += "0|1";
-                }else if(phasing == -2){
-                    phasing_string += "0|2";
-                }
-                string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
-                vcf_record[i] += variant_record;
-                phasing_record[i] += phasing_string;
-                vcf_record[i] += ";";
-                phasing_record[i] += ";";
-            }
-        }
-        if(need_match_record){
-            vcf_record[i] = vcf_record[i].substr(0, vcf_record[i].size()-1);
-            phasing_record[i] = phasing_record[i].substr(0, phasing_record[i].size()-1);
-        }
-
-    }
-
-    if(need_match_record){
-        match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
-        match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
-        match_record += "\t" + to_string(best_path.score) + "\n";
-
-        //complex_match_records[thread_index]->push_back(match_record);
-        
-
-        // this line should be recovered
-        match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
-    
-
-
-    }
-
-    baseline_total_match_num[thread_index][threshold_index]->at(mode_index) += truth_num;
-    query_total_match_num[thread_index][threshold_index]->at(mode_index) += predict_num;
-
-    baseline_total_edit_distance[thread_index][threshold_index]->at(mode_index) += truth_edit_distance;
-    query_total_edit_distance[thread_index][threshold_index]->at(mode_index) += predict_edit_distance;
-}
-
-void WholeGenome::ConstructMatchRecordNoGenotype(SequencePath & best_path,
-                                                 vector<DiploidVariant> & variant_list,
-                                                 string & subsequence,
-                                                 int offset,
-                                                 int thread_index,
-                                                 int chr_id,
-                                                 int mode_index,
-                                                 int threshold_index){
-    int truth_num = 0;
-    int predict_num = 0;
-
-    int truth_edit_distance = 0;
-    int predict_edit_distance = 0;
-
-    bool need_match_record = false;
-    if(threshold_index == 0) need_match_record = true;
-
-    bool multiple_match = false;
-    string parsimonious_ref = subsequence;
-    string parsimonious_alt0 = best_path.donor_sequences[0];
-    string parsimonious_alt1 = best_path.donor_sequences[0];
-
-    int parsimonious_pos = offset;
-
-//    NormalizeVariantSequence(offset,
-//                             parsimonious_ref,
-//                             parsimonious_alt0,
-//                             parsimonious_alt1,
-//                             chr_id);
-
-    string match_record = chrname_by_chrid[chr_id] + "\t" + to_string(parsimonious_pos+1) + "\t" + parsimonious_ref + "\t" + parsimonious_alt0;
-    //if(multiple_match) match_record += "/" + parsimonious_alt1;
-
-    string vcf_record[2];
-    string phasing_record[2];
-
-    for (int i = 0; i < 2; i++) {
-        for (int var_index = 0; var_index < variant_list.size(); var_index++) {
-            DiploidVariant variant = variant_list[var_index];
-            if(variant.flag != i) continue;
-            //The exact wording from the C++ standard is (§4.7/4): "If the source type is bool,
-            // the value false is converted to zero and the value true is converted to one."
-            int phasing = best_path.choice_vector[var_index];
-            if(phasing <= NOT_USE) continue;
-            int edit_distance = CalculateEditDistance(variant, phasing, 1);
-            if(i == 0){
-                truth_num ++;
-                truth_edit_distance += edit_distance;
-            }else{
-                predict_num ++;
-                predict_edit_distance += edit_distance;
-            }
-
-            if(need_match_record){
-                string alt_string = variant.alts[0];
-                if(variant.multi_alts){
-                    alt_string += "/" + variant.alts[1];
-                }
-                string phasing_string = "";
-                if(phasing == 0){
-                    phasing_string += "1|1";
-                }else if(phasing == 1){
-                    phasing_string += "2|2";
-                }
-                string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
-                vcf_record[i] += variant_record;
-                phasing_record[i] += phasing_string;
-                vcf_record[i] += ";";
-                phasing_record[i] += ";";
-            }
-        }
-        if(need_match_record){
-            vcf_record[i] = vcf_record[i].substr(0, vcf_record[i].size()-1);
-            phasing_record[i] = phasing_record[i].substr(0, phasing_record[i].size()-1);
-        }
-
-    }
-
-    if(need_match_record){
-       match_record += "\t" + vcf_record[0] + "\t" + vcf_record[1];
-        match_record += "\t" + phasing_record[0] + "\t" + phasing_record[1];
-       match_record += "\t" + to_string(best_path.score) + "\n";
-       //complex_match_records[thread_index]->push_back(match_record);
-       // this line should be recovered
-       match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
-    }
-
-    baseline_total_match_num[thread_index][threshold_index]->at(mode_index) += truth_num;
-    query_total_match_num[thread_index][threshold_index]->at(mode_index) += predict_num;
-
-    baseline_total_edit_distance[thread_index][threshold_index]->at(mode_index) += truth_edit_distance;
-    query_total_edit_distance[thread_index][threshold_index]->at(mode_index) += predict_edit_distance;
-}
-
-// function no longer used, backup old method
-void WholeGenome::ConstructMatchRecordBackup(SequencePath & best_path,
                                        vector<DiploidVariant> & variant_list,
                                        string & subsequence,
                                        int offset,
@@ -2591,6 +1784,7 @@ void WholeGenome::ConstructMatchRecordBackup(SequencePath & best_path,
             pair<int, int> selection = it->second;
             int phasing = selection.second;
             if(selection.first == -1) continue;
+            if (phasing == -1) phasing = 1;
             DiploidVariant variant = variant_list[selection.first];
             if(!variant.flag){
                 truth_num++;
@@ -2607,7 +1801,7 @@ void WholeGenome::ConstructMatchRecordBackup(SequencePath & best_path,
                 if(phasing == 0){
                     phasing_string += "1";
                     if(variant.heterozygous){
-                        if(variant.multi_alts && !variant.zero_one_var){
+                        if(variant.multi_alts){
                             phasing_string += "|2";
                         }else{
                             phasing_string += "|0";
@@ -2616,17 +1810,11 @@ void WholeGenome::ConstructMatchRecordBackup(SequencePath & best_path,
                         phasing_string += "|1";
                     }
                 }else if(phasing == 1){
-                    if(variant.multi_alts && !variant.zero_one_var){
+                    if(variant.multi_alts){
                         phasing_string += "2|1";
-                    }else if(variant.multi_alts && variant.zero_one_var){
-                        phasing_string += "2|0";
                     }else{
                         phasing_string += "0|1";
                     }
-                }else if(phasing == -1){
-                    phasing_string += "0|1";
-                }else if(phasing == -2){
-                    phasing_string += "0|2";
                 }
                 string variant_record = to_string(variant.pos+1) + "," + variant.ref + "," + alt_string;
                 vcf_record[i] += variant_record;
@@ -2648,20 +1836,15 @@ void WholeGenome::ConstructMatchRecordBackup(SequencePath & best_path,
     	match_record += "\t" + to_string(best_path.score) + "\n";
 
     	//complex_match_records[thread_index]->push_back(match_record);
-    	
-        // this line should be recovered
-
-
-        match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
-    
-
+    	match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
     }
 
     baseline_total_match_num[thread_index][threshold_index]->at(mode_index) += truth_num;
     query_total_match_num[thread_index][threshold_index]->at(mode_index) += predict_num;
 }
 
-void WholeGenome::ConstructMatchRecordNoGenotypeBackup(SequencePath & best_path,
+
+void WholeGenome::ConstructMatchRecordNoGenotype(SequencePath & best_path,
                                                  vector<DiploidVariant> & variant_list,
                                                  string & subsequence,
                                                  int offset,
@@ -2738,12 +1921,7 @@ void WholeGenome::ConstructMatchRecordNoGenotypeBackup(SequencePath & best_path,
 	   match_record += "\t" + to_string(best_path.score) + "\n";
 
 	   //complex_match_records[thread_index]->push_back(match_record);
-	
-
-       // this line should be recovered
-       match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
-    
-
+	   match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
     }
 
     baseline_total_match_num[thread_index][threshold_index]->at(mode_index) += truth_num;
@@ -2859,27 +2037,16 @@ void WholeGenome::ClusteringMatchMultiThread() {
     baseline_total_match_num = new vector<int>** [thread_num];
     query_total_match_num = new vector<int> ** [thread_num];
 
-    baseline_total_edit_distance = new vector<int>** [thread_num];
-    query_total_edit_distance = new vector<int>** [thread_num];
-
     for(int i = 0; i < thread_num; i++){
         
         baseline_total_match_num[i] = new vector<int>* [ROC_SAMPLE_NUM];
         query_total_match_num[i] = new vector<int>* [ROC_SAMPLE_NUM];
-
-        baseline_total_edit_distance[i] = new vector<int> * [ROC_SAMPLE_NUM];
-        query_total_edit_distance[i] = new vector<int>* [ROC_SAMPLE_NUM];
 
         for(int j = 0; j < ROC_SAMPLE_NUM; j++){
             baseline_total_match_num[i][j] = new vector<int>;
             baseline_total_match_num[i][j]->resize(MATCH_MODE_NUM, 0);
             query_total_match_num[i][j] = new vector<int>;
             query_total_match_num[i][j]->resize(MATCH_MODE_NUM, 0);
-
-            baseline_total_edit_distance[i][j] = new vector<int>;
-            baseline_total_edit_distance[i][j]->resize(MATCH_MODE_NUM, 0);
-            query_total_edit_distance[i][j] = new vector<int>;
-            query_total_edit_distance[i][j]->resize(MATCH_MODE_NUM, 0);
         }
     }
 
@@ -2912,7 +2079,7 @@ void WholeGenome::ClusteringMatchMultiThread() {
     output_stat_file.open(output_dir + "/" + output_prefix+".stat");
 
     cout << "=========VarMatch Result Stat.=======" << endl;
-    string stat_head_string = "#score_unit\tmatch_mode\tscore_unit\tqual_threshold\tbaseline_match_num\tquery_match_num\tquery_total_num\tbaseline_total_ED\tquery_total_ED";
+    string stat_head_string = "#score_unit\tmatch_mode\tscore_unit\tqual_threshold\tbaseline_match_num\tquery_match_num\tquery_total_num";
     cout << stat_head_string << endl;
     output_stat_file << "##Baseline:" << baseline_variant_total_num << endl;
     output_stat_file << "##Query:"<< query_variant_total_num << endl;
@@ -2937,9 +2104,6 @@ void WholeGenome::ClusteringMatchMultiThread() {
                 string query_match_num_string = "";
                 string query_total_num_string = "";
 
-                string baseline_edit_distance_string = "";
-                string query_edit_distance_string = "";
-
                 for(int t = 0; t < threshold_num; t++){
                     
                     threshold_string += to_string(threshold_list[t]);
@@ -2947,31 +2111,20 @@ void WholeGenome::ClusteringMatchMultiThread() {
                     int baseline_match_num_by_threshold_by_mode = 0;
                     int query_match_num_by_threshold_by_mode = 0;
 
-                    int baseline_edit_distance_by_threshold_by_mode = 0;
-                    int query_edit_distance_by_threshold_by_mode = 0;
-
                     for(int i = 0; i < thread_num; i++){
                         baseline_match_num_by_threshold_by_mode += baseline_total_match_num[i][t]->at(mode_index);
                         query_match_num_by_threshold_by_mode += query_total_match_num[i][t]->at(mode_index);
-
-                        baseline_edit_distance_by_threshold_by_mode += baseline_total_edit_distance[i][t]->at(mode_index);
-                        query_edit_distance_by_threshold_by_mode += query_total_edit_distance[i][t]->at(mode_index);
                     }
 
                     baseline_match_num_string += to_string(baseline_match_num_by_threshold_by_mode);
                     query_match_num_string += to_string(query_match_num_by_threshold_by_mode);
                     query_total_num_string += to_string((int)(query_variant_total_num * (1-per_list[t])) );
 
-                    baseline_edit_distance_string += to_string(baseline_edit_distance_by_threshold_by_mode);
-                    query_edit_distance_string += to_string(query_edit_distance_by_threshold_by_mode);
-
                     if(t < threshold_num-1){
                         threshold_string += ",";
                         baseline_match_num_string += ",";
                         query_match_num_string += ",";
                         query_total_num_string += ",";
-                        baseline_edit_distance_string += ",";
-                        query_edit_distance_string += ",";
                     }
                                   
                 }
@@ -2983,7 +2136,7 @@ void WholeGenome::ClusteringMatchMultiThread() {
                                                 baseline_match_num_string + "\t" + 
                                                 query_match_num_string + "\t" + 
                                                 query_total_num_string;// + "\t" + to_string(mode_index);
-                cout << total_match_num_string << "\t" << baseline_edit_distance_string << "\t" << query_edit_distance_string << endl;;
+                cout << total_match_num_string << endl;
                 output_stat_file << total_match_num_string << endl;
             }
         }
@@ -3029,32 +2182,22 @@ void WholeGenome::ClusteringMatchMultiThread() {
 	for(int i = 0; i < thread_num; i++){
         for(int j = 0; j < MATCH_MODE_NUM; j++){
             delete match_records_by_mode_by_thread[i][j];
-
         }
         for(int j = 0; j < ROC_SAMPLE_NUM; j++){
             delete baseline_total_match_num[i][j];
             delete query_total_match_num[i][j];
-
-            delete baseline_total_edit_distance[i][j];
-            delete query_total_edit_distance[i][j];
         }
         delete[] match_records_by_mode_by_thread[i];
         delete[] baseline_total_match_num[i];
         delete[] query_total_match_num[i];
-        
-        delete[] baseline_total_edit_distance[i];
-        delete[] query_total_edit_distance[i];
 	}
 	delete[] match_records_by_mode_by_thread;
     delete[] baseline_total_match_num;
     delete[] query_total_match_num;
 
-    delete[] baseline_total_edit_distance;
-    delete[] query_total_edit_distance;
-
 }
 
-//[TODO] unit test
+
 int WholeGenome::NormalizeVariantSequence(int pos, string & parsimonious_ref, string & parsimonious_alt0, string & parsimonious_alt1, int chr_id) {
 
 	int left_index = pos;
@@ -3204,7 +2347,10 @@ void WholeGenome::Compare(string query_vcf,
 {
     // initialize query variant data structure
 
-
+    if(score_scheme_indicator == 3){
+        DirectMatch(ref_vcf_filename, query_vcf);
+        return;
+    }
 	que_vcf_filename = query_vcf;
 
     this->output_prefix = output_prefix;
@@ -3213,11 +2359,6 @@ void WholeGenome::Compare(string query_vcf,
     score_unit_indicator = score_unit_;
     match_mode_indicator = match_mode_;
     score_scheme_indicator = score_scheme_;
-
-    if(score_scheme_indicator == 3){
-        DirectMatch(ref_vcf_filename, query_vcf, match_mode_, output_prefix);
-        return;
-    }
 
     query_variant_total_num = ReadQueryVariants(query_vcf);
 
@@ -3283,24 +2424,16 @@ void WholeGenome::Compare(string query_vcf,
     // baseline_total_match_num;
     // query_total_match_num;
 
-    score_unit_list.clear();
-    match_mode_list.clear();
-    score_scheme_list.clear();
-    mode_index_list.clear();
-
     return;
 }
 
-void WholeGenome::DirectMatch(string ref_vcf, string query_vcf, int match_mode_, string output_prefix)
+void WholeGenome::DirectMatch(string ref_vcf, string query_vcf)
 {
     //dout << "direct match" << endl;
-    match_mode_indicator = match_mode_;
-    //int ref_variant_num = ReadReferenceVariants(ref_vcf);
+    int ref_variant_num = ReadReferenceVariants(ref_vcf);
     int que_variant_num = ReadQueryVariants(query_vcf);
-    //dout << que_variant_num << endl;
+    dout << ref_variant_num << "," << que_variant_num << endl;
     int match_num = 0;
-    ofstream output_stat_file;
-    output_stat_file.open(output_dir + "/" + output_prefix+".direct");
     for(int i = 0; i < chrom_num; i++){
         if(ref_variant_by_chrid[i]->size() == 0 || que_variant_by_chrid[i]->size() == 0)
             continue;
@@ -3326,8 +2459,6 @@ void WholeGenome::DirectMatch(string ref_vcf, string query_vcf, int match_mode_,
                 DiploidVariant ref_var = ref_variant_by_chrid[i]->at(ref_index);
                 if (match_mode_indicator != 1 && var == ref_var){
                     match_num ++;
-                    string matched_variant = chrname_by_chrid[i] + "\t" + to_string(ref_var.pos) + "\t" + ref_var.ref + "\t";
-                    output_stat_file << matched_variant << endl;
                     break;
                 }else if(match_mode_indicator == 1 && var.CompareNoGenotype(ref_var)){
                     match_num ++;
@@ -3336,6 +2467,5 @@ void WholeGenome::DirectMatch(string ref_vcf, string query_vcf, int match_mode_,
             }
         }
     }
-    output_stat_file.close();
     dout << "matched variants: " << match_num << endl;
 }

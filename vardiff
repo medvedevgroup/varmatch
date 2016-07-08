@@ -52,7 +52,7 @@ class SmartFormatter(argparse.HelpFormatter):
 citation = 'Please cite our paper.'
 
 parser = argparse.ArgumentParser(prog="vardiff", epilog = citation, formatter_class=lambda prog: SmartFormatter(prog,max_help_position=8))
-parser.add_argument('match_files', nargs='+', metavar='File List', help='.match file list')
+parser.add_argument('match_files', nargs='+', metavar='File', help='.match file list')
 parser.add_argument('-o', '--output', help='output directory', metavar='DIRECTORY',default='./match_diff_output')
 args = parser.parse_args()
 

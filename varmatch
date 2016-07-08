@@ -17,8 +17,8 @@
 
 """
     Authors:
-    Paul Medvedev(pashadag@cse.psu.edu)
     Chen Sun(chensun@cse.psu.edu)
+    Paul Medvedev(pashadag@cse.psu.edu)
 """
 
 import sys
@@ -61,7 +61,7 @@ parser.add_argument('-o', '--output', help='output directory', metavar='DIRECTOR
 thread_string = "number of threads, default is the number of available cores (For this machine:" + str(multiprocessing.cpu_count()) + \
                 ")\nIf larger than number of available cores or less than 1, automatically set to default value"
 
-parser.add_argument('-t', '--thread', metavar="INT", help=thread_string, default=multiprocessing.cpu_count())
+parser.add_argument('-t', '--thread', metavar="INT", help=thread_string, default=str(multiprocessing.cpu_count()))
 
 score_unit_string = "scoring function/score unit: (Default: -1)\n"\
     "-1 : iterate both 0 and 1.\n"\
@@ -96,7 +96,24 @@ parser.add_argument('-s', '--score_scheme', help=score_scheme_string, metavar='[
 
 parser.add_argument('-G', '--no_graph', help='disable graphic module', action = 'store_true')
 
+disable_curves_string = "disable Precision-Recall curves, if use -G or --no_graph,"\
+                        " then automatically disable these curves"
+
+parser.add_argument('-C', '--disable_curves', help=disable_curves_string, action='store_true')
+
+fast_mode_string = "In this mode, automatically disable graphic module and precision-recall curves,"\
+                   " only performs one matching criterion.\n"\
+                   " Fast mode is equivalent to use following parameters compulsively: -G -u 0 -m 0 -s 0"
+
+parser.add_argument('-f', '--fast_mode', help=fast_mode_string, action='store_true')
+
 args = parser.parse_args()
+
+if(args.fast_mode):
+    args.no_graph = True
+    args.score_unit = 0
+    args.match_mode = 0
+    args.score_scheme = 0
 
 
 def shell_run(command, hide=False):
@@ -192,6 +209,9 @@ def multiple_compare(baseline_file, query_list, genome_file):
         compare_command += ' -t ' + args.thread
 
     compare_command += ' -u ' + str(args.score_unit) + ' -m ' + str(args.match_mode) + ' -s ' + str(args.score_scheme)
+
+    if args.no_graph or args.disable_curves:
+        compare_command += ' -C '
 
     shell_run(compare_command)
 
@@ -295,6 +315,22 @@ def parse_stat(output_prefix):
 
     return baseline_num, query_num, x, y, z, no_filter_table, sensitivity_table, specificity_table
 
+
+def create_table_by_matchingid_from_by_query(table_list, matching_list, query_number):
+    table_by_matchingid = []
+    for matching_index in range(len(matching_list)):
+        matching_table = []
+        title = ['Query Id', 'Baseline Match Number', 'Query Match Number', 'Recall(%)', 'Precision(%)']
+        matching_table.append(title)
+        for table_index in range(len(table_list)):
+            raw_row = table_list[table_index][matching_index]
+            new_row = ['Query' + str(table_index+1)]
+            new_row += raw_row[4:]
+            matching_table.append(new_row)
+        table_by_matchingid.append(matching_table)
+    return table_by_matchingid
+
+
 # all html and picture are created from stat file, not parameters
 def create_stat_html(query_list, output_prefix_list):
     global output_dir
@@ -388,6 +424,7 @@ def create_stat_html(query_list, output_prefix_list):
         html_file.write('<h3>Precison of Queries under Different Matching Parameters</h3>'+'\n')
         html_file.write('<img src="specificity.png" alt="Specificity Graph Not Found...">'+'\n')
 
+    # sensitivity and specificity analysis by query
     html_file.write('<h2>Sensitivity and Specificity Analysis by Query</h2>'+'\n')
 
     for i in range(exp_num):
@@ -398,11 +435,22 @@ def create_stat_html(query_list, output_prefix_list):
         html_file.write(table_2_html(table_list[i]))
         html_file.write('</div>'+'\n')
 
-    html_file.write(html_tail)
-    html_file.close()
+    if exp_num > 1:
+        # sensitivity and specificity analysis by matching id
+        html_file.write('<h2><Sensitivity and Specificity Analysis by Matching Id/h2>')
+
+        table_by_matchingid = create_table_by_matchingid_from_by_query(table_list, label_list[0], exp_num)
+        for i in range(len(label_list[0])):
+            html_file.write('<div class="box">')
+            html_file.write('<h3>Matching Id: ' + label_list[0][i] + '</h3>'+'\n')
+            html_file.write(table_2_html(table_by_matchingid[i]))
+            html_file.write('</div>'+'\n')
+
+        html_file.write(html_tail)
+        html_file.close()
 
     # create roc html
-    if args.no_graph:
+    if args.no_graph or args.disable_curves:
         return
 
     html_filename = output_dir + '/precision_recall.html'
@@ -434,8 +482,8 @@ def create_stat_html(query_list, output_prefix_list):
             x[:] = [a/100 for a in x]
             #y.reverse()
             y[:] = [a/100 for a in y]
-            #x.sort()
-            #y.sort(reverse=True)
+            x.sort()
+            y.sort(reverse=True)
             y = y[::-1]
             label_sign = 'Query ' + str(j+1)
             plt.plot(x,y, label = label_sign)
