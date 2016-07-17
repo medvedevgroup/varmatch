@@ -5,7 +5,7 @@ CXXFLAGTBB=-ltbb
 
 all: vm-core
 
-vm-core: vm.cpp wholegenome.cpp util.cpp
+vm-core: vm.cpp decomposematch.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
 	cp $@ ../$@
 

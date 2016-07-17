@@ -4,22 +4,20 @@
 #include <iostream>
 #include <thread>
 #include <tclap/CmdLine.h>
-#include "wholegenome.h"
-
-using namespace std;
+#include "decomposematch.h"
 
 typedef struct Args {
-	string ref_vcf_filename;
-	string que_vcf_filename;
-	string genome_seq_filename;
-	string output_dir;
-    string output_prefix;
+	std::string ref_vcf_filename;
+	std::string que_vcf_filename;
+	std::string genome_seq_filename;
+	std::string output_dir;
+    std::string output_prefix;
 	int thread_num;
 	int score_unit;
 	int match_mode;
 	int score_scheme;
     bool detail_results;
-    vector<string> query_file_list;
+    std::vector<std::string> query_file_list;
     bool pr_curves;
     bool direct_match;
 
@@ -37,7 +35,7 @@ typedef struct Args {
 }Args;
 
 bool TclapParser(Args & args, int argc, char** argv){
-	string version = "0.9";
+	std::string version = "0.9";
 
 	try {
 		std::string desc = "Please cite our paper if you are using this program in your research. \n";
@@ -54,13 +52,13 @@ bool TclapParser(Args & args, int argc, char** argv){
 		int max_cores = (int)thread::hardware_concurrency();
 		if(max_cores <= 0) max_cores = 1;
 
-		string thread_string = "number of threads, default is the number of available cores (For this machine: " + to_string(max_cores) + ").\n"
+		std::string thread_string = "number of threads, default is the number of available cores (For this machine: " + to_string(max_cores) + ").\n"
                             "If larger than number of available cores or less than 1, automatically set to default value";
 		TCLAP::ValueArg<int> arg_thread_num("t", "thread_num", thread_string, false, thread_num, "int");
-		vector<int> allowed_two = {-1, 0,1};
+		std::vector<int> allowed_two = {-1, 0,1};
 		TCLAP::ValuesConstraint<int> allowedVals(allowed_two);
 
-        string score_unit_string = "scoring function/score unit: (Default: -1)\n"
+        std::string score_unit_string = "scoring function/score unit: (Default: -1)\n"
         "-1 : iterate both 0 and 1.\n"
         "0 : the score that a VCF entry contributes is 1.\n"
         "1 : the score that a VCF entry contributes is the edit distance between the new allele and the reference one.\n";
@@ -68,7 +66,7 @@ bool TclapParser(Args & args, int argc, char** argv){
         TCLAP::ValueArg<int> arg_score_unit("u", "score_unit", score_unit_string, false, -1, &allowedVals);
 
 
-        string match_mode_string = "matching mode: (Default: -1)\n"
+        std::string match_mode_string = "matching mode: (Default: -1)\n"
         "-1 : iterate both 0 and 1.\n"
         "0 : a set of query entries match a set of baseline entries if, "
         "for each entry, we can select one of the alleles such that the inferred sequences are identical\n"
@@ -78,7 +76,7 @@ bool TclapParser(Args & args, int argc, char** argv){
         TCLAP::ValueArg<int> arg_match_mode("m", "match_mode", match_mode_string, false, -1, &allowedVals);
 
 
-        string score_scheme_string = "scoring scheme: (Default: -1)\n"
+        std::string score_scheme_string = "scoring scheme: (Default: -1)\n"
         "-1 : iterate 0, 1, and 2 (not including 3)\n"
         "0 : find two subsets of non-overlapping equivalent variants such that "
         "the score of the matched variants is maximized (Default)\n"
@@ -89,20 +87,20 @@ bool TclapParser(Args & args, int argc, char** argv){
         "3 : (1 to 1 direct match) find a maximum scoring set of entry pairs such that each entry pair contains"
         " one query and one baseline variant that result in the same sequence. In this scheme, different scoring functions and "
         "matching mode have no difference.\n";
-        vector<int> allowed_four = {-1,0,1,2,3};
+        std::vector<int> allowed_four = {-1,0,1,2,3};
         TCLAP::ValuesConstraint<int> allowedFour(allowed_four);
         TCLAP::ValueArg<int> arg_score_scheme("s", "score_scheme", score_scheme_string, false, -1, &allowedFour);
 
         //string direct_match_string = "Direct Match. \n";
         //TCLAP::SwitchArg arg_direct_match("d", "direct_match", direct_match_string, cmd, false);
 
-        string detail_results_string = "output detail matching results, by default do not output.\n"
+        std::string detail_results_string = "output detail matching results, by default do not output.\n"
         "filename in format PREFIX.PARAMETER.match\n"
         "The results present which variants in baseline match which variants in query.";
 
         TCLAP::SwitchArg arg_detail_results("e","detail_results", detail_results_string, cmd, false);
 
-        string precision_recall_string = "Disable Precision-Recall curves. \n";
+        std::string precision_recall_string = "Disable Precision-Recall curves. \n";
         TCLAP::SwitchArg arg_disable_curves("C", "disable_curves", precision_recall_string, cmd, false);
 
         cmd.add(arg_score_scheme);
@@ -141,19 +139,19 @@ bool TclapParser(Args & args, int argc, char** argv){
 }
 
 int usage(char* command) {
-	cout << "\n";
-	cout << "\tPlease cite our paper if you are using this program in your research." << endl;
-    cout << endl;
-	cout << "Usage: " << endl;
-    cout << command << " -g genome file path(FASTA format)" << endl;
-    cout << "\t-r reference VCF file path" << endl;
-    cout << "\t-q query VCF file path" << endl;
-    cout << "\t-o output file prefix" << endl;
-    cout << "\t[-t thread number]" << endl;
-    cout << "\t[-n normalize VCF entries before comparing]" << endl;
-    cout << "\t[-m single VCF file to remove duplicates]" << endl;
-    cout << "\t[-G do not match genotype when match vcf records]" << endl;
-    cout << endl;
+	std::cout << "\n";
+	std::cout << "\tPlease cite our paper if you are using this program in your research." << endl;
+    std::cout << endl;
+	std::cout << "Usage: " << endl;
+    std::cout << command << " -g genome file path(FASTA format)" << endl;
+    std::cout << "\t-r reference VCF file path" << endl;
+    std::cout << "\t-q query VCF file path" << endl;
+    std::cout << "\t-o output file prefix" << endl;
+    std::cout << "\t[-t thread number]" << endl;
+    std::cout << "\t[-n normalize VCF entries before comparing]" << endl;
+    std::cout << "\t[-m single VCF file to remove duplicates]" << endl;
+    std::cout << "\t[-G do not match genotype when match vcf records]" << endl;
+    std::cout << endl;
 
 	return 0;
 }
@@ -186,7 +184,7 @@ int main(int argc, char* argv[])
 
     // use a loop 
     for(int i = 0; i < args.query_file_list.size(); i++){
-        string query_filename = args.query_file_list[i];
+        std::string query_filename = args.query_file_list[i];
 
         wg.Compare(query_filename,
             "query"+to_string(i+1),

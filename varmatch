@@ -577,6 +577,9 @@ def main():
 
     multiple_compare(args.baseline, query_list, args.genome)
 
+    if args.score_scheme == '3':
+        exit()
+
     output_prefix_list = []
     for i in range(len(query_list)):
         output_prefix_list.append('query'+str(i+1))

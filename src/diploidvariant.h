@@ -1,16 +1,18 @@
+#pragma once
 // data structure for direct search
 class DiploidVariant {
 public:
     DiploidVariant(int pos_ = -1,
-        string ref_ = "",
-        vector<string> alts_ = {"",""},
+        std::string ref_ = "",
+        std::vector<std::string> alts_ = {"",""},
         bool heterozygous_ = false,
         bool multi_alts_ = false,
         int mdl_ = 0,
         int mil_ = 0,
         bool flag_ = false,
         double qual_ = 0.0,
-        bool zero_one_var_ = false) :
+        bool zero_one_var_ = false,
+        int vcf_id_ = -1) :
         pos(pos_),
         ref(ref_),
         alts(alts_),
@@ -20,11 +22,12 @@ public:
         mil(mil_),
         flag(flag_),
         qual(qual_),
-        zero_one_var(zero_one_var_){}
+        zero_one_var(zero_one_var_),
+        vcf_id(vcf_id_){}
 
     int pos;
-    string ref;
-    vector<string> alts;
+    std::string ref;
+    std::vector<std::string> alts;
     bool heterozygous;
     bool multi_alts;
     bool zero_one_var; // which means the phasing should be 0/1 or 1/0, no matter if it contains multi_alts
@@ -34,6 +37,7 @@ public:
     bool flag; //in DiploidVariant, flag = false is reference, flag = true is query
     // keep flag as int? not necessary
     double qual;
+    int vcf_id; // if -1, then it is not an available vcf id
 
 //    int get_pos() const{return pos};
 //    string get_ref() const{return ref};
