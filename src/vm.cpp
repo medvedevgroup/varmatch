@@ -180,9 +180,13 @@ int main(int argc, char* argv[])
     //     }
     //     return 0;
     // }
-
-    wg.ReadRef(args.genome_seq_filename, 
-        args.ref_vcf_filename);
+    if(args.score_scheme == 3){
+        wg.ReadDirectRef(args.genome_seq_filename, 
+            args.ref_vcf_filename);
+    }else{
+        wg.ReadRef(args.genome_seq_filename, 
+            args.ref_vcf_filename);
+    }
 
     // use a loop 
     for(int i = 0; i < args.query_file_list.size(); i++){

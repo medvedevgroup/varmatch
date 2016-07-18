@@ -342,6 +342,8 @@ public:
     void ReadRef(string genome_seq, 
       string ref_vcf);
 
+    void ReadDirectRef(string genome_seq, string ref_vcf);
+
     void Compare(string query_vcf,
         string output_prefix,
         bool detail_results,

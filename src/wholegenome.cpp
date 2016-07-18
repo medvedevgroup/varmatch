@@ -3195,6 +3195,21 @@ void WholeGenome::ReadRef(string genome_seq, string ref_vcf){
 
 }
 
+void WholeGenome::ReadDirectRef(string genome_seq, string ref_vcf){
+
+    for(int i = 0; i < 22; i++){
+        chrid_by_chrname[to_string(i+1)] = i;
+        chrname_by_chrid[i] = to_string(i+1);
+    }
+    chrid_by_chrname["X"] = 22;
+    chrname_by_chrid[22] = "X";
+    chrid_by_chrname["Y"] = 23;
+    chrname_by_chrid[23]="Y";
+    baseline_variant_total_num = ReadReferenceVariants(ref_vcf);
+    ref_vcf_filename = ref_vcf;
+
+}
+
 void WholeGenome::Compare(string query_vcf,
 	string output_prefix,
     bool detail_results,
