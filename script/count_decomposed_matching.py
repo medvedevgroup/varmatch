@@ -71,7 +71,9 @@ with open(matching_filename) as matching_file:
 matched_variant_num = 0
 matched_baseline_num = 0
 
+exact_match_id = {}
 partial_match_id = {}
+somewhat_match_id = {}
 
 baseline_id_filename = "baseline_id.txt"
 
@@ -81,8 +83,10 @@ for vcf_id in sorted(matched_id_num):
     if vcf_id not in original_id_num:
         print 'Error: vcf id not exist in original VCF file:', vcf_id
         continue
+    somewhat_match_id[vcf_id] = True
     if original_id_num[vcf_id] == matched_id_num[vcf_id]:
         matched_variant_num += 1
+        exact_match_id[vcf_id] = True
         for ref_id in to_ref_id[vcf_id]:
             matched_baseline_num += 1
             baseline_id_file.write(str(ref_id)+'\n')
@@ -94,7 +98,8 @@ for vcf_id in sorted(matched_id_num):
 
 baseline_id_file.close()
 
-print 'total match number: ', matched_variant_num
+print 'exact match number: ', matched_variant_num, len(exact_match_id)
 print 'partial match number: ', len(partial_match_id)
+print 'total match number: ', len(somewhat_match_id)
 print 'matched baseline num: ', matched_baseline_num
 
