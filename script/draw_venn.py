@@ -80,4 +80,4 @@ c = venn2_circles(subsets=s, linestyle='solid', linewidth='0')
 
 #plt.show()
 plt.tight_layout()
-plt.savefig('./test_venn.png')
+plt.savefig('./de_venn.png')
