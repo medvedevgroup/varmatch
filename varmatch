@@ -557,7 +557,7 @@ def main():
     check_compare_command = True
 
     script_path = sys.path[0]
-    compare_tool = script_path + '/vm-core'
+    compare_tool = script_path + '/src/vm-core'
     output_dir = ''
     temp_dir = ''
 

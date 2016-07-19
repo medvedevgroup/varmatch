@@ -7,7 +7,7 @@ all: vm-core
 
 vm-core: vm.cpp wholegenome.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
-	cp $@ ../$@
+#	cp $@ ../$@
 
 filter_hc: filter_hc.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
