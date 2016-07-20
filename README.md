@@ -7,10 +7,6 @@ robust matching of small variant datasets using flexible scoring schemes
 
 # Release Date
 ### TBA
-Any questions about VarMatch, please email to chensun at cse dot psu dot edu.
-
-If you identify a bug in VarMatch, please either reported on 'github Issues' of VarMatch, or email directly to chensun at cse dot psu dot edu.
-
 
 
 # Prerequisite
@@ -31,6 +27,9 @@ cd varmatch
 make all
 ```
 
+# Test Data Set
+Links to the data used for bencharmking in the paper: [https://github.com/medvedevgroup/varmatch/blob/master/data.txt](https://github.com/medvedevgroup/varmatch/blob/master/data.txt)
+
 # Usage
 ### Quick Usage:
 
@@ -46,6 +45,7 @@ make all
 - `-f` fast mode*, equivalent to use parameters `-u 0 -m 0 -s 0 -C`
 
 >*fast mode is suggested for ordinary analysis
+>VarMatch can process VCF text file, it does not accept vcf.gz file in current version.
 
 ### Detail Usage
 
@@ -114,19 +114,24 @@ Where:
      functions and matching mode have no difference.
 
 
-    `-G`, `--no_graph`
-          disable graphic module
-    `-C`, `--disable_curves`
-          disable Precision-Recall curves, if use -G or --no_graph, then
-          automatically disable these curves
-    `-f`, `--fast_mode`
-          In this mode, automatically disable graphic module and precision-
-          recall curves, only performs one matching criterion.
-           Fast mode is equivalent to use following parameters compulsively: -G
-          -u 0 -m 0 -s 0
+  `-G`, `--no_graph`
+        disable graphic module
+  `-C`, `--disable_curves`
+        disable Precision-Recall curves, if use -G or --no_graph, then
+        automatically disable these curves
+  `-f`, `--fast_mode`
+        In this mode, automatically disable graphic module and precision-
+        recall curves, only performs one matching criterion.
+          Fast mode is equivalent to use following parameters compulsively: -G
+        -u 0 -m 0 -s 0
 
 
 ### Help Information:
 
 use `-h/--help` for detailed help message.
 
+# Contact
+
+chensun@cse.psu.edu
+
+You also can report bugs or suggest features using issue tracker at GitHub [https://github.com/medvedevgroup/varmatch](https://github.com/medvedevgroup/varmatch)

@@ -1,0 +1,29 @@
+# Result 4.1:
+
+### Bowtie2-Freebayes
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/CHM1.bt2.fb.vcf.gz
+
+### Bowtie2-HC
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/CHM1.bt2.hc.vcf.gz
+
+# Result 4.2-4.4:
+
+### GIAB benchmark (Version 2.18)
+ftp://ftp-trace.ncbi.nih.gov/giab/ftp/data/NA12878/analysis/NIST_union_callsets_06172013/NISTIntegratedCalls_14datasets_131103_allcall_UGHapMerge_HetHomVarPASS_VQSRv2.18_all_nouncert_excludesimplerep_excludesegdups_excludedecoy_excludeRepSeqSTRs_noCNVs.vcf.gz
+### If previous link is disabled, go to the following directory for GIAB benchmark history version:
+ftp://ftp-trace.ncbi.nih.gov/giab/ftp/data/NA12878/analysis/NIST_union_callsets_06172013/
+
+### Bowtie2-Freebayes
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/NA12878.bt2.fb.vcf.gz
+
+### Bowtie2-UG
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/NA12878.bt2.ug.vcf.gz
+
+### Bowtie2-SAMtools
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/NA12878.bt2.st.vcf.gz
+
+### Bowtie2-Platypus
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/NA12878.bt2.pt.vcf.gz
+
+### BWA_MEM-Freebayes
+ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/NA12878.mem.fb.vcf.gz
