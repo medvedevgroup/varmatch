@@ -1,4 +1,4 @@
-# Result 4.1:
+# CHM1 Data Set:
 
 ### Bowtie2-Freebayes
 ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/CHM1.bt2.fb.vcf.gz
@@ -6,7 +6,7 @@ ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignme
 ### Bowtie2-HC
 ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20140312_chm1_alignment_heng/vcfs/CHM1.bt2.hc.vcf.gz
 
-# Result 4.2-4.4:
+# NA12878 Data Set:
 
 ### GIAB benchmark (Version 2.18)
 ftp://ftp-trace.ncbi.nih.gov/giab/ftp/data/NA12878/analysis/NIST_union_callsets_06172013/NISTIntegratedCalls_14datasets_131103_allcall_UGHapMerge_HetHomVarPASS_VQSRv2.18_all_nouncert_excludesimplerep_excludesegdups_excludedecoy_excludeRepSeqSTRs_noCNVs.vcf.gz
