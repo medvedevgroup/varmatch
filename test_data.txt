@@ -1,0 +1,18 @@
+# Dataset for testing VarMatch:
+
+It contains three files:
+1. ref.fa
+ref.fa is genome sequence of chromosome 22 of GRCh37
+2. baseline.vcf
+baseline.vcf is variant calling result on chromosome 22 by Freebayes.
+3. query.vcf
+query.vcf is variant calling result on chromosome 22 by GATK.   
+
+After downloading, use the following command to test VarMatch on it:
+> tar -xzvf varmatch_test_data.tar.gz
+> cd varmatch_test_data
+> VarMatch_Directory/varmatch -r ref.fa -b baseline.fa -q query.fa -o output -f
+
+VarMatch_Directory is the path of VarMatch
+
+varmatch is a python script, which calls the core executive program: VarMatch_Directory/src/vm-core

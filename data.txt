@@ -1,3 +1,11 @@
+This file contains raw data needed for benchmarking in the paper.
+
+# Reference Genome Sequence GRCh37
+> You can download GRCh37 reference genome sequence in either of the following ftp sites:
+### ftp://ftp.ensembl.org/pub/release-75/fasta/homo_sapiens/dna/
+### ftp://ftp.ncbi.nlm.nih.gov/genomes/Homo_sapiens/ARCHIVE/BUILD.37.3/
+> The reference genome sequence GRCh37 is stored in these ftp sites by chromosomes. If you want to perform whole genome analysis, a single integrated FASTA file is needed.
+
 # CHM1 Data Set:
 
 ### Bowtie2-Freebayes

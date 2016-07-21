@@ -28,7 +28,10 @@ make all
 ```
 
 # Test Data Set
-Links to the data used for bencharmking in the paper: [https://github.com/medvedevgroup/varmatch/blob/master/data.txt](https://github.com/medvedevgroup/varmatch/blob/master/data.txt)
+<!--
+- Links to a test data set (~15M) : [https://github.com/medvedevgroup/varmatch/blob/master/test_data.txt](https://github.com/medvedevgroup/varmatch/blob/master/test_data.txt)
+-->
+- Links to the data used for bencharmking in the paper: [https://github.com/medvedevgroup/varmatch/blob/master/data.txt](https://github.com/medvedevgroup/varmatch/blob/master/data.txt)
 
 # Usage
 ### Quick Usage:
@@ -36,7 +39,7 @@ Links to the data used for bencharmking in the paper: [https://github.com/medved
 *compare two vcf files to match variants*
 
 ```
-./varmatch -b baseline.vcf -q query.vcf -g ref.fa -o out -f
+./varmatch -b baseline.vcf -q query.vcf -g ref.fa -o output -f
 ```
 - `-b` baseline vcf file
 - `-q` query vcf file
@@ -45,7 +48,10 @@ Links to the data used for bencharmking in the paper: [https://github.com/medved
 - `-f` fast mode*, equivalent to use parameters `-u 0 -m 0 -s 0 -C`
 
 >*fast mode is suggested for ordinary analysis
->VarMatch can process VCF text file, it does not accept vcf.gz file in current version.
+
+>VarMatch can process VCF text file, it does not accept vcf.gz file in current version
+
+>see [Result of VarMatch](#results_of_varmatch) section for intepretation of results in output directory 
 
 ### Detail Usage
 
@@ -130,8 +136,50 @@ Where:
 
 use `-h/--help` for detailed help message.
 
+# Results of VarMatch
+
+### varmatch (.match) file
+You can file varmatch files in VarMatch output directory, filename is in the format of query`x`.`u`\_`m`\_`s`.match
+
+  `x` is the id of queries.
+  `u` is the value of parameter `-u`, `--score_unit`
+  `m` is the value of parameter `-m`, `--match_mode`
+  `s` is the value of parameter `-s`, `--score_scheme`
+
+For instance, if you use one query VCF file and use `-f` parameter, there is query1.0_0_0.match in your output file.
+
+varmatch file contains the information of matched VCF entries from baseline and query VCF file.
+
+Lines in varmatch file started with `#` are comment lines. The first two lines of .match file starts with `###`:
+
+>`###VCF1` is the baseline VCF filename
+
+>`###VCF2` is the query VCF filename
+
+varmatch files contains at least 9 columns:
+
+  1. `CHROM` column represents chromosome ID
+  2. `POS` column represents genome position on reference genome sequence
+  3. `REF` column represents reference allele
+  4. `ALT` column represents alternative alleles, multiple alleles are separated by `/`
+  5. `VCF1` column represents variants from baseline. If it is a direct match, this column is `.`. If it is not a direct match, this column contains variants separated by `;`. Each variant contains three information: reference genome position, reference allele, alternative alleles.
+  6. `VCF2` column represents variants from query. If it is a direct match, this column is `.`.
+  7. `PHASE1` column represents phasing information of variants from baseline. If it is a direct match, this column is `.`.
+  8. `PHASE2` column represents phasing information of variants from query. If it is a direct match, this column is `.`.
+  9. `SCORE` columns represents the total score of variants from baseline and query.
+
+The meaning of each line in varmatch file:
+
+> variants in `VCF1` column is equivalent to variants in `VCF2` column. If applying them separately on `REF` sequence, which is a substring of reference genome sequence starts at position `POS` of chromosome `CHROM`, can get the same donor sequences in `ALT` column.
+The phasing information of variants in `VCF1` and `VCF2` are separately in `PHASE1` and `PHASE2`. 
+
+### .stat file
+
+It contains some statistical information.
+
 # Contact
 
 chensun@cse.psu.edu
 
 You also can report bugs or suggest features using issue tracker at GitHub [https://github.com/medvedevgroup/varmatch](https://github.com/medvedevgroup/varmatch)
+
