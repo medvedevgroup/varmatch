@@ -143,10 +143,10 @@ use `-h/--help` for detailed help message.
 ### varmatch (.match) file
 You can file varmatch files in VarMatch output directory, filename is in the format of query`x`.`u`\_`m`\_`s`.match
 
--`x` is the id of queries.
--`u` is the value of parameter `-u`, `--score_unit`
--`m` is the value of parameter `-m`, `--match_mode`
--`s` is the value of parameter `-s`, `--score_scheme`
+- `x` is the id of queries.
+- `u` is the value of parameter `-u`, `--score_unit`
+- `m` is the value of parameter `-m`, `--match_mode`
+- `s` is the value of parameter `-s`, `--score_scheme`
 
 For instance, if you use one query VCF file and use `-f` parameter, there is query1.0_0_0.match in your output file.
 
@@ -154,9 +154,9 @@ varmatch file contains the information of matched VCF entries from baseline and 
 
 Lines in varmatch file started with `#` are comment lines. They contain general information of baseline and query VCF file, and also general information of varmatch file. The first N (N=2 by default) lines of .match file starts with `###`:
 
--`###VCF1` is the baseline VCF filename
+- `###VCF1` is the baseline VCF filename
 
--`###VCF2` is the query VCF filename
+- `###VCF2` is the query VCF filename
 
 varmatch files contains at least 9 fields:
 
