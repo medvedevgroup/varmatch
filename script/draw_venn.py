@@ -46,9 +46,11 @@ total_b = int(argv[2])
 overlap_num = int(argv[3])
 
 s = (
-    total_a-overlap_num,  # Ab
-    total_b-overlap_num,  # aB
-    overlap_num,  # AB
+    #total_a-overlap_num,  # Ab
+    #total_b-overlap_num,  # aB
+    total_a,
+	total_b,
+	overlap_num,  # AB
 )
 
 v = venn2(subsets=s, set_labels=('bwa-fb', 'pt'))
@@ -69,15 +71,15 @@ v.get_label_by_id('11').set_text(format(s[2], ',d'))
 #v.get_patch_by_id('11').set_alpha(0.7)
 
 for text in v.set_labels:
-    text.set_fontsize(32)
+    text.set_fontsize(32.0)
 for text in v.subset_labels:
-    text.set_fontsize(32)
+    text.set_fontsize(32.0)
 
 # Border styles
-c = venn2_circles(subsets=s, linestyle='solid', linewidth='0')
+c = venn2_circles(subsets=s, linestyle='solid', linewidth=0.0)
 #c[0].set_ls('dashed')  # Line style
 #c[0].set_lw(2.0)       # Line width
 
 #plt.show()
 plt.tight_layout()
-plt.savefig('./de_venn.png')
+plt.savefig('./de_venn.eps', format='eps', dpi=350)

@@ -117,7 +117,7 @@ for vcf_id in sorted(baseline_matched_id_num):
         baseline_partial_id[vcf_id] = True
         #print 'Partial Matching:', vcf_id
     else:
-        print 'Error: matched variant number in certain id greater than original variant number:', vcf_id
+        print 'Error: baseline matched variant number in certain id greater than original variant number:', vcf_id
 
 # for each query matched id
 # if corresponding matching baseline id is an exact match, then:
@@ -161,7 +161,7 @@ for vcf_id in sorted(query_matched_id_num):
             baseline_partial_id[ref_id] = True
         #print 'Partial Matching:', vcf_id
     else:
-        print 'Error: matched variant number in certain id greater than original variant number:', vcf_id
+        print 'Error: query matched variant number in certain id greater than original variant number:', vcf_id
 
 baseline_id_filename = "baseline_id.txt"
 baseline_id_file = open(baseline_id_filename, 'w')
