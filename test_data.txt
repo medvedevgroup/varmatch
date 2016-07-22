@@ -1,4 +1,5 @@
 # Dataset for testing VarMatch:
+http://www.bx.psu.edu/medvedev_lab/varmatch_test_data.tar.gz
 
 It contains three files:
 1. ref.fa
@@ -7,6 +8,12 @@ ref.fa is genome sequence of chromosome 22 of GRCh37
 baseline.vcf is variant calling result on chromosome 22 by Freebayes.
 3. query.vcf
 query.vcf is variant calling result on chromosome 22 by GATK.   
+
+You can use the following command to download test data set
+> wget http://www.bx.psu.edu/medvedev_lab/varmatch_test_data.tar.gz
+
+For Mac OS X users, if you do not have wget installed, using the following command to download test data set:
+> curl -O http://www.bx.psu.edu/medvedev_lab/varmatch_test_data.tar.gz
 
 After downloading, use the following command to test VarMatch on it:
 > tar -xzvf varmatch_test_data.tar.gz

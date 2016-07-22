@@ -1,5 +1,0 @@
-1   /home/varmatch/human/chr1.fa
-2   /home/varmatch/human/chr2.fa
-17  /home/varmatch/human/backup/chr17.fa
-X   /home/varmatch/human/chrxx.fa
-Y   /home/anotherpath/human/chrY/human.y.fa

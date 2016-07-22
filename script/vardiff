@@ -1,0 +1,299 @@
+#!/usr/bin/env python
+
+# Copyright 2015, Chen Sun
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+    Authors:
+    Paul Medvedev(pashadag@cse.psu.edu)
+    Chen Sun(chensun@cse.psu.edu)
+"""
+
+import sys
+import textwrap as _textwrap
+import argparse
+import os
+
+versionError = "You are using an old version of python, please upgrade to python 2.7+\n"
+if sys.hexversion < 0x02070000:
+    print (versionError)
+    exit()
+
+RUN = True
+
+author_email = 'chensun@cse.psu.edu'
+
+
+class SmartFormatter(argparse.HelpFormatter):
+    def _split_lines(self, text, width):
+        paragraphs = text.split('\n')
+        #return paragraphs
+        multiline_text = []
+        for paragraph in paragraphs:
+            formatted_paragraph = _textwrap.wrap(paragraph, width)
+            multiline_text = multiline_text + formatted_paragraph
+        return multiline_text
+
+    def _fill_text(self, text, width, indent):
+        return ''.join(indent + line for line in text.splitlines(True))
+
+citation = 'Please cite our paper.'
+
+parser = argparse.ArgumentParser(prog="vardiff", epilog = citation, formatter_class=lambda prog: SmartFormatter(prog,max_help_position=8))
+parser.add_argument('match_files', nargs='+', metavar='File', help='.match file list')
+parser.add_argument('-o', '--output', help='output directory', metavar='DIRECTORY',default='./match_diff_output')
+args = parser.parse_args()
+
+pos_donor_dict_list = []
+pos_content_dict_list = []
+
+html_head = """
+<html>
+<head>
+<style type="text/css">
+table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse;
+}
+th, td {
+    padding: 5px;
+    text-align: left;
+}
+
+.separate_line{
+    padding: 0 20px 0;
+    margin: 20px 0;
+    line-height: 40px;
+    border-left: 200px solid #ddd;
+    border-right: 200px solid #ddd;
+    text-align: center;
+    font-size:100%;
+}
+
+
+div{
+    font-family: "Courier New", Courier, monospace !important;
+    font-size:100%;
+    line-height:0px;
+    white-space:nowrap;
+}
+
+.selected{
+    color: blue;
+}
+
+.discard{
+    color: gray;
+}
+
+.box{
+    border-left: 4px solid #ccc;
+    border-top: 4px solid #ccc;
+    border-bottom: 4px solid #ccc;
+    padding:20px;
+    margin-top: 10px;
+    margin-bottom: 100px;
+    margin-left:10px;
+}
+#advhelp{
+    display:none;
+}
+#advhelp:target{
+    display:block;
+}
+</style>
+</head>
+<body>
+"""
+
+html_tail="""
+</body>
+</html>
+"""
+
+
+def read_match_file(filename):
+    pos_set = set()
+    pos_donor_dict = {}
+    pos_content_dict = {}
+    with open(filename) as file:
+        for line in file:
+            if line.startswith('#'):
+                continue
+            columns = line.split('\t')
+            if len(columns) < 2:
+                print line
+            pos = columns[0]+'_'+columns[1]
+            pos_set.add(pos)
+            donor = columns[3]
+            pos_donor_dict[pos] = donor
+            pos_content_dict[pos] = line
+    return pos_donor_dict, pos_content_dict, pos_set
+
+
+def levenshtein(s1, s2):
+    if len(s1) < len(s2):
+        return levenshtein(s2, s1)
+
+    # len(s1) >= len(s2)
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1 # j+1 instead of j since previous_row and current_row are one character longer
+            deletions = current_row[j] + 1       # than s2
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+
+def separate_string(s):
+    l = list(s)
+    return ' '.join(l)
+
+
+def parse_variant(offset, variant_string, phasing_string, is_baseline):
+    variant_content_list = ['<hr>\n']
+
+    variant_component = variant_string.split(',')
+    variant_pos = int(variant_component[0])
+    variant_prefix = ' '*(variant_pos - offset)
+    variant_ref = variant_component[1]
+    variant_alts = variant_component[2].split('/')
+    phasing_component = phasing_string.split('|')
+
+    if is_baseline:
+        if '0' in phasing_component:
+            variant_content_list.append('<pre class="selected">Baseline REF:' + separate_string(variant_prefix + variant_ref) + '</pre>\n')
+        else:
+            variant_content_list.append('<pre>Baseline REF:' + separate_string(variant_prefix + variant_ref) + '</pre>\n')
+    else:
+        if '0' in phasing_component:
+            variant_content_list.append('<pre class="selected">Query    REF:' + separate_string(variant_prefix + variant_ref) + '</pre>\n')
+        else:
+            variant_content_list.append('<pre>Query    REF:' + separate_string(variant_prefix + variant_ref) + '</pre>\n')
+
+    for i in range(2):
+        j = i
+        #print variant_alts, phasing_component
+        if len(variant_alts) < 2:
+            j = 0
+        if str(j+1) in phasing_component:
+            variant_content_list.append('<pre class="selected">         ALT:' + separate_string(variant_prefix + variant_alts[j]) + '</pre>\n')
+        else:
+            variant_content_list.append('<pre class="discard">         ALT:' + separate_string(variant_prefix + variant_alts[j]) + '</pre>\n')
+
+    return variant_content_list
+
+
+def parse_match(match_string, filename):
+    matching_content_list = ['<div class="separate_line" >' + filename +'</div>\n']
+
+    match_columns = match_string.split('\t')
+    offset = int(match_columns[1])
+    match_ref = match_columns[2]
+    match_donors = match_columns[3].split('/')
+    matching_content_list.append('<pre>Genome   Ref:'+ separate_string(match_ref) +'</pre>\n')
+    matching_content_list.append('<pre>     Donor 0:'+ separate_string(match_donors[0]) +'</pre>\n')
+    if len(match_donors) > 1:
+        matching_content_list.append('<pre>     Donor 1:'+ separate_string(match_donors[1]) +'</pre>\n')
+    else:
+        matching_content_list.append('<pre>     Donor 1:'+ separate_string(match_donors[0]) +'</pre>\n')
+
+    if match_columns[4] == '.':
+        return matching_content_list
+
+    for i in range(2):
+        matching_variants = match_columns[4+i].split(';')
+        matching_phasing = match_columns[6+i].split(';')
+        is_baseline = True
+        if i == 1:
+            is_baseline = False
+        for k in range(len(matching_variants)):
+            matching_content_list += parse_variant(offset, matching_variants[k], matching_phasing[k], is_baseline)
+
+    return matching_content_list
+
+
+def main():
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+
+    match_file_list = args.match_files
+    match_file_num = len(match_file_list)
+    diff_filename_list = []
+    diff_content_table = [[] for i in range(match_file_num)]
+
+    union_pos_set = set()
+
+    for match_file in match_file_list:
+        (pos_donor_dict, pos_content_dict, pos_set) = read_match_file(match_file)
+        #print pos_set
+        pos_donor_dict_list.append(pos_donor_dict)
+        pos_content_dict_list.append(pos_content_dict)
+        union_pos_set.update(pos_set)
+        match_basename = os.path.basename(match_file)
+        diff_filename_list.append(args.output + '/' + match_basename + '.diff')
+
+    union_pos_list = list(union_pos_set)
+    union_pos_list.sort()
+
+    #print union_pos_list
+
+    # think specifically for two VCF files
+    # output detail
+    compare_filename = args.output + '/' + 'compare.html'
+    compare_file = open(compare_filename, 'w')
+    compare_file.write(html_head)
+
+    for pos in union_pos_list:
+        have_diff = False
+        for i in range(match_file_num):
+            if pos not in pos_donor_dict_list[i]:
+                have_diff = True
+            break
+        #print have_diff
+        if not have_diff:
+            donor_benchmark = pos_donor_dict_list[0][pos]
+            for i in range(match_file_num):
+                #print pos, donor_benchmark, pos_donor_dict[i][pos]
+                if pos_donor_dict_list[i][pos] != donor_benchmark:
+                    have_diff = True
+                    break
+
+        if have_diff:
+            compare_file.write('<div class="box">\n')
+            for i in range(match_file_num):
+                if pos in pos_content_dict_list[i]:
+                    diff_content_table[i].append(pos_content_dict_list[i][pos])
+                    for content in parse_match(pos_content_dict_list[i][pos], match_file_list[i]):
+                        compare_file.write(content)
+            compare_file.write('</div>\n')
+
+    for i in range(match_file_num):
+        with open(diff_filename_list[i], 'w') as diff_file:
+            for diff_content in diff_content_table[i]:
+                diff_file.write(diff_content + '\n')
+
+    compare_file.write(html_tail)
+    compare_file.close()
+
+if __name__ == '__main__':
+    main()

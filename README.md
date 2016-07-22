@@ -19,7 +19,7 @@ robust matching of small variant datasets using flexible scoring schemes
 > *matplotlib is not a prerequisite if either `-f`, `-G` or `-C` parameter is used
 
 # Installation
-**Quick Install Instruction:**
+### Quick Install Instruction:
 You can build VarMatch from source. 
 ```
 git clone https://github.com/medvedevgroup/varmatch.git
@@ -27,10 +27,16 @@ cd varmatch
 make all
 ```
 
+### Uninstall
+`cd` to the directory of VarMatch
+```
+make clean
+```
+
 # Test Data Set
-<!--
+
 - Links to a test data set (~15M) : [https://github.com/medvedevgroup/varmatch/blob/master/test_data.txt](https://github.com/medvedevgroup/varmatch/blob/master/test_data.txt)
--->
+
 - Links to the data used for bencharmking in the paper: [https://github.com/medvedevgroup/varmatch/blob/master/data.txt](https://github.com/medvedevgroup/varmatch/blob/master/data.txt)
 
 # Usage
@@ -47,11 +53,11 @@ make all
 - `-o` output file prefix, default value is `out`
 - `-f` fast mode*, equivalent to use parameters `-u 0 -m 0 -s 0 -C`
 
->*fast mode is suggested for ordinary analysis
+>*fast mode is suggested for ordinary analysis.
 
->VarMatch can process VCF text file, it does not accept vcf.gz file in current version
+>VarMatch accept baseline and query in VCF file format (e.g. xx.vcf), it does not accept gz file (e.g. xx.vcf.gz) in current version.
 
->see [Results of VarMatch](#results_of_varmatch) section for intepretation of results in output directory 
+>see [Results of VarMatch](#results-of-varmatch) section for intepretation of results in output directory. 
 
 ### Detail Usage
 
@@ -141,7 +147,7 @@ use `-h/--help` for detailed help message.
 # Results of VarMatch
 
 ### varmatch (.match) file
-You can file varmatch files in VarMatch output directory, filename is in the format of query`x`.`u`\_`m`\_`s`.match
+You can find varmatch (.match) files in VarMatch output directory, filename is in the format of query`x`.`u`\_`m`\_`s`.match
 
 - `x` is the id of queries.
 - `u` is the value of parameter `-u`, `--score_unit`
@@ -152,7 +158,7 @@ For instance, if you use one query VCF file and use `-f` parameter, there is que
 
 varmatch file contains the information of matched VCF entries from baseline and query VCF file.
 
-Lines in varmatch file started with `#` are comment lines. They contain general information of baseline and query VCF file, and also general information of varmatch file. The first N (N=2 by default) lines of .match file starts with `###`:
+Lines in varmatch file started with `#` are comment lines. They contain general information of baseline and query VCF file, and also general information of varmatch file. The first 2 lines of .match file starts with `###`:
 
 - `###VCF1` is the baseline VCF filename
 
@@ -177,9 +183,15 @@ The phasing information of variants in `VCF1` and `VCF2` are separately in `PHAS
 
 varmatch (.match) file format gives a standard representation of equivalent variants, especially for complex variants.
 
+If you have any suggestions of improving .match file format, please [contact me](#contact).
+
 ### .stat file
 
 It contains some statistical information.
+
+# License
+
+See [license.txt](https://github.com/medvedevgroup/varmatch/blob/master/license.txt)
 
 # Contact
 
@@ -187,5 +199,4 @@ chensun@cse.psu.edu
 
 You also can report bugs or suggest features using issue tracker at GitHub [https://github.com/medvedevgroup/varmatch](https://github.com/medvedevgroup/varmatch)
 
-If you have any suggestions of improving .match file format, please contact me.
 
