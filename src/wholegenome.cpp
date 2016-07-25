@@ -313,7 +313,8 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
                 query_variant_strings.push_back(line);
             }
         }else{
-            cout << "[VarMatch] skip current variant as no corresponding reference genome sequence found." << endl;
+            //cout << "[VarMatch] skip current variant as no corresponding reference genome sequence found." << endl;
+            cout << "[VarMatch] Warning: variant skipped, no reference genome sequence found for chromosome name: " << chr_name << "." << endl;
             continue;
             int chr_id = chrname_dict[chr_name];
             if(flag == false){
@@ -359,7 +360,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
         // revice percentage
         per_list = temp_percentage_list;
     }
-    cout << flag << "," << total_num << "," << long_num << endl;
+    //cout << flag << "," << total_num << "," << long_num << endl;
 	return total_num;
 }
 
@@ -2213,13 +2214,27 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
     SequencePath sp(subsequence.length(), variant_list.size());
     SequencePath best_path = sp;
     current_path_list.push_back(sp);
+    int considered_path_num = 0;
+    int mode_index = GetIndexFromMatchScore(score_unit, match_mode, score_scheme);
     while(current_path_list.size() != 0){
         bool reach_sync_point = true;
         // extend path before reaches sync points
-        //cout << "\t" << current_path_list.size() << endl;
+        //cout << "\t" << current_path_list.size() << "," << considered_path_num << endl;
+        
         while(current_path_list.size() != 0){
             SequencePath path = current_path_list.front();
             current_path_list.pop_front();
+            considered_path_num ++;
+            if (considered_path_num >= MAX_SEARCH_SPACE){
+                //cout << "direct matching large variant cluster" << endl;
+                //cout << variant_list.size() << "," << considered_path_num << endl;
+                return MatchingSingleClusterDirectly(cluster_index, 
+                    thread_index, 
+                    mode_index, 
+                    threshold_index, 
+                    chr_id,
+                    variant_list);
+            }
             //dout << path.current_genome_pos << ":" << current_path_list.size() << endl;
             //PrintPath(path);
             int variant_need_decision = -1;
@@ -2296,13 +2311,14 @@ bool WholeGenome::MatchingSingleClusterBaseExtending(int cluster_index,
     next_path_list.clear();
     // print best_path
     if(best_path.score <= 0) return false;
-
+    // if(considered_path_num > max_path_num_by_mode_by_thread[thread_index][mode_index]){
+    //     max_path_num_by_mode_by_thread[thread_index][mode_index] = considered_path_num;
+    // }
     //dout << "new method: " << best_path.score << endl;
 
     //PrintPath(best_path);
 
     //==========================output ======================
-    int mode_index = GetIndexFromMatchScore(score_unit, match_mode, score_scheme);
 
     //return true;
     if(match_mode == 0){
@@ -2333,6 +2349,58 @@ int GetMatchmodeFromModeIndex(int mode_index){
     result &= 1;
     return result;
 }
+
+bool WholeGenome::MatchingSingleClusterDirectly(int cluster_index, 
+    int thread_index, 
+    int mode_index, 
+    int threshold_index, 
+    int chr_id,
+    vector<DiploidVariant> & variant_list){
+    //cout << "direct match : " << variant_list.size() << endl;
+    map<int, vector<DiploidVariant>> separate_var_list_map[2];
+    for (int i = 0; i < variant_list.size(); i++) {
+        int flag = 0;
+        if (variant_list[i].flag) flag = 1; // flag indicate if the variant is from ref set(0) or query set(1)
+        int pos = variant_list[i].pos;
+
+        if(separate_var_list_map[flag].find(pos) == separate_var_list_map[flag].end()){
+            separate_var_list_map[flag][pos] = vector<DiploidVariant>({variant_list[i]});
+        }else{
+            separate_var_list_map[flag][pos].push_back(variant_list[i]);
+        }
+    }
+
+    //int match_mode = GetMatchmodeFromModeIndex(mode_index);
+
+    for(auto baseline_it = separate_var_list_map[0].begin(); baseline_it != separate_var_list_map[0].end(); ++baseline_it){
+        int pos = baseline_it->first;
+        if(separate_var_list_map[1].find(pos) != separate_var_list_map[1].end()){
+            vector<DiploidVariant> baseline_var_list = baseline_it->second;
+            vector<DiploidVariant> query_var_list = separate_var_list_map[1][pos];
+            for(auto baseline_var : baseline_var_list){
+                for(auto query_var : query_var_list){
+                    if(baseline_var == query_var){
+                        DiploidVariant tv = baseline_var;
+                        string match_record = chrname_by_chrid[chr_id] + "\t" + to_string(tv.pos+1) + "\t" + tv.ref + "\t" + tv.alts[0];
+                        if(tv.multi_alts) match_record += "/" + tv.alts[1];
+                        match_record += "\t.\t.\t.\t.\t.\n";
+                        int edit_distance = CalculateEditDistance(tv, 0, 0);
+                        match_records_by_mode_by_thread[thread_index][mode_index]->push_back(match_record);
+                        baseline_total_match_num[thread_index][threshold_index]->at(mode_index)++;
+                        query_total_match_num[thread_index][threshold_index]->at(mode_index)++;
+
+                        baseline_total_edit_distance[thread_index][threshold_index]->at(mode_index) += edit_distance;
+                        query_total_edit_distance[thread_index][threshold_index]->at(mode_index) += edit_distance;
+                        break;
+                    }
+                }
+            }
+        }
+    } 
+    return true;
+}
+
+
 
 void WholeGenome::ConstructMatchRecord(SequencePath & best_path,
                                        vector<DiploidVariant> & variant_list,
@@ -2851,8 +2919,10 @@ void WholeGenome::ClusteringMatchMultiThread() {
 
 	for(int i = 0; i < thread_num; i++){
         match_records_by_mode_by_thread[i] = new vector<string>*[MATCH_MODE_NUM];
+        //max_path_num_by_mode_by_thread.push_back(vector<int>());
         for(int j = 0; j < MATCH_MODE_NUM; j++){
             match_records_by_mode_by_thread[i][j] = new vector<string>;
+            //max_path_num_by_mode_by_thread[i].push_back(0);
         }
 	}
 
@@ -3025,6 +3095,16 @@ void WholeGenome::ClusteringMatchMultiThread() {
         }
     }
 
+    // int max_path_num = 0;
+    // for(int i = 0; i < thread_num; i++){
+    //     for(int j = 0; j < MATCH_MODE_NUM; j++){
+    //         max_path_num = max(max_path_num, max_path_num_by_mode_by_thread[i][j]);
+    //         //max_path_num += max_path_num_by_mode_by_thread[i][j];
+    //     }
+    // }
+
+    //cout << "max path number: " << max_path_num << endl;
+
     // clear all matching records
 	for(int i = 0; i < thread_num; i++){
         for(int j = 0; j < MATCH_MODE_NUM; j++){
@@ -3051,6 +3131,7 @@ void WholeGenome::ClusteringMatchMultiThread() {
 
     delete[] baseline_total_edit_distance;
     delete[] query_total_edit_distance;
+    //max_path_num_by_mode_by_thread.clear();
 
 }
 

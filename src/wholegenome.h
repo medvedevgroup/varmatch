@@ -112,6 +112,9 @@ protected:
     vector<int> *** baseline_total_edit_distance;
     vector<int> *** query_total_edit_distance;
 
+    //vector<vector<int>> max_path_num_by_mode_by_thread; // for each thread, for each mode, maintain a maximum path number
+                                                        // after 
+
     //map<float, int> *** tp_qual_num_by_mode_by_thread;
     //map<float, int> *** fp_qual_num_by_mode_by_thread;
 
@@ -252,6 +255,13 @@ protected:
                                             int score_scheme,
                                             int threshold_index);
 
+    bool MatchingSingleClusterDirectly(int cluster_index, 
+        int thread_index, 
+        int mode_index, 
+        int threshold_index,
+        int chr_id,
+        vector<DiploidVariant> & variant_list);
+
     bool DonorLengthEqual(SequencePath & a, SequencePath & b);
     void ConvergePaths(list<SequencePath> & path_list);
     int CheckPathEqualProperty(SequencePath & sp, int match_mode);
@@ -366,4 +376,5 @@ public:
     const static int MEANING_CHOICE_BOUND = -10;
     const static int NOT_USE = -9;
     const static int EASY_MATCH_VAR_NUM = 5;
+    const static int MAX_SEARCH_SPACE = 30000;
 };
