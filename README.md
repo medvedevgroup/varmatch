@@ -199,4 +199,9 @@ chensun@cse.psu.edu
 
 You also can report bugs or suggest features using issue tracker at GitHub [https://github.com/medvedevgroup/varmatch](https://github.com/medvedevgroup/varmatch)
 
+# Acknowledgements
 
+If using VarMatch, please cite:
+Sun and Medvedev, "VarMatch: robust matching of small variant datasets using flexible scoring schemes", 2016, bioRxiv, http://dx.doi.org/10.1101/062943 
+
+This project has been supported in part by NSF awards DBI-1356529, CCF-1439057, IIS-1453527, and IIS-1421908.
