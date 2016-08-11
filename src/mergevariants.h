@@ -93,7 +93,7 @@ protected:
     map<int, string> chrname_by_chrid;
     map<string, int> chrname_dict;
     map<int, string> genome_sequences;
-    vector<DiploidVariant> ** ref_variant_by_chrid;
+    vector<DiploidVariant> ** ref_variant_by_chrid; // this will be incremented in future step
     vector<DiploidVariant> ** que_variant_by_chrid;
     vector<vector<VariantIndicator>> ** variant_cluster_by_chrid;
     // so here cluster is represented as vector<vector<VariantIndicator>>
@@ -103,6 +103,7 @@ protected:
     vector<vector<VariantIndicator>> variants_by_cluster;
 
     vector<string> *** match_records_by_mode_by_thread;
+    vector<DiploidVariant> *** mismatch_query_by_mode_by_thread;
 
     //vector<int> *** baseline_matches_by_mode_by_thread;
     //vector<int> *** query_matches_by_mode_by_thread;
@@ -111,6 +112,12 @@ protected:
 
     vector<int> *** baseline_total_edit_distance;
     vector<int> *** query_total_edit_distance;
+    
+    //unordered_map<string, long long> ** variant_matching_condition; // string key is pos_ref_alts
+                                                                // long long value is indicator, so we can have at most 63 queries.
+    int accumulated_query_number;
+    int global_baseline_id;
+    vector<string> query_vcf_filename_list;
 
     //vector<vector<int>> max_path_num_by_mode_by_thread; // for each thread, for each mode, maintain a maximum path number
                                                         // after 
@@ -253,7 +260,8 @@ protected:
                                             int score_unit,
                                             int match_mode,
                                             int score_scheme,
-                                            int threshold_index);
+                                            int threshold_index,
+                                            unordered_map<int, VariantIndicator> & baseline_unique_indicator);
 
     bool MatchingSingleClusterDirectly(int cluster_index, 
         int thread_index, 
@@ -284,7 +292,8 @@ protected:
                                int thread_index,
                                int chr_id,
                                int mode_index,
-                               int threshold_index);
+                               int threshold_index,
+                               unordered_map<int, VariantIndicator> & baseline_unique_indicator);
 
     void ConstructMatchRecordBackup(SequencePath & best_path,
                                vector<DiploidVariant> & variant_list,
@@ -302,7 +311,8 @@ protected:
                                        int thread_index,
                                        int chr_id,
                                        int mode_index,
-                                       int threshold_index);
+                                       int threshold_index,
+                                        unordered_map<int, VariantIndicator> & baseline_unique_indicator);
 
     void ConstructMatchRecordNoGenotypeBackup(SequencePath & best_path,
                                        vector<DiploidVariant> & variant_list,
@@ -332,6 +342,7 @@ protected:
         int threshold_index,
         int chr_id,
         vector<DiploidVariant> & variant_list,
+        unordered_map<int, VariantIndicator> & baseline_unique_indicator,
         int cluster_id);
 
     void initialize_score_matrix(int **score, char **trackBack, int M, int N);
@@ -369,8 +380,10 @@ public:
     int test(); // for direct test
     void PrintPath(SequencePath & sp);
 
+    void OutputMatchingMatrix();
+
     const static int MATCH_MODE_NUM = 16;
-    const static int VAR_LEN = 100;
+    const static int VAR_LEN = 70;
     const static int MAX_REPEAT_LEN = 1000;
     const static int ROC_SAMPLE_NUM = 5;
     const static int MEANING_CHOICE_BOUND = -10;

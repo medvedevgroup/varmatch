@@ -34,6 +34,10 @@ public:
     bool flag; //in DiploidVariant, flag = false is reference, flag = true is query
     // keep flag as int? not necessary
     double qual;
+    long long matching_condition;
+    int unique;
+
+    int accumulated_vcf_num; // this is for debug
 
 //    int get_pos() const{return pos};
 //    string get_ref() const{return ref};

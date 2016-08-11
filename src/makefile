@@ -1,11 +1,10 @@
 CXX=g++
 CXXFLAGS=-std=c++11 -pthread -g
 CXXFLAGS2=-I ../include
-CXXFLAGTBB=-ltbb
 
 all: vm-core
 
-vm-core: vm.cpp wholegenome.cpp util.cpp
+vm-core: vm_giab.cpp mergevariants.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
 #	cp $@ ../$@
 
