@@ -188,7 +188,10 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 
 		auto ref = columns[3];
 		auto alt_line = columns[4];
-		double quality = stod(columns[5]);
+		//double quality = stod(columns[5]);
+
+		double quality = 1.0;
+		if(columns[5] != ".") quality = stod(columns[5]);
 
         if(flag){
             quality_list.push_back(quality);
