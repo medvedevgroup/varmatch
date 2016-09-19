@@ -3459,11 +3459,27 @@ void WholeGenome::ReadDirectRef(string genome_seq, string ref_vcf){
 
 }
 
+string WholeGenome::GetVariantGenotypeString(DiploidVariant & dv){
+    if(dv.multi_alts){
+        if(dv.heterozygous){
+            return "1/2";
+        }else{
+            return "1/1";
+        }
+    }else{
+        if(dv.heterozygous){
+            return "0/1";
+        }else{
+            return "1/1";
+        }
+    }
+}
+
 void WholeGenome::OutputMatchingMatrix(){
     ofstream output_matrix_file;
     output_matrix_file.open(output_dir + "/match.matrix");
     output_matrix_file << "##VCF1:" + ref_vcf_filename << endl;
-    string title = "#CHROM\tPOS\tREF\tALT\tVCF1";
+    string title = "#CHROM\tPOS\tREF\tALT\tGT\tVCF1";
     for(int i = 0; i < query_vcf_filename_list.size(); i++){
         output_matrix_file << "##VCF" + to_string(i+2) + ":" + query_vcf_filename_list[i] << endl;
         title += "\tVCF"+to_string(i+2);
@@ -3480,6 +3496,7 @@ void WholeGenome::OutputMatchingMatrix(){
             DiploidVariant variant = ref_variant_by_chrid[chr_id]->at(i);
             string line = chrname + "\t" + to_string(variant.pos+1) + "\t" + variant.ref + "\t" + variant.alts[0];
             if(variant.multi_alts) line += ","+variant.alts[1];
+            line += + "\t" + GetVariantGenotypeString(variant);
             vector<string> match_indicator_list;
             long long matching_condition = variant.matching_condition;
             for(int k = 0; k < vcf_file_number; k++){

@@ -353,6 +353,8 @@ protected:
                                 int choice,
                                 int match_mode);
 
+    string GetVariantGenotypeString(DiploidVariant & dv);
+
 public:
     WholeGenome(int thread_num_,
                 string output_dir_,
