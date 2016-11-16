@@ -18,7 +18,7 @@ For Mac OS X users, if you do not have wget installed, using the following comma
 After downloading, use the following command to test VarMatch on it:
 > tar -xzvf varmatch_test_data.tar.gz
 > cd varmatch_test_data
-> VarMatch_Directory/varmatch -r ref.fa -b baseline.fa -q query.fa -o output -f
+> VarMatch_Directory/varmatch -g ref.fa -b baseline.fa -q query.fa -o output -f
 
 VarMatch_Directory is the path of VarMatch
 
