@@ -202,6 +202,18 @@ You also can report bugs or suggest features using issue tracker at GitHub [http
 # Acknowledgements
 
 If using VarMatch, please cite:
-Sun and Medvedev, "VarMatch: robust matching of small variant datasets using flexible scoring schemes", 2016, bioRxiv, http://dx.doi.org/10.1101/062943 
+Sun, C. and Medvedev, P., 2016. VarMatch: robust matching of small variant datasets using flexible scoring schemes. Bioinformatics, p.btw797.
+
+Corresponding BiBTex:
+```
+@article{sun2016varmatch,
+  title={VarMatch: robust matching of small variant datasets using flexible scoring schemes},
+  author={Sun, Chen and Medvedev, Paul},
+  journal={Bioinformatics},
+  pages={btw797},
+  year={2016},
+  publisher={Oxford Univ Press}
+}
+```
 
 This project has been supported in part by NSF awards DBI-1356529, CCF-1439057, IIS-1453527, and IIS-1421908.
