@@ -384,6 +384,8 @@ public:
 
     void OutputMatchingMatrix();
 
+    void OutputNotAccessedVariants(bool is_reference, vector<string> miss_set);
+
     const static int MATCH_MODE_NUM = 16;
     const static int VAR_LEN = 70;
     const static int MAX_REPEAT_LEN = 1000;

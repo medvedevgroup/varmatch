@@ -150,6 +150,7 @@ bool WholeGenome::ReadGenomeSequenceList(string filename){
 
 }
 
+// flag: 0 - reference, 1 - query
 int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
     int total_num = 0;
     int long_num = 0;
@@ -383,6 +384,23 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
     }
     //cout << flag << "," << total_num << "," << long_num << endl;
 	return total_num;
+}
+
+
+void WholeGenome::OutputNotAccessedVariants(bool query_flag, vector<string> miss_set)
+//----
+// OutputNotAccessedVariants:
+//  output variants from baseline and query file separately into output/ref.miss & output/que.miss
+//----
+// Parameters:
+//  bool query_flag:            variants are from query(==1)/baseline(==0)
+//  vector<string> miss_set     set of missed variants in VCF format
+//----
+// Partial Effect:
+//  clear existing file and write new content into it
+//----
+{
+
 }
 
 bool WholeGenome::ReadVariantFileList(string filename){
