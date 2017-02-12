@@ -20,7 +20,8 @@ public:
         mil(mil_),
         flag(flag_),
         qual(qual_),
-        zero_one_var(zero_one_var_){}
+        zero_one_var(zero_one_var_)
+        { }
 
     int pos;
     string ref;
@@ -36,6 +37,11 @@ public:
     double qual;
     long long matching_condition;
     int unique;
+
+    // for giab pipeline, initialize as "."
+    string GQ_val;
+    string DP_val;
+    string AD_val;
 
     int accumulated_vcf_num; // this is for debug
 

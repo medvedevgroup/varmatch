@@ -155,6 +155,9 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
     int total_num = 0;
     int long_num = 0;
     double QUAL_LOWER_BOUND = 0.1;
+    
+    // store variants that are skipped
+    vector<string> miss_set;
 
 	ifstream vcf_file;
 	vcf_file.open(filename.c_str());
@@ -165,11 +168,13 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 
     vector<float> quality_list;
 
-	int genotype_index = -1;
+
+
 	char genotype_separator = '/';
 	//int genome_sequence_length = genome_sequence.length();
 	while (!vcf_file.eof()) { // alternative way is vcf_file != NULL
 		string line;
+
 		getline(vcf_file, line, '\n');
 		// check ineligible lines
 		//dout << line << endl;
@@ -179,6 +184,11 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 		if (line[0] == '#') {
 			continue;
 		}
+        int genotype_index = -1;
+        int GQ_index = -1;
+        int DP_index = -1;
+        int AD_index = -1;
+        
 		auto columns = split(line, '\t');
 		if (columns.size() < 10) {
 			if(match_mode_indicator != 1){
@@ -190,6 +200,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
             if(columns.size() < 6){
                 cout << "[VarMatch] Warning: not enough information in VCF file for variant matching." << endl;
                 cout << "[VarMatch] skip current variant: " << line << endl;
+                miss_set.push_back(line);
                 continue;
             }
 		}
@@ -217,15 +228,29 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
         bool is_zero_one_var = false;
         
         vector<string> genotype_columns;
+
+        string GQ_info = ".";
+        string DP_info = ".";
+        string AD_info = ".";
 		
-        if (match_mode_indicator != 1) { // match mode indicator is -1 or 0
+        // here we might also need to update GT, GQ, DP and AD info even if match mode is not strickly needed?
+        
+        //if (match_mode_indicator != 1)
+        { // match mode indicator is -1 or 0
 			if (genotype_index < 0) {
                 // change genotype index
                 auto formats = split(columns[8], ':');
                 for (int i = 0; i < formats.size(); i++) {
                     if (formats[i] == "GT") {
                         genotype_index = i;
-                        break;
+                        // do not break, continue to search
+                        //break;
+                    } else if(formats[i] == "GQ"){
+                        GQ_index = i;
+                    } else if(formats[i] == "DP"){
+                        DP_index = i;
+                    } else if(formats[i] == "AD"){
+                        AD_index = i;
                     }
                 }
                 // if GT not found
@@ -239,9 +264,14 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
 			}
 
             
-            if(match_mode_indicator != 1){
+            //if(match_mode_indicator != 1)
+            {
 
     			auto additionals = split(columns[9], ':');
+                GQ_info = GQ_index < 0 ? "." : additionals[GQ_index];
+                DP_info = DP_index < 0 ? "." : additionals[DP_index];
+                AD_info = AD_index < 0 ? "." : additionals[AD_index];
+
                 genotype_columns = split(additionals[genotype_index], genotype_separator);
 
                 if(genotype_columns.size() != 2){
@@ -265,7 +295,8 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
     					is_heterozygous_variant = true;
     				}
                     if (genotype_columns[1] == "0" && genotype_columns[0] == "0") {
-                        //cout << "Skip Variants when both genotype is refernce allele: " << line << endl;   
+                        //cout << "Skip Variants when both genotype is refernce allele: " << line << endl; 
+                        miss_set.push_back(line);  
                         continue;
                     }
                     if(genotype_columns[0] == "0" || genotype_columns[1] == "0"){
@@ -311,10 +342,15 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
         if(snp_ins > VAR_LEN || snp_del > VAR_LEN){
             //dout << "[VarMatch] skip large INDEL with length > " << VAR_LEN << "| "<< line <<endl;
             long_num ++;
+            miss_set.push_back(line);
             continue;
         }
 
 		DiploidVariant dv(pos, ref, alt_list, is_heterozygous_variant, is_multi_alternatives, snp_del, snp_ins, flag, quality, is_zero_one_var);
+        dv.GQ_val = GQ_info;
+        dv.DP_val = DP_info;
+        dv.AD_val = AD_info;
+
 		//if (normalization) {
 			//NormalizeDiploidVariant(dv);
 		//}
@@ -383,6 +419,7 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
         per_list = temp_percentage_list;
     }
     //cout << flag << "," << total_num << "," << long_num << endl;
+    OutputNotAccessedVariants(flag, miss_set);
 	return total_num;
 }
 
@@ -400,7 +437,12 @@ void WholeGenome::OutputNotAccessedVariants(bool query_flag, vector<string> miss
 //  clear existing file and write new content into it
 //----
 {
-
+    ofstream output_miss_file;
+    string filename = output_dir + (query_flag ? "/que.miss" : "/ref.miss"); 
+    output_miss_file.open(filename);
+    for(auto line: miss_set)
+        output_miss_file << line << endl;
+    output_miss_file.close();
 }
 
 bool WholeGenome::ReadVariantFileList(string filename){
@@ -3497,7 +3539,7 @@ void WholeGenome::OutputMatchingMatrix(){
     ofstream output_matrix_file;
     output_matrix_file.open(output_dir + "/match.matrix");
     output_matrix_file << "##VCF1:" + ref_vcf_filename << endl;
-    string title = "#CHROM\tPOS\tREF\tALT\tGT\tVCF1";
+    string title = "#CHROM\tPOS\tREF\tALT\tGT\tGQ\tDP\tAD\tVCF1";
     for(int i = 0; i < query_vcf_filename_list.size(); i++){
         output_matrix_file << "##VCF" + to_string(i+2) + ":" + query_vcf_filename_list[i] << endl;
         title += "\tVCF"+to_string(i+2);
@@ -3514,7 +3556,8 @@ void WholeGenome::OutputMatchingMatrix(){
             DiploidVariant variant = ref_variant_by_chrid[chr_id]->at(i);
             string line = chrname + "\t" + to_string(variant.pos+1) + "\t" + variant.ref + "\t" + variant.alts[0];
             if(variant.multi_alts) line += ","+variant.alts[1];
-            line += + "\t" + GetVariantGenotypeString(variant);
+            line += "\t" + GetVariantGenotypeString(variant);
+            line += "\t" + variant.GQ_val + "\t" + variant.DP_val + "\t" + variant.AD_val;
             vector<string> match_indicator_list;
             long long matching_condition = variant.matching_condition;
             for(int k = 0; k < vcf_file_number; k++){

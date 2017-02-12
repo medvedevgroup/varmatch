@@ -88,32 +88,32 @@ score_scheme_string = "scoring scheme: (Default: -1)\n"\
     " In this scheme, different scoring functions and "\
     "matching mode have no difference.\n"
 
-parser.add_argument('-u', '--score_unit', help=score_unit_string, metavar='[-1,0,1]', default=-1)
+#parser.add_argument('-u', '--score_unit', help=score_unit_string, metavar='[-1,0,1]', default=0)
 
-parser.add_argument('-m', '--match_mode', help=match_mode_string, metavar='[-1,0,1]', default=-1)
+#parser.add_argument('-m', '--match_mode', help=match_mode_string, metavar='[-1,0,1]', default=0)
 
-parser.add_argument('-s', '--score_scheme', help=score_scheme_string, metavar='[-1,0,1,2,3]', default=-1)
+#parser.add_argument('-s', '--score_scheme', help=score_scheme_string, metavar='[-1,0,1,2,3]', default=0)
 
-parser.add_argument('-G', '--no_graph', help='disable graphic module', action = 'store_true')
+#parser.add_argument('-G', '--no_graph', help='disable graphic module', action = 'store_true')
 
 disable_curves_string = "disable Precision-Recall curves, if use -G or --no_graph,"\
                         " then automatically disable these curves"
 
-parser.add_argument('-C', '--disable_curves', help=disable_curves_string, action='store_true')
+#parser.add_argument('-C', '--disable_curves', help=disable_curves_string, action='store_true')
 
 fast_mode_string = "In this mode, automatically disable graphic module and precision-recall curves,"\
                    " only performs one matching criterion.\n"\
                    " Fast mode is equivalent to use following parameters compulsively: -G -u 0 -m 0 -s 0"
 
-parser.add_argument('-f', '--fast_mode', help=fast_mode_string, action='store_true')
+#parser.add_argument('-f', '--fast_mode', help=fast_mode_string, action='store_true')
 
 args = parser.parse_args()
 
-if(args.fast_mode):
-    args.no_graph = True
-    args.score_unit = 0
-    args.match_mode = 0
-    args.score_scheme = 0
+#if(args.fast_mode):
+#    args.no_graph = True
+#    args.score_unit = 0
+#    args.match_mode = 0
+#    args.score_scheme = 0
 
 
 def shell_run(command, hide=False):
@@ -208,10 +208,13 @@ def multiple_compare(baseline_file, query_list, genome_file):
     if args.thread is not None and int(args.thread) > 0:
         compare_command += ' -t ' + args.thread
 
-    compare_command += ' -u ' + str(args.score_unit) + ' -m ' + str(args.match_mode) + ' -s ' + str(args.score_scheme)
+    # forcibly use the following argument
+    compare_command += ' -u 0 -m 0 -s 0 -C'
 
-    if args.no_graph or args.disable_curves:
-        compare_command += ' -C '
+    #compare_command += ' -u ' + str(args.score_unit) + ' -m ' + str(args.match_mode) + ' -s ' + str(args.score_scheme)
+
+    #if args.no_graph or args.disable_curves:
+    #    compare_command += ' -C '
 
     shell_run(compare_command)
 
@@ -576,6 +579,8 @@ def main():
     query_list = args.query
 
     multiple_compare(args.baseline, query_list, args.genome)
+
+    exit()
 
     if args.score_scheme == '3':
         exit()
