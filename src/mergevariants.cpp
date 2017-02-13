@@ -419,12 +419,12 @@ int WholeGenome::ReadWholeGenomeVariant(string filename, bool flag){
         per_list = temp_percentage_list;
     }
     //cout << flag << "," << total_num << "," << long_num << endl;
-    OutputNotAccessedVariants(flag, miss_set);
+    OutputNotAccessedVariants(flag, miss_set, filename);
 	return total_num;
 }
 
 
-void WholeGenome::OutputNotAccessedVariants(bool query_flag, vector<string> miss_set)
+void WholeGenome::OutputNotAccessedVariants(bool query_flag, vector<string> miss_set, string filename)
 //----
 // OutputNotAccessedVariants:
 //  output variants from baseline and query file separately into output/ref.miss & output/que.miss
@@ -437,9 +437,16 @@ void WholeGenome::OutputNotAccessedVariants(bool query_flag, vector<string> miss
 //  clear existing file and write new content into it
 //----
 {
+
+    // Remove directory if present.
+// Do this before extension removal incase directory has a period character.
+    const size_t last_slash_idx = filename.find_last_of("\\/");
+    if (std::string::npos != last_slash_idx)
+        filename.erase(0, last_slash_idx + 1);
+
     ofstream output_miss_file;
-    string filename = output_dir + (query_flag ? "/que.miss" : "/ref.miss"); 
-    output_miss_file.open(filename);
+    string miss_filename = output_dir + "/" + filename + ".miss"; 
+    output_miss_file.open(miss_filename);
     for(auto line: miss_set)
         output_miss_file << line << endl;
     output_miss_file.close();

@@ -384,7 +384,7 @@ public:
 
     void OutputMatchingMatrix();
 
-    void OutputNotAccessedVariants(bool is_reference, vector<string> miss_set);
+    void OutputNotAccessedVariants(bool is_reference, vector<string> miss_set, string filename);
 
     const static int MATCH_MODE_NUM = 16;
     const static int VAR_LEN = 70;
