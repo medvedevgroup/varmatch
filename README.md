@@ -15,7 +15,7 @@ special branch for GIAB variant analysis
 ### Quick Install Instruction:
 You can build VarMatch from source. 
 ```
-git clone https://github.com/medvedevgroup/varmatch.git
+git clone https://github.com/medvedevgroup/varmatch.git -b giab
 cd varmatch
 make all
 ```
