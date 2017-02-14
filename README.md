@@ -45,8 +45,6 @@ make clean
 - `-g` genome fasta file
 - `-o` output file prefix, default value is `out`
 
->*fast mode is suggested for ordinary analysis.
-
 >VarMatch accept baseline and query in VCF file format (e.g. xx.vcf), it does not accept gz file (e.g. xx.vcf.gz) in current version.
 
 >see [Results of VarMatch](#results-of-varmatch) section for intepretation of results in output directory. 
