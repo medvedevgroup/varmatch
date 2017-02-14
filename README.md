@@ -1,22 +1,15 @@
-# VarMatch
-robust matching of small variant datasets using flexible scoring schemes
+# VarMatch - GIAB branch
+special branch for GIAB variant analysis
 
 # Authors
 - Chen Sun (The Pennsylvania State University)
 - Paul Medvedev (The Pennsylvania State University)
 
-# Release Date
-### TBA
-
 
 # Prerequisite
 - GCC 5.2 or later for c++11 support
 - Python 2.7 or later
-- matplotlib*
 
-> *matplotlib is only used for graphic visualization. you can use '-G' parameter to disable visualization function
-
-> *matplotlib is not a prerequisite if either `-f`, `-G` or `-C` parameter is used
 
 # Installation
 ### Quick Install Instruction:
