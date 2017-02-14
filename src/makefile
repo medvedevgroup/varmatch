@@ -6,6 +6,7 @@ all: vm-core vm-convert
 
 vm-convert: formatconverter.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^
+	cp $@ ../$@
 
 vm-core: vm_giab.cpp mergevariants.cpp util.cpp
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS2) -o $@ $^

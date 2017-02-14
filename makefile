@@ -7,4 +7,5 @@ vm:
 
 clean:
 	$(MAKE) -C src clean
+	rm vm-convert
 
