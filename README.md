@@ -8,7 +8,7 @@ special branch for GIAB variant analysis
 
 # Prerequisite
 - GCC 5.2 or later for c++11 support
-- Python 2.7 or later
+- Python 2 (2.7 or later)
 
 
 # Installation
