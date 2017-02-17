@@ -149,7 +149,7 @@ The next N field is 1/0 value, indicating whether the variant appeared in VCF-N
 
 VarMatch is now under Apache 2 License.
 
-See [license.txt](https://github.com/medvedevgroup/varmatch/blob/master/license.txt)
+See [Apache 2 License](https://www.apache.org/licenses/LICENSE-2.0)
 
 # Contact
 
