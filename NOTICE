@@ -1,0 +1,30 @@
+# License
+
+VarMatch is now under Apache 2 License.
+
+See [license.txt](https://github.com/medvedevgroup/varmatch/blob/master/license.txt)
+
+# Contact
+
+chensun@cse.psu.edu
+
+You also can report bugs or suggest features using issue tracker at GitHub [https://github.com/medvedevgroup/varmatch](https://github.com/medvedevgroup/varmatch)
+
+# Acknowledgements
+
+If using VarMatch, please cite:
+Sun, C. and Medvedev, P., 2016. VarMatch: robust matching of small variant datasets using flexible scoring schemes. Bioinformatics, p.btw797.
+
+Corresponding BiBTex:
+```
+@article{sun2016varmatch,
+  title={VarMatch: robust matching of small variant datasets using flexible scoring schemes},
+  author={Sun, Chen and Medvedev, Paul},
+  journal={Bioinformatics},
+  pages={btw797},
+  year={2016},
+  publisher={Oxford Univ Press}
+}
+```
+
+This project has been supported in part by NSF awards DBI-1356529, CCF-1439057, IIS-1453527, and IIS-1421908.

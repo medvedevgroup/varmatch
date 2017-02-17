@@ -55,7 +55,7 @@ use `-h/--help` for detailed help message.
 
 ### Convert VarMatch Result to GIAB Intermediate VCF files
 
-> see [GIAB Intermediate VCF Format]() for format detail.
+> see [GIAB Intermediate VCF Format](https://github.com/ga4gh/benchmarking-tools/blob/master/doc/ref-impl/intermediate.md) for format detail.
 > see [Results of VarMatch](#results-of-varmatch) section for intepretation of results in output directory.
 
 ```
@@ -146,6 +146,8 @@ Lines in varmatch file started with `#` are comment lines. They contain general 
 The next N field is 1/0 value, indicating whether the variant appeared in VCF-N
 
 # License
+
+VarMatch is now under Apache 2 License.
 
 See [license.txt](https://github.com/medvedevgroup/varmatch/blob/master/license.txt)
 
