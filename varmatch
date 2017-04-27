@@ -294,13 +294,21 @@ def parse_stat(output_prefix):
             specificity_list = []
             tn_list = []
             for baseline_match_num in baseline_match_str_list:
-                sensitivity = float(baseline_match_num) * 100 / baseline_num # this is actually recall
+                try:
+                    sensitivity = float(baseline_match_num) * 100 / baseline_num # this is actually recall
+                except ZeroDivisionError:
+                    sensitivity = 0.0
+                    
                 sensitivity_list.append(sensitivity)
             #for query_match_num in query_match_str_list:
             #    specificity = float(query_match_num) * 100 / query_num # this is actually precison
             #    specificity_list.append(specificity)
             for i in range(len(query_match_str_list)):
-                specificity = float(query_match_str_list[i]) * 100 / float(query_total_str_list[i])
+                try:
+                    specificity = float(query_match_str_list[i]) * 100 / float(query_total_str_list[i])
+                except ZeroDivisionError:
+                    specificity = 0.0
+
                 specificity_list.append(specificity)
 
             x.append(row[0])
