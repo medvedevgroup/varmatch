@@ -20,7 +20,7 @@
     Chen Sun(chensun@cse.psu.edu)
     Paul Medvedev(pashadag@cse.psu.edu)
 """
-
+from __future__ import print_function
 import sys
 versionError = "You are using an old version of python, please upgrade to python 2.7+\n"
 if sys.hexversion < 0x02070000:
@@ -366,8 +366,8 @@ def create_stat_html(query_list, output_prefix_list):
         specificity_list.append(z)
         table_list.append(table)
 
-        print sensitivity_table
-        print specificity_table
+        print(sensitivity_table)
+        print(specificity_table)
 
         sensitivity_table_list.append(sensitivity_table)
         specificity_table_list.append(specificity_table)

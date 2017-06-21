@@ -20,7 +20,7 @@
     Paul Medvedev(pashadag@cse.psu.edu)
     Chen Sun(chensun@cse.psu.edu)
 """
-
+from __future__ import print_function
 import sys
 import textwrap as _textwrap
 import argparse
@@ -134,7 +134,7 @@ def read_match_file(filename):
                 continue
             columns = line.split('\t')
             if len(columns) < 2:
-                print line
+                print(line)
             pos = columns[0]+'_'+columns[1]
             pos_set.add(pos)
             donor = columns[3]
