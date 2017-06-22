@@ -22,7 +22,7 @@ robust matching of small variant datasets using flexible scoring schemes
 ### Quick Install Instruction:
 You can build VarMatch from source. 
 ```
-git clone https://github.com/medvedevgroup/varmatch.git
+git clone https://github.com/medvedevgroup/varmatch.git -b ilhan
 cd varmatch
 make all
 ```
