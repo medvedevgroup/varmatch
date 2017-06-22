@@ -8,7 +8,7 @@ WholeGenome::WholeGenome(int thread_num_,
     bool pr_curves){
 
     thread_num = thread_num_;
-    chrom_num = 24;
+    chrom_num = 27;
 
     output_dir = output_dir_;
 
@@ -37,6 +37,9 @@ WholeGenome::WholeGenome(int thread_num_,
 	chrname_dict["chrX"] = 22;
 	chrname_dict["Y"] = 23;
 	chrname_dict["chrY"] = 23;
+    chrname_dict["NC_000913_3_art3"] = 24;
+    chrname_dict["pLC"] = 25;
+    chrname_dict["pHC"] = 26;
 
     if(pr_curves){
         per_list = {0.0, 0.1, 0.2, 0.3, 0.9};
@@ -68,6 +71,11 @@ WholeGenome::~WholeGenome(){
     delete[] ref_variant_by_chrid;
     delete[] que_variant_by_chrid;
 }
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+            std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
 
 bool WholeGenome::ReadWholeGenomeSequence(string filename){
     std::ifstream input(filename);
@@ -84,6 +92,7 @@ bool WholeGenome::ReadWholeGenomeSequence(string filename){
         if( line.empty() || line[0] == '>' ){ // Identifier marker
             if( !name.empty() ){ // Print out what we read from the last entry
                 //std::cout << name << " : " << content << std::endl;
+                rtrim(name);
                 if(chrname_dict.find(name) == chrname_dict.end()){
                     cout << "[VarMatch] Error: detected chromosome name: " << name <<" does not exist in human genome." << endl;
                     return false;
@@ -114,10 +123,14 @@ bool WholeGenome::ReadWholeGenomeSequence(string filename){
     }
     if( !name.empty() ){ // Print out what we read from the last entry
         //std::cout << name << " : " << content << std::endl;
+        rtrim(name);
         if(chrname_dict.find(name) == chrname_dict.end()){
-            cout << "[VarMatch] Error: detected chromosome name: " << name <<" does not exist in human genome." << endl;
+            cout << "[VarMatch] Error: detected chromosome name: " << endl;
+            cout << name << endl;
+            cout <<" does not exist in human genome." << endl;
             return false;
         }
+
         if(chrid_by_chrname.find(name) == chrid_by_chrname.end()){
             chrid_by_chrname[name] = chr_id;
             chr_id++;
@@ -3289,6 +3302,13 @@ void WholeGenome::ReadDirectRef(string genome_seq, string ref_vcf){
     chrname_by_chrid[22] = "X";
     chrid_by_chrname["Y"] = 23;
     chrname_by_chrid[23]="Y";
+    chrid_by_chrname["NC_000913_3_art3"] = 24;
+    chrname_by_chrid[24] = "NC_000913_3_art3";
+    chrid_by_chrname["pLC"] = 25;
+    chrname_by_chrid[25] = "pLC";
+    chrid_by_chrname["pHC"] = 26;
+    chrname_by_chrid[26] = "pHC";
+    
     baseline_variant_total_num = ReadReferenceVariants(ref_vcf);
     ref_vcf_filename = ref_vcf;
 
