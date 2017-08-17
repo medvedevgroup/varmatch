@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-std=c++11 -pthread -g
+CXXFLAGS=-std=c++11 -pthread -g -O3
 CXXFLAGS2=-I ../include
 CXXFLAGTBB=-ltbb
 
