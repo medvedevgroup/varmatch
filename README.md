@@ -202,7 +202,7 @@ You also can report bugs or suggest features using issue tracker at GitHub [http
 # Acknowledgements
 
 If using VarMatch, please cite:
-Sun, C. and Medvedev, P., 2016. VarMatch: robust matching of small variant datasets using flexible scoring schemes. Bioinformatics, p.btw797.
+Sun, C., & Medvedev, P. (2016). VarMatch: robust matching of small variant datasets using flexible scoring schemes. Bioinformatics, 33(9), 1301-1308.
 
 Corresponding BiBTex:
 ```
@@ -210,9 +210,11 @@ Corresponding BiBTex:
   title={VarMatch: robust matching of small variant datasets using flexible scoring schemes},
   author={Sun, Chen and Medvedev, Paul},
   journal={Bioinformatics},
-  pages={btw797},
+  volume={33},
+  number={9},
+  pages={1301--1308},
   year={2016},
-  publisher={Oxford Univ Press}
+  publisher={Oxford University Press}
 }
 ```
 
