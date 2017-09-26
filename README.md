@@ -5,10 +5,6 @@ robust matching of small variant datasets using flexible scoring schemes
 - Chen Sun (The Pennsylvania State University)
 - Paul Medvedev (The Pennsylvania State University)
 
-# Release Date
-### TBA
-
-
 # Prerequisite
 - GCC 4.7 or later for c++11 support
 - Python 2.7 or later
@@ -190,6 +186,8 @@ If you have any suggestions of improving .match file format, please [contact me]
 It contains some statistical information.
 
 # License
+
+VarMatch is now under Apache2 license!
 
 See [license.txt](https://github.com/medvedevgroup/varmatch/blob/master/license.txt)
 
