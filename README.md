@@ -1,6 +1,11 @@
 # VarMatch
 robust matching of small variant datasets using flexible scoring schemes
 
+# [New] VarMatch for multiple datasets
+The GIAB branch of VarMatch can compare complex variants from multiple (>=3) datasets.
+
+To download the GIAB branch, use command ```git clone -b giab https://github.com/medvedevgroup/varmatch.git```
+
 # Authors
 - Chen Sun (The Pennsylvania State University)
 - Paul Medvedev (The Pennsylvania State University)
