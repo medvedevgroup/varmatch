@@ -21,7 +21,8 @@ limitations under the License.
     Chen Sun(chensun@cse.psu.edu)
     Paul Medvedev(pashadag@cse.psu.edu)
 """
-from __future__ import print_function
+# from __future__ import print_function
+exec('from __future__ import print_function')
 import sys
 versionError = "You are using an old version of python, please upgrade to python 2.7+\n"
 if sys.hexversion < 0x02070000:
@@ -56,6 +57,7 @@ citation = 'Please cite our paper.'
 parser = argparse.ArgumentParser(prog="varmatch", epilog = citation, formatter_class=lambda prog: SmartFormatter(prog,max_help_position=8))
 parser.add_argument('-b', '--baseline', required=True, metavar='File', help = 'baseline variant VCF filename')
 parser.add_argument('-q', '--query', nargs='+', metavar='File List', help = 'query variant VCF filename')
+parser.add_argument('-l', '--label', nargs='+', metavar='Label List', help = 'query variant VCF label showing in figures', default=None)
 parser.add_argument('-g', '--genome', required=True, metavar='File', help= 'genome sequence FASTA filename')
 parser.add_argument('-o', '--output', help='output directory', metavar='DIRECTORY',default='./output')
 
@@ -325,7 +327,7 @@ def parse_stat(output_prefix):
     return baseline_num, query_num, x, y, z, no_filter_table, sensitivity_table, specificity_table
 
 
-def create_table_by_matchingid_from_by_query(table_list, matching_list, query_number):
+def create_table_by_matchingid_from_by_query(table_list, matching_list, query_number, query_label_list):
     table_by_matchingid = []
     for matching_index in range(len(matching_list)):
         matching_table = []
@@ -333,7 +335,10 @@ def create_table_by_matchingid_from_by_query(table_list, matching_list, query_nu
         matching_table.append(title)
         for table_index in range(len(table_list)):
             raw_row = table_list[table_index][matching_index]
-            new_row = ['Query' + str(table_index+1)]
+            if query_label_list:
+                new_row = [query_label_list[table_index]]
+            else:
+                new_row = ['Query' + str(table_index+1)]
             new_row += raw_row[4:]
             matching_table.append(new_row)
         table_by_matchingid.append(matching_table)
@@ -341,7 +346,7 @@ def create_table_by_matchingid_from_by_query(table_list, matching_list, query_nu
 
 
 # all html and picture are created from stat file, not parameters
-def create_stat_html(query_list, output_prefix_list):
+def create_stat_html(query_list, output_prefix_list, query_label_list):
     global output_dir
     html_filename = output_dir + '/stat.html'
     html_file = open(html_filename, 'w')
@@ -384,15 +389,21 @@ def create_stat_html(query_list, output_prefix_list):
         import matplotlib.pyplot as plt
         axes = plt.gca()
         #axes.set_xlim([xmin,xmax])
-        axes.set_ylim([0,100])
+        # axes.set_ylim([0,100])
+        min_sensitivity = 100
         for i in range(exp_num):
             marker_id = i % len(marker_list)
             marker_sign = marker_list[marker_id]
-            label_sign = 'Query ' + str(i+1)
+            if query_label_list:
+                label_sign = query_label_list[i]
+            else:
+                label_sign = 'Query ' + str(i+1)
             x = np.array(range(len(label_list[0])))
             plt.xticks(x, label_list[0])
             plt.plot(x, sensitivity_list[i], marker = marker_sign, linestyle = '-', label = label_sign)
+            min_sensitivity = min(min_sensitivity, min(sensitivity_list[i]))
 
+        axes.set_ylim([min_sensitivity * 0.9,100])
         plt.xlabel('Matching Id')
         plt.ylabel('Recall(%)')
         #plt.title('Sensitivity of Queries under Different Matching Parameters')
@@ -403,14 +414,20 @@ def create_stat_html(query_list, output_prefix_list):
         axes = plt.gca()
         #axes.set_xlim([xmin,xmax])
         axes.set_ylim([0,100])
+        min_precision = 100
         for i in range(exp_num):
             marker_id = i % len(marker_list)
             marker_sign = marker_list[marker_id]
-            label_sign = 'Query ' + str(i+1)
+            if query_label_list:
+                label_sign = query_label_list[i]
+            else:
+                label_sign = 'Query ' + str(i+1)
             x = np.array(range(len(label_list[0])))
             plt.xticks(x, label_list[0])
             plt.plot(x, specificity_list[i], marker = marker_sign, linestyle = '-', label = label_sign)
+            min_precision = min(min_precision, min(specificity_list[i]))
 
+        axes.set_ylim([min_precision * 0.9,100])
         plt.xlabel('Matching Id')
         plt.ylabel('Precision(%)')
         #plt.title('Specificity of Queries under Different Matching Parameters')
@@ -448,7 +465,7 @@ def create_stat_html(query_list, output_prefix_list):
         # sensitivity and specificity analysis by matching id
         html_file.write('<h2><Sensitivity and Specificity Analysis by Matching Id/h2>')
 
-        table_by_matchingid = create_table_by_matchingid_from_by_query(table_list, label_list[0], exp_num)
+        table_by_matchingid = create_table_by_matchingid_from_by_query(table_list, label_list[0], exp_num, query_label_list)
         for i in range(len(label_list[0])):
             html_file.write('<div class="box">')
             html_file.write('<h3>Matching Id: ' + label_list[0][i] + '</h3>'+'\n')
@@ -494,7 +511,10 @@ def create_stat_html(query_list, output_prefix_list):
             x.sort()
             y.sort(reverse=True)
             y = y[::-1]
-            label_sign = 'Query ' + str(j+1)
+            if query_label_list:
+                label_sign = query_label_list[j]
+            else:
+                label_sign = 'Query ' + str(j+1)
             plt.plot(x,y, label = label_sign)
 
         #x = [0.0, 1.0]
@@ -518,7 +538,7 @@ def create_stat_html(query_list, output_prefix_list):
         plt.clf()
 
         colormap = plt.cm.gist_ncar
-        plt.gca().set_color_cycle([colormap(k) for k in np.linspace(0, 0.9, len(parameter_table))])
+        plt.gca().set_prop_cycle(color = [colormap(k) for k in np.linspace(0, 0.9, len(parameter_table))])
 
         for j in range(len(parameter_table)-1):
             x = sensitivity_table_list[i][j]
@@ -583,8 +603,9 @@ def main():
     temp_dir = output_dir + '/temp'
 
     query_list = args.query
+    label_list = args.label
 
-    multiple_compare(args.baseline, query_list, args.genome)
+    # multiple_compare(args.baseline, query_list, args.genome)
 
     if args.score_scheme == '3':
         exit()
@@ -593,7 +614,7 @@ def main():
     for i in range(len(query_list)):
         output_prefix_list.append('query'+str(i+1))
 
-    create_stat_html(query_list, output_prefix_list)
+    create_stat_html(query_list, output_prefix_list, label_list)
 
 if __name__ == '__main__':
     main()
