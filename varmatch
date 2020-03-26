@@ -21,7 +21,8 @@ limitations under the License.
     Chen Sun(chensun@cse.psu.edu)
     Paul Medvedev(pashadag@cse.psu.edu)
 """
-from __future__ import print_function
+# from __future__ import print_function
+exec('from __future__ import print_function')
 import sys
 versionError = "You are using an old version of python, please upgrade to python 2.7+\n"
 if sys.hexversion < 0x02070000:
@@ -518,7 +519,7 @@ def create_stat_html(query_list, output_prefix_list):
         plt.clf()
 
         colormap = plt.cm.gist_ncar
-        plt.gca().set_color_cycle([colormap(k) for k in np.linspace(0, 0.9, len(parameter_table))])
+        plt.gca().set_prop_cycle(color = [colormap(k) for k in np.linspace(0, 0.9, len(parameter_table))])
 
         for j in range(len(parameter_table)-1):
             x = sensitivity_table_list[i][j]
